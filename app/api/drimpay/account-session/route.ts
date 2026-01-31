@@ -1,5 +1,5 @@
-import Stripe from "stripe";
 import { NextResponse } from "next/server";
+import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
@@ -21,61 +21,88 @@ const supabaseAdmin = createClient(
   { auth: { persistSession: false } }
 );
 
-async function getUserFromCookieToken() {
-  const token = cookies().get("drimli_at")?.value;
-  if (!token) return { token: null, user: null, error: "Session manquante (cookie)." };
-
-  const { data, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !data.user) return { token: null, user: null, error: "Session invalide. Reconnecte-toi." };
-
-  return { token, user: data.user, error: null };
-}
+type ProfileRow = {
+  provider_id: string;
+  stripe_account_id: string | null;
+};
 
 export async function POST() {
   try {
-    // 1) Auth via cookie httpOnly
-    const { user, error } = await getUserFromCookieToken();
-    if (error || !user) {
-      return NextResponse.json({ error: error || "Unauthorized" }, { status: 401 });
+    const token = cookies().get("drimli_at")?.value;
+    if (!token) {
+      return NextResponse.json(
+        { error: "Session manquante (cookie). Reconnecte-toi et réessaie." },
+        { status: 401 }
+      );
     }
 
-    // 2) Lire le profile (stripe_account_id)
+    // 1) On vérifie l'utilisateur depuis le token Supabase
+    const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(token);
+    if (userErr || !userData.user) {
+      return NextResponse.json(
+        { error: "Session invalide. Reconnecte-toi et réessaie." },
+        { status: 401 }
+      );
+    }
+
+    const providerId = userData.user.id;
+
+    // 2) Charger le profil
     const { data: prof, error: profErr } = await supabaseAdmin
       .from("profiles")
-      .select("provider_id, full_name, stripe_account_id")
-      .eq("provider_id", user.id)
-      .maybeSingle<{ provider_id: string; full_name: string | null; stripe_account_id: string | null }>();
+      .select("provider_id, stripe_account_id")
+      .eq("provider_id", providerId)
+      .maybeSingle<ProfileRow>();
 
     if (profErr) {
-      return NextResponse.json({ error: "Profiles read failed", details: profErr.message }, { status: 400 });
+      return NextResponse.json({ error: profErr.message }, { status: 400 });
     }
 
-    let stripeAccountId = prof?.stripe_account_id ?? null;
-
-    // 3) Si pas de stripe_account_id → créer un compte Stripe Connect + le stocker
-    if (!stripeAccountId) {
-      const acct = await stripe.accounts.create({
-        type: "express",
-        email: user.email ?? undefined,
-        metadata: { provider_id: user.id },
+    // Si pas de ligne profile, on la crée minimalement (MVP)
+    if (!prof) {
+      const { error: insErr } = await supabaseAdmin.from("profiles").insert({
+        provider_id: providerId,
+        stripe_account_id: null,
       });
 
-      stripeAccountId = acct.id;
+      if (insErr) {
+        return NextResponse.json({ error: insErr.message }, { status: 400 });
+      }
+    }
+
+    // 3) Créer ou réutiliser le compte Stripe Connect
+    let stripeAccountId = prof?.stripe_account_id ?? null;
+
+    if (!stripeAccountId) {
+      const account = await stripe.accounts.create({
+        type: "express",
+        country: "FR",
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+        metadata: {
+          provider_id: providerId,
+          app: "drimli",
+        },
+      });
+
+      stripeAccountId = account.id;
 
       const { error: upErr } = await supabaseAdmin
         .from("profiles")
         .update({ stripe_account_id: stripeAccountId })
-        .eq("provider_id", user.id);
+        .eq("provider_id", providerId);
 
       if (upErr) {
         return NextResponse.json(
           { error: "Failed to store stripe_account_id", details: upErr.message },
-          { status: 400 }
+          { status: 500 }
         );
       }
     }
 
-    // 4) Créer l'Account Session (Embedded onboarding)
+    // 4) Créer une Account Session (Stripe Connect Embedded Components)
     const session = await stripe.accountSessions.create({
       account: stripeAccountId,
       components: {
