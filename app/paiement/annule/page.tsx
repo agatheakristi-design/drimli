@@ -1,11 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Container from "@/app/components/ui/Container";
 import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
 
-export default function PaiementAnnulePage() {
+function PaiementAnnuleContent() {
   const sp = useSearchParams();
   const router = useRouter();
   const appointmentId = sp.get("appointmentId");
@@ -29,5 +30,13 @@ export default function PaiementAnnulePage() {
         </div>
       </Card>
     </Container>
+  );
+}
+
+export default function PaiementAnnulePage() {
+  return (
+    <Suspense fallback={null}>
+      <PaiementAnnuleContent />
+    </Suspense>
   );
 }
