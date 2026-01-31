@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 
 export const runtime = "nodejs";
 
@@ -20,75 +21,62 @@ const supabaseAdmin = createClient(
   { auth: { persistSession: false } }
 );
 
-// ⚠️ Cookie posé par /api/auth/set-cookie
-function readCookie(req: Request, name: string): string | null {
-  const c = req.headers.get("cookie") || "";
-  const m = c.match(new RegExp(`(?:^|; )${name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&")}=([^;]*)`));
-  return m ? decodeURIComponent(m[1]) : null;
+async function getUserFromCookieToken() {
+  const token = cookies().get("drimli_at")?.value;
+  if (!token) return { token: null, user: null, error: "Session manquante (cookie)." };
+
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data.user) return { token: null, user: null, error: "Session invalide. Reconnecte-toi." };
+
+  return { token, user: data.user, error: null };
 }
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
-    const accessToken = readCookie(req, "drimli_at");
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: "Session manquante (cookie). Reconnecte-toi et réessaie." },
-        { status: 401 }
-      );
+    // 1) Auth via cookie httpOnly
+    const { user, error } = await getUserFromCookieToken();
+    if (error || !user) {
+      return NextResponse.json({ error: error || "Unauthorized" }, { status: 401 });
     }
 
-    // 1) Identifier l'utilisateur via Supabase (avec le JWT)
-    const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(accessToken);
-    const user = userData?.user;
-
-    if (userErr || !user) {
-      return NextResponse.json(
-        { error: "Session invalide. Reconnecte-toi et réessaie." },
-        { status: 401 }
-      );
-    }
-
-    const providerId = user.id;
-
-    // 2) Lire le profil (stripe_account_id)
+    // 2) Lire le profile (stripe_account_id)
     const { data: prof, error: profErr } = await supabaseAdmin
       .from("profiles")
-      .select("stripe_account_id, full_name")
-      .eq("provider_id", providerId)
-      .maybeSingle<{ stripe_account_id: string | null; full_name: string | null }>();
+      .select("provider_id, full_name, stripe_account_id")
+      .eq("provider_id", user.id)
+      .maybeSingle<{ provider_id: string; full_name: string | null; stripe_account_id: string | null }>();
 
     if (profErr) {
-      return NextResponse.json({ error: profErr.message }, { status: 400 });
+      return NextResponse.json({ error: "Profiles read failed", details: profErr.message }, { status: 400 });
     }
 
-    // 3) Si pas de compte Stripe → le créer + stocker
     let stripeAccountId = prof?.stripe_account_id ?? null;
 
+    // 3) Si pas de stripe_account_id → créer un compte Stripe Connect + le stocker
     if (!stripeAccountId) {
-      const account = await stripe.accounts.create({
+      const acct = await stripe.accounts.create({
         type: "express",
-        // pays / business_type : adapte si besoin
-        country: "FR",
-        metadata: { provider_id: providerId },
+        email: user.email ?? undefined,
+        metadata: { provider_id: user.id },
       });
 
-      stripeAccountId = account.id;
+      stripeAccountId = acct.id;
 
       const { error: upErr } = await supabaseAdmin
         .from("profiles")
         .update({ stripe_account_id: stripeAccountId })
-        .eq("provider_id", providerId);
+        .eq("provider_id", user.id);
 
       if (upErr) {
         return NextResponse.json(
-          { error: "Impossible d’enregistrer le compte Stripe", details: upErr.message },
-          { status: 500 }
+          { error: "Failed to store stripe_account_id", details: upErr.message },
+          { status: 400 }
         );
       }
     }
 
-    // 4) Créer une Account Session (Stripe Connect Embedded Components)
-    const accountSession = await stripe.accountSessions.create({
+    // 4) Créer l'Account Session (Embedded onboarding)
+    const session = await stripe.accountSessions.create({
       account: stripeAccountId,
       components: {
         account_onboarding: { enabled: true },
@@ -99,11 +87,12 @@ export async function POST(req: Request) {
       {
         activated: true,
         stripe_account_id: stripeAccountId,
-        client_secret: accountSession.client_secret,
+        client_secret: session.client_secret,
       },
       { status: 200 }
     );
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Unknown error" }, { status: 500 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
