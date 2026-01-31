@@ -14,9 +14,12 @@ export async function POST(req: Request) {
     const start = body?.start as string | undefined;
     const end = body?.end as string | undefined;
 
-    if (!providerId || !productId || !start || !end) {
+    const clientEmail = body?.clientEmail as string | undefined;
+    const clientPhone = body?.clientPhone as string | undefined;
+
+    if (!providerId || !productId || !start || !end || !clientEmail || !clientPhone) {
       return NextResponse.json(
-        { error: "Missing fields. Expected providerId, productId, start, end." },
+        { error: "Missing fields. Expected providerId, productId, start, end, clientEmail, clientPhone." },
         { status: 400 }
       );
     }
@@ -59,6 +62,8 @@ export async function POST(req: Request) {
         start_datetime: start,
         end_datetime: end,
         status: "pending",
+        client_email: clientEmail,
+        client_phone: clientPhone,
       })
       .select("id")
       .maybeSingle<{ id: string }>();
