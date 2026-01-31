@@ -148,7 +148,7 @@ export default function ProfilePage() {
   if (loading) return <p style={{ padding: 24 }}>Chargement…</p>;
 
   return (
-    <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }} autoComplete="off">
+    <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
 <h1 style={{ fontSize: 24, fontWeight: 800 }}>Créer mon profil</h1>
 <p style={{ marginTop: 8, opacity: 0.85 }}>Ces infos créent votre page publique.</p>
 
@@ -158,7 +158,7 @@ export default function ProfilePage() {
         <label style={{ display: "grid", gap: 6 }}>
           <span>Nom complet</span>
           <input
-            autoComplete="off"
+           
             value={form.full_name}
             onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
             style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
@@ -168,7 +168,7 @@ export default function ProfilePage() {
         <label style={{ display: "grid", gap: 6 }}>
           <span>Profession</span>
           <input
-            autoComplete="off"
+           
             value={form.profession}
             onChange={(e) => setForm((f) => ({ ...f, profession: e.target.value }))}
             style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
@@ -178,7 +178,7 @@ export default function ProfilePage() {
         <label style={{ display: "grid", gap: 6 }}>
           <span>Ville</span>
           <input
-            autoComplete="off"
+           
             value={form.city}
             onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
             style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
@@ -188,7 +188,7 @@ export default function ProfilePage() {
         <label style={{ display: "grid", gap: 6 }}>
           <span>Description</span>
           <textarea
-            autoComplete="off"
+           
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             rows={4}
@@ -199,7 +199,7 @@ export default function ProfilePage() {
         <label style={{ display: "grid", gap: 6 }}>
           <span>Numéro WhatsApp (format international, ex: +33612345678)</span>
           <input
-            autoComplete="off"
+           
             value={form.contact_whatsapp}
             onChange={(e) => setForm((f) => ({ ...f, contact_whatsapp: e.target.value }))}
             style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
