@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Container from "@/app/components/ui/Container";
 import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
 
-export default function PaiementSuccesPage() {
+function PaiementSuccesContent() {
   const sp = useSearchParams();
   const router = useRouter();
   const sessionId = sp.get("session_id");
@@ -50,15 +50,17 @@ export default function PaiementSuccesPage() {
 
       const apptId = json?.appointment_id ?? null;
       setAppointmentId(apptId);
+
       if (apptId) {
-        const tRes = await fetch('/api/appointments/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const tRes = await fetch("/api/appointments/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ appointmentId: apptId }),
         });
         const tJson = await tRes.json().catch(() => null);
         if (tRes.ok && tJson?.join_token) setJoinToken(tJson.join_token);
       }
+
       setLoading(false);
     })();
 
@@ -109,5 +111,13 @@ export default function PaiementSuccesPage() {
         )}
       </Card>
     </Container>
+  );
+}
+
+export default function PaiementSuccesPage() {
+  return (
+    <Suspense fallback={null}>
+      <PaiementSuccesContent />
+    </Suspense>
   );
 }
