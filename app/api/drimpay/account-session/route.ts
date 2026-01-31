@@ -27,7 +27,7 @@ type ProfileRow = {
 
 export async function POST() {
   try {
-    const token = cookies().get("drimli_at")?.value;
+    const token = (await cookies()).get("drimli_at")?.value;
     if (!token) {
       return NextResponse.json(
         { error: "Session manquante (cookie). Reconnecte-toi et réessaie." },
