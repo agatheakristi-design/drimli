@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const { token } = (await req.json().catch(() => ({}))) as { token?: unknown };
+  const { token } = (await req.json().catch(() => ({}))) as { token?: string };
 
   if (!token || typeof token !== "string") {
     return NextResponse.json({ error: "Missing token" }, { status: 400 });
@@ -11,17 +11,17 @@ export async function POST(req: Request) {
 
   const res = NextResponse.json({ ok: true });
 
-  // ✅ Important :
-  // - en prod (Vercel) => secure:true sinon le cookie peut être ignoré
-  // - en local => secure:false
-  const isProd = process.env.NODE_ENV === "production";
+  // ✅ En prod (https), secure doit être true.
+  // ✅ En local http://localhost, secure doit être false.
+  const isLocalhost =
+    typeof req.headers.get("host") === "string" &&
+    req.headers.get("host")!.includes("localhost");
 
   res.cookies.set("drimli_at", token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: isProd,
+    secure: !isLocalhost,
     path: "/",
-    maxAge: 60 * 60 * 24 * 7, // 7 jours
   });
 
   return res;

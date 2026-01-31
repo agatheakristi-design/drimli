@@ -4,10 +4,18 @@ import { useEffect, useState } from "react";
 import { ConnectComponentsProvider, ConnectAccountOnboarding } from "@stripe/react-connect-js";
 import { loadConnectAndInitialize } from "@stripe/connect-js";
 import { supabase } from "@/lib/supabaseClient";
+import Button from "@/app/components/ui/Button";
 
-export default function DrimpayOnboarding({ onDone }: { onDone?: () => void }) {
+export default function DrimpayOnboarding({
+  onDone,
+  onBack,
+}: {
+  onDone?: () => void;
+  onBack?: () => void;
+}) {
   const [connectInstance, setConnectInstance] = useState<any>(null);
   const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -15,24 +23,31 @@ export default function DrimpayOnboarding({ onDone }: { onDone?: () => void }) {
     (async () => {
       try {
         setError("");
+        setConnectInstance(null);
 
-        // ✅ On récupère la session Supabase côté navigateur
-        const { data, error: sessErr } = await supabase.auth.getSession();
+        const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
 
-        if (sessErr || !token) {
-          setError("Session manquante : reconnecte-toi puis réessaie.");
+        if (!token) {
+          setError("Session manquante. Reconnecte-toi puis réessaie.");
           return;
         }
 
-        // ✅ On appelle l’API avec Authorization Bearer (plus fiable qu’un cookie)
-        const res = await fetch("/api/drimpay/account-session", {
+        // 1) Dépose le token en cookie httpOnly côté serveur
+        const r1 = await fetch("/api/auth/set-cookie", {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token }),
         });
 
+        if (!r1.ok) {
+          const j = await r1.json().catch(() => null);
+          setError(j?.error || `Impossible de préparer la session (${r1.status}).`);
+          return;
+        }
+
+        // 2) Appelle account-session (il lira le cookie)
+        const res = await fetch("/api/drimpay/account-session", { method: "POST" });
         const json = await res.json().catch(() => null);
 
         if (!res.ok) {
@@ -40,14 +55,14 @@ export default function DrimpayOnboarding({ onDone }: { onDone?: () => void }) {
           return;
         }
 
-        // Si pas activé, on affiche un message clair
+        // Cas: pas encore activé → on affiche un message clair + bouton retour
         if (json?.activated === false) {
-          setError("DrimPay n’est pas encore activé sur ce compte. Clique sur “Activer DrimPay”.");
+          setError("Drimpay n'est pas encore activé sur ce compte.");
           return;
         }
 
         if (!json?.client_secret) {
-          setError(json?.error || "Impossible de démarrer DrimPay.");
+          setError(json?.error || "Impossible de démarrer l’onboarding Drimpay.");
           return;
         }
 
@@ -64,20 +79,34 @@ export default function DrimpayOnboarding({ onDone }: { onDone?: () => void }) {
 
         if (!cancelled) setConnectInstance(instance);
       } catch (e: any) {
-        setError(e?.message || "Erreur inattendue pendant DrimPay.");
+        setError(e?.message || "Erreur inattendue pendant l’onboarding.");
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [retryKey]);
 
-  if (error) return <p style={{ marginTop: 8 }}>❌ {error}</p>;
-  if (!connectInstance) return <p style={{ marginTop: 8 }}>Chargement…</p>;
+  // ✅ ERREUR : on donne toujours une sortie + retry
+  if (error) {
+    return (
+      <div className="space-y-3">
+        <p>❌ {error}</p>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => onBack?.()}>
+            Revenir
+          </Button>
+          <Button onClick={() => setRetryKey((k) => k + 1)}>Réessayer</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!connectInstance) return <p>Chargement de Drimpay…</p>;
 
   return (
-    <div style={{ marginTop: 12 }}>
+    <div className="mt-3">
       <ConnectComponentsProvider connectInstance={connectInstance}>
         <ConnectAccountOnboarding onExit={() => onDone?.()} />
       </ConnectComponentsProvider>
