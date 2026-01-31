@@ -142,7 +142,7 @@ export default function RendezVousTokenPage() {
               <p className="text-muted-foreground">Votre rendez-vous</p>
             )}
             <p className="text-sm text-muted-foreground">
-              {formatDateTimeParis(appointment?.start_datetime)}
+              {formatDateTimeParis(appointment?.start_datetime ?? null)}
             </p>
           </div>
 
