@@ -115,6 +115,7 @@ export default function ProfilePage() {
     try {
       const payload = {
         provider_id: userId,
+        slug: form.full_name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
         full_name: form.full_name,
         profession: form.profession,
         city: form.city,
@@ -150,6 +151,11 @@ export default function ProfilePage() {
   return (
     <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
 <h1 style={{ fontSize: 24, fontWeight: 800 }}>Créer mon profil</h1>
+<div style={{ marginTop: 14 }}>
+  <a href="/dashboard/profile/media" style={{ display: "inline-block", padding: "10px 14px", border: "1px solid #ddd", borderRadius: 10 }}>
+    📸 Ajouter ma photo
+  </a>
+</div>
 <p style={{ marginTop: 8, opacity: 0.85 }}>Ces infos créent votre page publique.</p>
 
       {status && <p style={{ marginTop: 10 }}>{status}</p>}
