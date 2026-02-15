@@ -5,10 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Container from "@/app/components/ui/Container";
 import Card from "@/app/components/ui/Card";
-import Button from "@/app/components/ui/Button";
-import LogoutButton from "@/app/components/LogoutButton";
-
-type ProfileForm = {
+import Button from "@/app/components/ui/Button";type ProfileForm = {
   full_name: string;
   profession: string;
   city: string;

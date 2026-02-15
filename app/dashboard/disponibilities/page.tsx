@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import LogoutButton from "@/app/components/LogoutButton";
-
-type Range = { start: string; end: string };
+import { supabase } from "@/lib/supabaseClient";type Range = { start: string; end: string };
 type Availability = {
   timezone: string;
   slot_minutes: number;
@@ -150,9 +147,7 @@ export default function DisponibilitesPage() {
 
   return (
     <main style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <LogoutButton />
-      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}></div>
 
       <h1 style={{ fontSize: 32, fontWeight: 900 }}>Mes disponibilites</h1>
       <p style={{ marginTop: 8, opacity: 0.85 }}>

@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 import Container from "@/app/components/ui/Container";
-import Card from "@/app/components/ui/Card";
-import LogoutButton from "@/app/components/LogoutButton";
-import Button from "@/app/components/ui/Button";
+import Card from "@/app/components/ui/Card";import Button from "@/app/components/ui/Button";
 import { useRouter } from "next/navigation";
 
 type Product = {
@@ -239,9 +237,7 @@ export default function ServicesPage() {
     <Container>
       <Card>
         <div className="space-y-4">
-<div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <LogoutButton />
-      </div>
+<div style={{ display: "flex", justifyContent: "flex-end" }}></div>
       <div className="mt-4 flex gap-2">
   <Button variant="secondary" onClick={() => router.push("/dashboard/rendez-vous")}>
     Voir mes rendez-vous

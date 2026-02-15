@@ -1,4 +1,6 @@
 "use client";
+import PublicPageLink from "@/app/components/PublicPageLink";
+import LogoutButton from "@/app/components/LogoutButton";
 
 import { useRouter } from "next/navigation";
 import Card from "@/app/components/ui/Card";
@@ -16,6 +18,11 @@ export default function DashboardPage() {
         </p>
       </div>
 
+<PublicPageLink />
+
+<div style={{ marginTop: 12 }}>
+  <LogoutButton />
+</div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <div className="space-y-3">

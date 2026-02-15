@@ -5,10 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Container from "@/app/components/ui/Container";
 import Card from "@/app/components/ui/Card";
-import Button from "@/app/components/ui/Button";
-import LogoutButton from "@/app/components/LogoutButton";
-
-type AppointmentRow = {
+import Button from "@/app/components/ui/Button";type AppointmentRow = {
   id: string;
   access_token: string;
   provider_id: string;
@@ -162,9 +159,7 @@ export default function RendezVousPage() {
 
   return (
     <Container>
-      <div className="flex justify-end">
-        <LogoutButton />
-      </div>
+      <div className="flex justify-end"></div>
 
       <div className="mt-4">
         <h1 className="text-2xl font-black">Rendez-vous confirmés</h1>
