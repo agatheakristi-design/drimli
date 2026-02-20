@@ -99,3 +99,4 @@ body {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+.dashboard-back-icon { color: var(--dashboard-icon-color, #6b7280); }
