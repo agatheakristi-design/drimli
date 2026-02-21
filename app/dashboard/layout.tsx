@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CornerUpLeft } from "lucide-react";
 import Container from "@/app/components/ui/Container";
-import OnboardingBanner from "@/app/components/OnboardingBanner";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -29,8 +28,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 </Link>
               </div>
             )}
-
-            <OnboardingBanner />
 
             {children}
           </div>
