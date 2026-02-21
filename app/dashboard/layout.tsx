@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CornerUpLeft } from "lucide-react";
 import Container from "@/app/components/ui/Container";
+import DashboardGate from "@/app/components/DashboardGate";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -29,7 +30,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               </div>
             )}
 
-            {children}
+            <DashboardGate>{children}</DashboardGate>
           </div>
         </div>
       </Container>
