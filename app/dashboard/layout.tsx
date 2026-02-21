@@ -30,8 +30,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               </div>
             )}
 
-            <div style={{padding: 12, border: "2px solid red", borderRadius: 12, marginBottom: 12}}>DEBUG LAYOUT DASHBOARD OK</div>
-<OnboardingBanner />
+            <OnboardingBanner />
 
             {children}
           </div>

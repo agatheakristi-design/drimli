@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
 
 type Status = {
   profileComplete: boolean;
@@ -21,9 +22,19 @@ export default function OnboardingBanner() {
     let cancelled = false;
 
     (async () => {
-      const r = await fetch("/api/onboarding/status", { cache: "no-store" });
+      const { data, error } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+
+      if (error || !token) return;
+
+      const r = await fetch("/api/onboarding/status", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+
       if (!r.ok) return;
       const j = (await r.json()) as Status;
+
       if (!cancelled) setStatus(j);
     })();
 
