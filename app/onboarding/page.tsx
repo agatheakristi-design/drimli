@@ -15,14 +15,25 @@ type Status = {
   doneCount: number;
   total: number;
   accountReady: boolean;
-  next: string;
+  next: string | null;
 };
 
-function StepPill({ ok, label }: { ok: boolean; label: string }) {
+function StepLine({
+  ok,
+  title,
+  desc,
+}: {
+  ok: boolean;
+  title: string;
+  desc: string;
+}) {
   return (
-    <span className="rounded-full border border-border px-3 py-1 text-xs">
-      {ok ? "✅" : "⏳"} {label}
-    </span>
+    <div className="rounded-xl border border-border bg-background p-4">
+      <p className="font-semibold">
+        {ok ? "✅" : "•"} {title}
+      </p>
+      <p className="text-sm text-muted-foreground">{desc}</p>
+    </div>
   );
 }
 
@@ -40,10 +51,10 @@ export default function OnboardingPage() {
         setLoading(true);
         setErrorMsg("");
 
-        const { data: sess } = await supabase.auth.getSession();
+        const { data: sess, error: sessErr } = await supabase.auth.getSession();
         const token = sess.session?.access_token;
 
-        if (!token) {
+        if (sessErr || !token) {
           setErrorMsg("❌ Tu dois être connectée.");
           setLoading(false);
           return;
@@ -67,7 +78,6 @@ export default function OnboardingPage() {
           setStatus(j);
           setLoading(false);
 
-          // Si déjà prêt → dashboard
           if (j.accountReady) router.replace("/dashboard");
         }
       } catch (e: any) {
@@ -91,6 +101,18 @@ export default function OnboardingPage() {
     );
   }
 
+  // ✅ La prochaine étape non remplie (sans choix)
+  const next =
+    !status?.profileComplete
+      ? "/dashboard/profile"
+      : !status?.paymentComplete
+      ? "/paiements"
+      : !status?.servicesComplete
+      ? "/dashboard/services"
+      : !status?.availabilityComplete
+      ? "/dashboard/disponibilites"
+      : "/dashboard";
+
   return (
     <Container>
       <Card>
@@ -98,7 +120,7 @@ export default function OnboardingPage() {
           <div>
             <h1 className="text-2xl font-black">Configurer ton compte</h1>
             <p className="text-muted-foreground">
-              Termine ces étapes pour que tes clients puissent réserver.
+              Suis ces étapes dans l’ordre pour activer ta page publique.
             </p>
           </div>
 
@@ -106,41 +128,46 @@ export default function OnboardingPage() {
 
           {status ? (
             <>
-              <div className="flex flex-wrap gap-2">
-                <StepPill ok={status.profileComplete} label="Profil" />
-                <StepPill ok={status.paymentComplete} label="Paiement" />
-                <StepPill ok={status.servicesComplete} label="Services" />
-                <StepPill ok={status.availabilityComplete} label="Disponibilités" />
-              </div>
-
-              <div className="rounded-xl border border-border bg-background p-4">
+              <div className="rounded-xl border border-border bg-card p-4">
                 <p className="font-semibold">
                   {status.doneCount}/{status.total} étapes terminées
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Continue là où tu t’es arrêtée.
+                  On te guide automatiquement vers la prochaine étape à compléter.
                 </p>
 
-                <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                <div className="mt-4">
                   <Link
-                    href={status.next}
+                    href={next}
                     className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition"
                   >
                     Continuer
                   </Link>
-
-                  <Link
-                    href="/logout"
-                    className="inline-flex items-center justify-center rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold hover:bg-muted transition"
-                  >
-                    Se déconnecter
-                  </Link>
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground">
-                Tu pourras modifier ton profil, tes services, ton agenda et tes paiements à tout moment une fois activé(e).
-              </p>
+              <div className="space-y-3">
+                <StepLine
+                  ok={status.profileComplete}
+                  title="Profil"
+                  desc="Infos publiques (nom, profession, ville, description)."
+                />
+                <StepLine
+                  ok={status.paymentComplete}
+                  title="Paiement"
+                  desc="Active DrimPay pour recevoir des paiements."
+                />
+                <StepLine
+                  ok={status.servicesComplete}
+                  title="Services"
+                  desc="Crée au moins un service réservable."
+                />
+                <StepLine
+                  ok={status.availabilityComplete}
+                  title="Disponibilités"
+                  desc="Définis tes créneaux et absences."
+                />
+              </div>
             </>
           ) : null}
         </div>
