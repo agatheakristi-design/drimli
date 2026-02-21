@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CornerUpLeft } from "lucide-react";
 import Container from "@/app/components/ui/Container";
+import OnboardingBanner from "@/app/components/OnboardingBanner";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -28,6 +29,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 </Link>
               </div>
             )}
+
+            <div style={{padding: 12, border: "2px solid red", borderRadius: 12, marginBottom: 12}}>DEBUG LAYOUT DASHBOARD OK</div>
+<OnboardingBanner />
 
             {children}
           </div>
