@@ -16,7 +16,6 @@ export default function DashboardGate({ children }: { children: React.ReactNode 
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
 
-      // Pas connecté → login
       if (!token) {
         router.replace("/login");
         return;
@@ -27,18 +26,29 @@ export default function DashboardGate({ children }: { children: React.ReactNode 
         cache: "no-store",
       });
 
-      // Si l’API ne répond pas, on ne bloque pas (évite de casser tout le dashboard)
       if (!r.ok) {
         if (!cancelled) setOk(true);
         return;
       }
 
       const j = await r.json();
+      const ready = !!j?.accountReady;
 
-      // Tant que pas prêt → onboarding (sauf si on y est déjà)
-      if (!j?.accountReady && pathname !== "/onboarding") {
-        router.replace("/onboarding");
-        return;
+      // ✅ Pages autorisées pendant onboarding
+      const allowedDuringOnboarding =
+        pathname === "/dashboard/profile" ||
+        pathname.startsWith("/dashboard/profile/") ||
+        pathname === "/dashboard/services" ||
+        pathname.startsWith("/dashboard/services/") ||
+        pathname === "/dashboard/disponibilites" ||
+        pathname.startsWith("/dashboard/disponibilites/") ||
+        pathname === "/paiements";
+
+      if (!ready) {
+        if (pathname === "/dashboard" || !allowedDuringOnboarding) {
+          router.replace("/onboarding");
+          return;
+        }
       }
 
       if (!cancelled) setOk(true);
