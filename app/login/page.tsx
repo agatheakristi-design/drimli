@@ -33,7 +33,7 @@ export default function LoginPage() {
 
     try {
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `/auth/callback?next=/dashboard/profile` } });
+        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `https://drimli.io/auth/callback?next=/dashboard/profile` } });
 
         if (error) {
           setStatus("Erreur : " + error.message);
