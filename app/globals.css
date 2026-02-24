@@ -16,7 +16,7 @@
   --border: #e7e3da;
 
   /* Brand (bleu doux, pro) */
-  --primary: #163fbe;
+  --primary: #4F6F52;
   --primary-foreground: #ffffff;
 
   /* Feedback */
@@ -42,7 +42,7 @@
     --muted-foreground: #a1a1aa;
     --border: #2a2a2f;
 
-    --primary: #163fbe;
+    --primary: #4F6F52;
     --primary-foreground: #0b0b0c;
 
     --destructive: #ef4444;
