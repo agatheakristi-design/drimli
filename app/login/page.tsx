@@ -19,7 +19,7 @@ export default function LoginPage() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getUser();
-      if (data?.user) router.replace("/dashboard/profile");
+      if (data?.user) router.replace("/");
     })();
   }, [router]);
 
@@ -33,7 +33,7 @@ export default function LoginPage() {
 
     try {
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `https://drimli.io/auth/callback?next=/dashboard/profile` } });
+        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `https://drimli.io/auth/callback?next=/` } });
 
         if (error) {
           setStatus("Erreur : " + error.message);
@@ -51,7 +51,7 @@ export default function LoginPage() {
           return;
         }
 
-        router.replace("/dashboard/profile");
+        router.replace("/");
         return;
       }
 
@@ -63,7 +63,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace("/dashboard/profile");
+      router.replace("/");
     } catch (e: any) {
       setStatus("Erreur inattendue : " + (e?.message || "unknown"));
       setLoading(false);
