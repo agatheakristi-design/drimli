@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import Container from "@/app/components/ui/Container";
-import Card from "@/app/components/ui/Card";
-import Button from "@/app/components/ui/Button";type ProfileForm = {
+import Button from "@/app/components/ui/Button";
+
+type ProfileForm = {
   full_name: string;
   profession: string;
   city: string;
+  address: string;
+  country: string;
+  siret: string;
   description: string;
   contact_whatsapp: string;
 };
@@ -16,32 +19,29 @@ import Button from "@/app/components/ui/Button";type ProfileForm = {
 type ProfileRow = ProfileForm & {
   provider_id: string;
   stripe_account_id: string | null;
+  avatar_url?: string | null;
 };
-
-function isProfileComplete(form: { full_name: string; profession: string; city: string; description: string; contact_whatsapp: string }) {
-  return !!(
-    form.full_name?.trim() &&
-    form.profession?.trim() &&
-    form.city?.trim() &&
-    form.description?.trim() &&
-    form.contact_whatsapp?.trim()
-  );
-}
 
 export default function ProfilePage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [status, setStatus] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const [form, setForm] = useState<ProfileForm>({
     full_name: "",
     profession: "",
     city: "",
+    address: "",
+    country: "",
+    siret: "",
     description: "",
     contact_whatsapp: "",
   });
@@ -51,10 +51,9 @@ export default function ProfilePage() {
       try {
         setStatus("");
 
-        const { data: userData, error: userErr } = await supabase.auth.getUser();
-        if (userErr || !userData.user) {
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) {
           setLoading(false);
-          setStatus("❌ Tu dois être connectée pour accéder à cette page.");
           return;
         }
 
@@ -63,7 +62,9 @@ export default function ProfilePage() {
 
         const { data, error } = await supabase
           .from("profiles")
-          .select("provider_id, full_name, profession, city, description, contact_whatsapp, stripe_account_id")
+          .select(
+            "provider_id, full_name, profession, city, address, country, siret, description, contact_whatsapp, stripe_account_id, avatar_url"
+          )
           .eq("provider_id", uid)
           .maybeSingle<ProfileRow>();
 
@@ -77,12 +78,16 @@ export default function ProfilePage() {
 
         if (data) {
           setStripeAccountId(data.stripe_account_id ?? null);
+          setAvatarUrl(data.avatar_url ?? null);
           setForm({
             full_name: data.full_name ?? "",
             profession: data.profession ?? "",
             city: data.city ?? "",
+            address: data.address ?? "",
+            country: data.country ?? "",
+            siret: data.siret ?? "",
             description: data.description ?? "",
-            contact_whatsapp: (data as any).contact_whatsapp ?? "",
+            contact_whatsapp: data.contact_whatsapp ?? "",
           });
         }
 
@@ -94,28 +99,87 @@ export default function ProfilePage() {
     })();
   }, []);
 
+  async function uploadAvatar(file: File) {
+    if (!userId) return;
+
+    setUploadingPhoto(true);
+    setStatus("");
+
+    try {
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const path = `avatars/${userId}.${ext}`;
+
+      const { error: upErr } = await supabase.storage
+        .from("drimli-public")
+        .upload(path, file, { upsert: true });
+
+      if (upErr) {
+        setStatus("❌ Upload photo : " + upErr.message);
+        setUploadingPhoto(false);
+        return;
+      }
+
+      const { data } = supabase.storage.from("drimli-public").getPublicUrl(path);
+      const publicUrl = data.publicUrl;
+
+      const { error: saveErr } = await supabase
+        .from("profiles")
+        .upsert(
+          {
+            provider_id: userId,
+            avatar_url: publicUrl,
+          },
+          { onConflict: "provider_id" }
+        );
+
+      if (saveErr) {
+        setStatus("❌ Enregistrement photo : " + saveErr.message);
+        setUploadingPhoto(false);
+        return;
+      }
+
+      setAvatarUrl(publicUrl);
+      setStatus("✅ Photo enregistrée.");
+      setUploadingPhoto(false);
+    } catch (e: any) {
+      setUploadingPhoto(false);
+      setStatus("❌ Erreur photo : " + (e?.message || "unknown"));
+    }
+  }
+
   async function saveProfile() {
     setStatus("");
 
-    // ✅ Profil obligatoire (MVP)
-    if (!form.full_name.trim() || !form.profession.trim() || !form.city.trim() || !form.description.trim() || !(form as any).contact_whatsapp?.trim?.()) {
-      setStatus("Merci de compléter tous les champs de votre profil.");
+    if (
+      !form.full_name.trim() ||
+      !form.profession.trim() ||
+      !form.city.trim() ||
+      !form.description.trim() ||
+      !form.contact_whatsapp.trim()
+    ) {
+      setStatus("Merci de compléter tous les champs obligatoires.");
       return;
     }
 
-    if (!userId) {
-      setStatus("❌ Tu dois être connectée pour enregistrer.");
-      return;
-    }
+    if (!userId) return;
 
     setSaving(true);
+
     try {
       const payload = {
         provider_id: userId,
-        slug: form.full_name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
+        slug: form.full_name
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, ""),
         full_name: form.full_name,
         profession: form.profession,
         city: form.city,
+        address: form.address,
+        country: form.country,
+        siret: form.siret,
         description: form.description,
         contact_whatsapp: form.contact_whatsapp,
       };
@@ -131,12 +195,12 @@ export default function ProfilePage() {
       }
 
       setSaving(false);
-      setStatus("✅ Profil enregistré.");
-      // On ne force DrimPay que si le compte Stripe n’est pas encore lié
+
       if (!stripeAccountId) {
         router.push("/paiements");
+      } else {
+        router.push("/dashboard");
       }
-
     } catch (e: any) {
       setSaving(false);
       setStatus("❌ Erreur inattendue : " + (e?.message || "unknown"));
@@ -147,21 +211,67 @@ export default function ProfilePage() {
 
   return (
     <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
-<h1 style={{ fontSize: 24, fontWeight: 800 }}>Créer mon profil</h1>
-<div style={{ marginTop: 14 }}>
-  <a href="/dashboard/profile/media" style={{ display: "inline-block", padding: "10px 14px", border: "1px solid #ddd", borderRadius: 10 }}>
-    📸 Ajouter ma photo
-  </a>
-</div>
-<p style={{ marginTop: 8, opacity: 0.85 }}>Ces infos créent votre page publique.</p>
+      <h1 style={{ fontSize: 24, fontWeight: 800 }}>
+        {hasProfile === true ? "Modifier mon profil" : "Créer mon profil"}
+      </h1>
+
+      <div style={{ marginTop: 16, marginBottom: 10 }}>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          aria-label="Ajouter ou modifier ma photo"
+          style={{
+            width: 96,
+            height: 96,
+            borderRadius: "999px",
+            border: "1px solid #ddd",
+            background: "#f6f6f3",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+            cursor: "pointer",
+            padding: 0,
+          }}
+        >
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt="Photo de profil"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <span style={{ fontSize: 38, lineHeight: 1, opacity: 0.45 }}>👤</span>
+          )}
+        </button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (f) await uploadAvatar(f);
+            e.currentTarget.value = "";
+          }}
+        />
+
+        <p style={{ marginTop: 8, opacity: 0.75, fontSize: 14 }}>
+          {uploadingPhoto
+            ? "Upload en cours..."
+            : "Ajoute ta photo. Tu pourras la modifier plus tard."}
+        </p>
+      </div>
+
+      <p style={{ marginTop: 8, opacity: 0.85 }}>Ces infos créent ta page publique.</p>
 
       {status && <p style={{ marginTop: 10 }}>{status}</p>}
 
       <section style={{ marginTop: 18, display: "grid", gap: 10 }}>
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Nom complet</span>
+          <span>Nom complet *</span>
           <input
-           
             value={form.full_name}
             onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
             style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
@@ -169,9 +279,8 @@ export default function ProfilePage() {
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Profession</span>
+          <span>Profession *</span>
           <input
-           
             value={form.profession}
             onChange={(e) => setForm((f) => ({ ...f, profession: e.target.value }))}
             style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
@@ -179,9 +288,8 @@ export default function ProfilePage() {
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Ville</span>
+          <span>Ville *</span>
           <input
-           
             value={form.city}
             onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
             style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
@@ -189,9 +297,35 @@ export default function ProfilePage() {
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Description</span>
+          <span>Adresse</span>
+          <input
+            value={form.address}
+            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+            style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Pays</span>
+          <input
+            value={form.country}
+            onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+            style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Siret</span>
+          <input
+            value={form.siret}
+            onChange={(e) => setForm((f) => ({ ...f, siret: e.target.value }))}
+            style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Description *</span>
           <textarea
-           
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             rows={4}
@@ -200,9 +334,8 @@ export default function ProfilePage() {
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Numéro WhatsApp (format international, ex: +33612345678)</span>
+          <span>Numéro WhatsApp (format international, ex: +33612345678) *</span>
           <input
-           
             value={form.contact_whatsapp}
             onChange={(e) => setForm((f) => ({ ...f, contact_whatsapp: e.target.value }))}
             style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
@@ -210,27 +343,12 @@ export default function ProfilePage() {
         </label>
 
         <Button onClick={saveProfile} disabled={saving} className="w-full">
-          {saving ? "Enregistrement…" : hasProfile === true ? "Enregistrer les modifications" : "Valider mon profil"}
+          {saving
+            ? "Enregistrement…"
+            : hasProfile === true
+            ? "Enregistrer les modifications"
+            : "Valider mon profil"}
         </Button>
-
-        {hasProfile === true ? (
-          <div className="mt-4 grid gap-2">
-            <Button variant="secondary" className="w-full" onClick={() => router.push("/paiements")}>
-              DrimPay (modifier)
-            </Button>
-            <Button variant="secondary" className="w-full" onClick={() => router.push("/dashboard/services")}>
-              Services (modifier)
-            </Button>
-            <Button variant="secondary" className="w-full" onClick={() => router.push("/dashboard")}>
-              Retourner au dashboard
-            </Button>
-          </div>
-        ) : null}
-
-        {hasProfile === false ? (
-          <div style={{ fontSize: 14, opacity: 0.75 }}>Étape suivante : activer DrimPay.</div>
-        ) : null}
-    
       </section>
     </main>
   );

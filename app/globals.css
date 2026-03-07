@@ -18,7 +18,20 @@
   /* Brand (bleu doux, pro) */
   --primary: #4F6F52;
   --primary-foreground: #ffffff;
+.input {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  width: 100%;
+}
 
+.textarea {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  width: 100%;
+  resize: vertical;
+}
   /* Feedback */
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
@@ -100,3 +113,33 @@ body {
   }
 }
 .dashboard-back-icon { color: var(--dashboard-icon-color, #6b7280); }
+
+/* --- Global buttons (single source of truth) --- */
+.btn-primary{
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity .15s ease;
+}
+.btn-primary:hover{ opacity: .9; }
+
+.btn-outline{
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity .15s ease, background .15s ease;
+}
+.btn-outline:hover{ opacity: .85; background: rgba(0,0,0,.02); }

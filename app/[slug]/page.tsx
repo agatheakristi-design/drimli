@@ -103,17 +103,8 @@ export default async function Page({ params }: { params: any }) {
 
                   <a
                     href={`/reserver/${p.id}`}
-                    style={{
-                      alignSelf: "center",
-                      padding: "10px 14px",
-                      borderRadius: 12,
-                      background: "#1f3cff",
-                      color: "white",
-                      textDecoration: "none",
-                      fontWeight: 700,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                    className="btn-primary"
+                  >                  
                     Réserver
                   </a>
                 </div>

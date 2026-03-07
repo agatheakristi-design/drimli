@@ -5,6 +5,28 @@ import Card from "@/app/components/ui/Card";
 export default function Home() {
   return (
     <main className="py-12">
+{/* TOP BAR */}
+<div className="w-full flex justify-between items-center px-6 py-6">
+  <div className="text-lg font-semibold">
+    Drimli
+  </div>
+
+  <div className="flex items-center gap-4">
+    <a
+      href="/login"
+      className="text-sm font-medium text-foreground hover:opacity-70 transition"
+    >
+      Log in
+    </a>
+
+    <a
+      href="/login"
+      className="bg-primary text-primary-foreground px-5 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition"
+    >
+      Create account
+    </a>
+  </div>
+</div>
 
       {/* HERO MOCKUP (au-dessus du reste) */}
       <section className="w-full bg-[#f6f6f3] pt-16 pb-10">
