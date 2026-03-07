@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-
 import Container from "@/app/components/ui/Container";
-import Card from "@/app/components/ui/Card";import Button from "@/app/components/ui/Button";
+import Card from "@/app/components/ui/Card";
+import Button from "@/app/components/ui/Button";
 import { useRouter } from "next/navigation";
 
 type Product = {
@@ -18,6 +18,26 @@ type Product = {
   created_at?: string | null;
 };
 
+type Availability = {
+  mon: { start: string; end: string } | null;
+  tue: { start: string; end: string } | null;
+  wed: { start: string; end: string } | null;
+  thu: { start: string; end: string } | null;
+  fri: { start: string; end: string } | null;
+  sat: { start: string; end: string } | null;
+  sun: { start: string; end: string } | null;
+};
+
+const DEFAULT_STANDARD_AVAILABILITY: Availability = {
+  mon: { start: "09:00", end: "18:00" },
+  tue: { start: "09:00", end: "18:00" },
+  wed: { start: "09:00", end: "18:00" },
+  thu: { start: "09:00", end: "18:00" },
+  fri: { start: "09:00", end: "18:00" },
+  sat: null,
+  sun: null,
+};
+
 export default function ServicesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -25,10 +45,9 @@ export default function ServicesPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const router = useRouter();
-
-  // UX: on cache le formulaire tant qu'il n'y a aucun service, jusqu'au clic
   const [showForm, setShowForm] = useState(false);
+  const [isOnboarding, setIsOnboarding] = useState(true);
+  const router = useRouter();
 
   const [form, setForm] = useState({
     title: "",
@@ -46,13 +65,14 @@ export default function ServicesPage() {
 
     if (error) {
       setStatus("❌ Erreur chargement : " + error.message);
-      return;
+      return [];
     }
 
-    setProducts((data ?? []) as Product[]);
+    const rows = (data ?? []) as Product[];
+    setProducts(rows);
+    return rows;
   }
 
-  // Pas de redirect ici. On charge si on a une session.
   useEffect(() => {
     let cancelled = false;
 
@@ -64,15 +84,19 @@ export default function ServicesPage() {
         if (cancelled) return;
 
         if (error || !uid) {
-          // Pas de session → on affiche la page sans données (le dashboard gère l'accès)
           setLoading(false);
           return;
         }
 
         setUserId(uid);
-        await loadProducts(uid);
+        const rows = await loadProducts(uid);
 
-        if (!cancelled) setLoading(false);
+        if (cancelled) return;
+
+        const onboarding = rows.length === 0;
+        setIsOnboarding(onboarding);
+        setShowForm(onboarding ? true : false);
+        setLoading(false);
       } catch (e: any) {
         if (!cancelled) {
           setStatus("❌ Erreur inattendue : " + (e?.message || "unknown"));
@@ -107,10 +131,28 @@ export default function ServicesPage() {
     }, 50);
   }
 
+  async function ensureDefaultAvailability(uid: string) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("availability")
+      .eq("provider_id", uid)
+      .maybeSingle();
+
+    if (error) return;
+
+    const currentAvailability = data?.availability as Availability | null | undefined;
+
+    if (!currentAvailability) {
+      await supabase
+        .from("profiles")
+        .update({ availability: DEFAULT_STANDARD_AVAILABILITY })
+        .eq("provider_id", uid);
+    }
+  }
+
   async function save() {
     setStatus("");
 
-    // ✅ userId peut être null au moment du clic → on récupère la session ici
     let uid = userId;
     if (!uid) {
       const { data, error } = await supabase.auth.getSession();
@@ -126,12 +168,12 @@ export default function ServicesPage() {
     }
 
     if (!form.title.trim()) {
-      setStatus("❌ Ajoute un titre de service.");
+      setStatus("❌ Ajoute un nom de service.");
       return;
     }
 
     if (form.duration_minutes <= 0) {
-      setStatus("❌ La durée doit être > 0.");
+      setStatus("❌ La durée doit être supérieure à 0.");
       return;
     }
 
@@ -141,7 +183,7 @@ export default function ServicesPage() {
     }
 
     setSaving(true);
-    setStatus(editingId ? "⏳ Mise à jour…" : "⏳ Création…");
+    setStatus(editingId ? "⏳ Mise à jour…" : "⏳ Enregistrement…");
 
     if (editingId) {
       const { error } = await supabase
@@ -184,6 +226,13 @@ export default function ServicesPage() {
       return;
     }
 
+    await ensureDefaultAvailability(uid);
+
+    if (isOnboarding) {
+      router.push("/paiements");
+      return;
+    }
+
     setStatus("✅ Service ajouté");
     setShowForm(true);
     resetForm();
@@ -216,259 +265,219 @@ export default function ServicesPage() {
     const ok = window.confirm("Supprimer ce service ? (irréversible)");
     if (!ok) return;
 
-    const { error } = await supabase.from("products").delete().eq("id", id).eq("provider_id", userId);
+    const { error } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", id)
+      .eq("provider_id", userId);
 
     if (error) {
       setStatus("❌ Erreur suppression : " + error.message);
       return;
     }
 
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+    const nextProducts = products.filter((p) => p.id !== id);
+    setProducts(nextProducts);
     setStatus("🗑️ Service supprimé");
+
     if (editingId === id) resetForm();
+
+    const nowOnboarding = nextProducts.length === 0;
+    setIsOnboarding(nowOnboarding);
+    if (nowOnboarding) setShowForm(true);
   }
 
   if (loading) return <main style={{ padding: 24 }}>Chargement…</main>;
 
-  const showEmptyState = products.length === 0 && !showForm;
-  const showFormArea = products.length > 0 || showForm;
+  const showEmptyState = !isOnboarding && products.length === 0 && !showForm;
+  const showFormArea = isOnboarding || products.length > 0 || showForm;
 
   return (
     <Container>
       <Card>
         <div className="space-y-4">
-<div style={{ display: "flex", justifyContent: "flex-end" }}></div>
-      <div className="mt-4 flex gap-2">
-  <Button variant="secondary" onClick={() => router.push("/dashboard/rendez-vous")}>
-    Voir mes rendez-vous
-  </Button>
-</div>
+          <h1 style={{ fontSize: 32, fontWeight: 900 }}>
+            {isOnboarding ? "Créer un service" : "Mes services"}
+          </h1>
 
-      <h1 style={{ fontSize: 32, fontWeight: 900 }}>Mes services</h1>
-{/* ✅ ÉTAT VIDE SEUL */}
-      {showEmptyState && (
-        <div
-          style={{
-            marginTop: 24,
-            padding: 32,
-            border: "2px dashed #e5e7eb",
-            borderRadius: 16,
-            textAlign: "center",
-          }}
-        >
-          <h3 style={{ fontSize: 20, fontWeight: 800 }}>Vous n’avez encore aucun service</h3>
-          <p style={{ marginTop: 8, opacity: 0.8 }}>
-            Créez votre premier service pour commencer à recevoir des réservations et des paiements.
-          </p>
-
-          <button
-            onClick={() => {
-              setShowForm(true);
-              setTimeout(() => {
-                document.getElementById("service-title")?.focus();
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }, 50);
-            }}
-            style={{
-              marginTop: 16,
-              padding: "14px 18px",
-              borderRadius: 12,
-              border: "none",
-              backgroundColor: "#2563eb",
-              color: "#fff",
-              fontWeight: 800,
-              fontSize: 16,
-              cursor: "pointer",
-              boxShadow: "0 4px 12px rgba(37, 99, 235, 0.35)",
-            }}
-          >
-            ➕ Créer mon premier service
-          </button>
-        </div>
-      )}
-
-      {/* ✅ FORMULAIRE + LISTE */}
-      {showFormArea && (
-        <>
-          <section style={{ marginTop: 20, border: "1px solid #eee", borderRadius: 14, padding: 16 }}>
-            {/* On a retiré le titre "Ajouter un service" comme tu le souhaites */}
-            <div style={{ display: "grid", gap: 12 }}>
-              <label>
-                <strong>Titre *</strong>
-                <input
-                  id="service-title"
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder="Ex : Consultation cabinet"
-                  style={{ width: "100%", padding: 10 }}
-                />
-              </label>
-
-              <label>
-                <strong>Description</strong>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  rows={3}
-                  placeholder="Objectifs, cadre, spécialités…"
-                  style={{ width: "100%", padding: 10 }}
-                />
-              </label>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <label>
-                  <strong>Durée</strong>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <input
-                      type="number"
-                      value={form.duration_minutes}
-                      onChange={(e) => setForm({ ...form, duration_minutes: Number(e.target.value) })}
-                      style={{ flex: 1, padding: 10 }}
-                    />
-                    <span>min</span>
-                  </div>
-                </label>
-
-                <label>
-                  <strong>Tarif</strong>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <input
-                      type="number"
-                      value={form.price_euros}
-                      onChange={(e) => setForm({ ...form, price_euros: Number(e.target.value) })}
-                      style={{ flex: 1, padding: 10 }}
-                    />
-                    <span>€</span>
-                  </div>
-                </label>
-              </div>
-
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <button
-                  onClick={save}
-                  disabled={saving}
-                  style={{
-                    marginTop: 8,
-                    padding: "14px 18px",
-                    borderRadius: 12,
-                    border: "none",
-                    backgroundColor: saving ? "#93c5fd" : "#2563eb",
-                    color: "#fff",
-                    fontWeight: 800,
-                    fontSize: 16,
-                    cursor: saving ? "not-allowed" : "pointer",
-                    boxShadow: "0 4px 12px rgba(37, 99, 235, 0.35)",
-                  }}
-                >
-                  {saving ? "Enregistrement…" : editingId ? "Mettre à jour le service" : "➕ Ajouter le service"}
-                </button>
-
-                {editingId && (
-                  <button
-                    onClick={resetForm}
-                    style={{
-                      marginTop: 6,
-                      padding: 12,
-                      fontWeight: 800,
-                      border: "1px solid #ddd",
-                      background: "transparent",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Annuler
-                  </button>
-                )}
-              </div>
-
-              {status && <p style={{ marginTop: 6 }}>{status}</p>}
+          {isOnboarding ? (
+            <div style={{ opacity: 0.85, lineHeight: 1.6 }}>
+              <p>Vous pourrez modifier ce service et en créer d&apos;autres plus tard.</p>
+              <p style={{ marginTop: 8 }}>
+                Des disponibilités par défaut ont été activées : lundi au vendredi, de 9h à 18h.
+                Vous pourrez les modifier à tout moment dans Disponibilités.
+              </p>
             </div>
-          </section>
-
-          {/* Liste uniquement si products.length > 0 (on a supprimé les phrases qui brouillaient) */}
-          {products.length > 0 && (
-            <section style={{ marginTop: 28 }}>
-              <div style={{ display: "grid", gap: 12 }}>
-                {products.map((p) => (
-                  <div
-                    key={p.id}
-                    style={{
-                      border: "1px solid #eee",
-                      borderRadius: 14,
-                      padding: 16,
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      opacity: p.active === false ? 0.55 : 1,
-                    }}
-                  >
-                    <div>
-                      <strong>{p.title}</strong>
-                      <div style={{ opacity: 0.8, marginTop: 4 }}>
-                        {p.duration_minutes} min — {p.price_cents != null ? `${p.price_cents / 100} €` : "—"}
-                      </div>
-                      {p.description && <p style={{ marginTop: 8 }}>{p.description}</p>}
-                    </div>
-
-                    <div style={{ display: "flex", gap: 8, alignItems: "start" }}>
-                      <button
-                        onClick={() => startEdit(p)}
-                        style={{
-                          border: "1px solid #ddd",
-                          background: "transparent",
-                          borderRadius: 10,
-                          padding: "8px 12px",
-                          cursor: "pointer",
-                          fontWeight: 700,
-                        }}
-                      >
-                        Modifier
-                      </button>
-
-                      <button
-                        onClick={() => toggleActive(p)}
-                        style={{
-                          border: "1px solid #ddd",
-                          background: "transparent",
-                          borderRadius: 10,
-                          padding: "8px 12px",
-                          cursor: "pointer",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {p.active === false ? "Activer" : "Désactiver"}
-                      </button>
-
-                      <button
-                        onClick={() => deleteProduct(p.id)}
-                        style={{
-                          border: "1px solid #ddd",
-                          background: "transparent",
-                          borderRadius: 10,
-                          padding: "8px 12px",
-                          cursor: "pointer",
-                          fontWeight: 700,
-                        }}
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+          ) : (
+            <div className="mt-4 flex gap-2">
+              <Button variant="secondary" onClick={() => router.push("/dashboard/rendez-vous")}>
+                Voir mes rendez-vous
+              </Button>
+            </div>
           )}
-        </>
-      )}
-    
 
-          <div className="pt-4 border-t">
-            <Button variant="secondary" onClick={() => router.push("/dashboard")}>
-              Revenir au dashboard
-            </Button>
-          </div>
+          {showEmptyState && (
+            <div
+              style={{
+                marginTop: 24,
+                padding: 32,
+                border: "2px dashed #e5e7eb",
+                borderRadius: 16,
+                textAlign: "center",
+              }}
+            >
+              <h3 style={{ fontSize: 20, fontWeight: 800 }}>Vous n’avez encore aucun service</h3>
+              <p style={{ marginTop: 8, opacity: 0.8 }}>
+                Créez votre premier service pour commencer à recevoir des réservations et des paiements.
+              </p>
+
+              <Button
+                onClick={() => {
+                  setShowForm(true);
+                  setTimeout(() => {
+                    document.getElementById("service-title")?.focus();
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }, 50);
+                }}
+                className="mt-4"
+              >
+                Créer mon premier service
+              </Button>
+            </div>
+          )}
+
+          {showFormArea && (
+            <>
+              <section style={{ marginTop: 20, border: "1px solid #eee", borderRadius: 14, padding: 16 }}>
+                <div style={{ display: "grid", gap: 12 }}>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    <strong>Nom du service *</strong>
+                    <input
+                      id="service-title"
+                      className="input"
+                      value={form.title}
+                      onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      placeholder="Ex : Consulting"
+                    />
+                  </label>
+
+                  {!isOnboarding ? (
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <strong>Description</strong>
+                      <textarea
+                        className="textarea"
+                        value={form.description}
+                        onChange={(e) => setForm({ ...form, description: e.target.value })}
+                        rows={3}
+                        placeholder="Objectifs, cadre, spécialités…"
+                      />
+                    </label>
+                  ) : null}
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <strong>Durée</strong>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input
+                          type="number"
+                          className="input"
+                          value={form.duration_minutes}
+                          onChange={(e) => setForm({ ...form, duration_minutes: Number(e.target.value) })}
+                        />
+                        <span>min</span>
+                      </div>
+                    </label>
+
+                    <label style={{ display: "grid", gap: 6 }}>
+                      <strong>Tarif</strong>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input
+                          type="number"
+                          className="input"
+                          value={form.price_euros}
+                          onChange={(e) => setForm({ ...form, price_euros: Number(e.target.value) })}
+                        />
+                        <span>€</span>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <Button onClick={save} disabled={saving}>
+                      {saving
+                        ? "Enregistrement…"
+                        : isOnboarding
+                        ? "Continuer"
+                        : editingId
+                        ? "Mettre à jour le service"
+                        : "Ajouter le service"}
+                    </Button>
+
+                    {!isOnboarding && editingId ? (
+                      <Button variant="secondary" onClick={resetForm}>
+                        Annuler
+                      </Button>
+                    ) : null}
+                  </div>
+
+                  {status ? <p style={{ marginTop: 6 }}>{status}</p> : null}
+                </div>
+              </section>
+
+              {!isOnboarding && products.length > 0 && (
+                <section style={{ marginTop: 28 }}>
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {products.map((p) => (
+                      <div
+                        key={p.id}
+                        style={{
+                          border: "1px solid #eee",
+                          borderRadius: 14,
+                          padding: 16,
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          opacity: p.active === false ? 0.55 : 1,
+                        }}
+                      >
+                        <div>
+                          <strong>{p.title}</strong>
+                          <div style={{ opacity: 0.8, marginTop: 4 }}>
+                            {p.duration_minutes} min — {p.price_cents != null ? `${p.price_cents / 100} €` : "—"}
+                          </div>
+                          {p.description && <p style={{ marginTop: 8 }}>{p.description}</p>}
+                        </div>
+
+                        <div style={{ display: "flex", gap: 8, alignItems: "start", flexWrap: "wrap" }}>
+                          <Button variant="secondary" onClick={() => startEdit(p)}>
+                            Modifier
+                          </Button>
+
+                          <Button variant="secondary" onClick={() => toggleActive(p)}>
+                            {p.active === false ? "Activer" : "Désactiver"}
+                          </Button>
+
+                          <Button variant="secondary" onClick={() => deleteProduct(p.id)}>
+                            Supprimer
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
+          )}
+
+          {!isOnboarding && (
+            <div className="pt-4 border-t">
+              <Button variant="secondary" onClick={() => router.push("/dashboard")}>
+                OK
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
     </Container>
-
   );
 }

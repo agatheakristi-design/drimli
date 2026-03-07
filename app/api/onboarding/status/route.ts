@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     // 1) Profil
     const { data: prof, error: profErr } = await supabaseAdmin
       .from("profiles")
-      .select("full_name, profession, city, description, stripe_account_id")
+      .select("first_name, last_name, full_name, profession, city, description, stripe_account_id")
       .eq("provider_id", userId)
       .maybeSingle();
 
@@ -37,10 +37,8 @@ export async function GET(req: Request) {
 
     const profileComplete =
       !!prof &&
-      isFilled(prof.full_name) &&
-      isFilled(prof.profession) &&
-      isFilled(prof.city) &&
-      isFilled(prof.description);
+      isFilled(prof.first_name) &&
+      isFilled(prof.last_name);
 
     // 2) Paiement (stable)
     const paymentComplete = !!prof?.stripe_account_id;

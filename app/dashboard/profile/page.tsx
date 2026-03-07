@@ -6,20 +6,24 @@ import { supabase } from "@/lib/supabaseClient";
 import Button from "@/app/components/ui/Button";
 
 type ProfileForm = {
-  full_name: string;
-  profession: string;
-  city: string;
+  first_name: string;
+  last_name: string;
   address: string;
+  city: string;
   country: string;
   siret: string;
-  description: string;
-  contact_whatsapp: string;
+  vat_number: string;
+  phone: string;
 };
 
 type ProfileRow = ProfileForm & {
   provider_id: string;
-  stripe_account_id: string | null;
-  avatar_url?: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
+type OnboardingStatus = {
+  accountReady: boolean;
 };
 
 export default function ProfilePage() {
@@ -31,19 +35,18 @@ export default function ProfilePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [status, setStatus] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
-  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
-  const [hasProfile, setHasProfile] = useState<boolean | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isOnboardingMode, setIsOnboardingMode] = useState(true);
 
   const [form, setForm] = useState<ProfileForm>({
-    full_name: "",
-    profession: "",
-    city: "",
+    first_name: "",
+    last_name: "",
     address: "",
+    city: "",
     country: "",
     siret: "",
-    description: "",
-    contact_whatsapp: "",
+    vat_number: "",
+    phone: "",
   });
 
   useEffect(() => {
@@ -52,20 +55,21 @@ export default function ProfilePage() {
         setStatus("");
 
         const { data: userData } = await supabase.auth.getUser();
-        if (!userData.user) {
+        const user = userData.user;
+
+        if (!user) {
           setLoading(false);
           return;
         }
 
-        const uid = userData.user.id;
-        setUserId(uid);
+        setUserId(user.id);
 
         const { data, error } = await supabase
           .from("profiles")
           .select(
-            "provider_id, full_name, profession, city, address, country, siret, description, contact_whatsapp, stripe_account_id, avatar_url"
+            "provider_id, full_name, first_name, last_name, address, city, country, siret, vat_number, phone, avatar_url"
           )
-          .eq("provider_id", uid)
+          .eq("provider_id", user.id)
           .maybeSingle<ProfileRow>();
 
         if (error) {
@@ -74,21 +78,33 @@ export default function ProfilePage() {
           return;
         }
 
-        setHasProfile(!!data);
-
         if (data) {
-          setStripeAccountId(data.stripe_account_id ?? null);
           setAvatarUrl(data.avatar_url ?? null);
           setForm({
-            full_name: data.full_name ?? "",
-            profession: data.profession ?? "",
-            city: data.city ?? "",
+            first_name: data.first_name ?? "",
+            last_name: data.last_name ?? "",
             address: data.address ?? "",
+            city: data.city ?? "",
             country: data.country ?? "",
             siret: data.siret ?? "",
-            description: data.description ?? "",
-            contact_whatsapp: data.contact_whatsapp ?? "",
+            vat_number: data.vat_number ?? "",
+            phone: data.phone ?? "",
           });
+        }
+
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token;
+
+        if (token) {
+          const r = await fetch("/api/onboarding/status", {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          });
+
+          if (r.ok) {
+            const j = (await r.json()) as OnboardingStatus;
+            setIsOnboardingMode(!j.accountReady);
+          }
         }
 
         setLoading(false);
@@ -122,12 +138,17 @@ export default function ProfilePage() {
       const { data } = supabase.storage.from("drimli-public").getPublicUrl(path);
       const publicUrl = data.publicUrl;
 
+      const fullName = `${form.first_name} ${form.last_name}`.trim();
+
       const { error: saveErr } = await supabase
         .from("profiles")
         .upsert(
           {
             provider_id: userId,
             avatar_url: publicUrl,
+            first_name: form.first_name,
+            last_name: form.last_name,
+            full_name: fullName,
           },
           { onConflict: "provider_id" }
         );
@@ -150,38 +171,32 @@ export default function ProfilePage() {
   async function saveProfile() {
     setStatus("");
 
-    if (
-      !form.full_name.trim() ||
-      !form.profession.trim() ||
-      !form.city.trim() ||
-      !form.description.trim() ||
-      !form.contact_whatsapp.trim()
-    ) {
-      setStatus("Merci de compléter tous les champs obligatoires.");
-      return;
-    }
-
     if (!userId) return;
+    if (!form.first_name.trim()) return setStatus("Merci de renseigner votre prénom.");
+    if (!form.last_name.trim()) return setStatus("Merci de renseigner votre nom.");
 
     setSaving(true);
 
     try {
+      const fullName = `${form.first_name} ${form.last_name}`.trim();
+
       const payload = {
         provider_id: userId,
-        slug: form.full_name
+        slug: fullName
           .toLowerCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/(^-|-$)/g, ""),
-        full_name: form.full_name,
-        profession: form.profession,
-        city: form.city,
+        first_name: form.first_name,
+        last_name: form.last_name,
+        full_name: fullName,
         address: form.address,
+        city: form.city,
         country: form.country,
         siret: form.siret,
-        description: form.description,
-        contact_whatsapp: form.contact_whatsapp,
+        vat_number: form.vat_number,
+        phone: form.phone,
       };
 
       const { error } = await supabase.from("profiles").upsert(payload, {
@@ -196,8 +211,8 @@ export default function ProfilePage() {
 
       setSaving(false);
 
-      if (!stripeAccountId) {
-        router.push("/paiements");
+      if (isOnboardingMode) {
+        router.push("/dashboard/services");
       } else {
         router.push("/dashboard");
       }
@@ -212,8 +227,14 @@ export default function ProfilePage() {
   return (
     <main style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
       <h1 style={{ fontSize: 24, fontWeight: 800 }}>
-        {hasProfile === true ? "Modifier mon profil" : "Créer mon profil"}
+        {isOnboardingMode ? "Compléter mes informations" : "Mes informations"}
       </h1>
+
+      {isOnboardingMode ? (
+        <p style={{ marginTop: 8, opacity: 0.8 }}>
+          Vous pourrez compléter plus tard.
+        </p>
+      ) : null}
 
       <div style={{ marginTop: 16, marginBottom: 10 }}>
         <button
@@ -258,96 +279,87 @@ export default function ProfilePage() {
         />
 
         <p style={{ marginTop: 8, opacity: 0.75, fontSize: 14 }}>
-          {uploadingPhoto
-            ? "Upload en cours..."
-            : "Ajoute ta photo. Tu pourras la modifier plus tard."}
+          {uploadingPhoto ? "Upload en cours..." : "Ajoutez votre photo si vous le souhaitez."}
         </p>
       </div>
 
-      <p style={{ marginTop: 8, opacity: 0.85 }}>Ces infos créent ta page publique.</p>
-
-      {status && <p style={{ marginTop: 10 }}>{status}</p>}
+      {status ? <p style={{ marginTop: 10 }}>{status}</p> : null}
 
       <section style={{ marginTop: 18, display: "grid", gap: 10 }}>
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Nom complet *</span>
+          <span>Prénom</span>
           <input
-            value={form.full_name}
-            onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
-            style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
+            className="input"
+            value={form.first_name}
+            onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
           />
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Profession *</span>
+          <span>Nom</span>
           <input
-            value={form.profession}
-            onChange={(e) => setForm((f) => ({ ...f, profession: e.target.value }))}
-            style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
-          />
-        </label>
-
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Ville *</span>
-          <input
-            value={form.city}
-            onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-            style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
+            className="input"
+            value={form.last_name}
+            onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
           />
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
           <span>Adresse</span>
           <input
+            className="input"
             value={form.address}
             onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-            style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Ville</span>
+          <input
+            className="input"
+            value={form.city}
+            onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
           />
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
           <span>Pays</span>
           <input
+            className="input"
             value={form.country}
             onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
-            style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
           />
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
           <span>Siret</span>
           <input
+            className="input"
             value={form.siret}
             onChange={(e) => setForm((f) => ({ ...f, siret: e.target.value }))}
-            style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
           />
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Description *</span>
-          <textarea
-            value={form.description}
-            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            rows={4}
-            style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
-          />
-        </label>
-
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Numéro WhatsApp (format international, ex: +33612345678) *</span>
+          <span>TVA intracommunautaire</span>
           <input
-            value={form.contact_whatsapp}
-            onChange={(e) => setForm((f) => ({ ...f, contact_whatsapp: e.target.value }))}
-            style={{ padding: 10, borderRadius: 10, border: "1px solid #ddd" }}
+            className="input"
+            value={form.vat_number}
+            onChange={(e) => setForm((f) => ({ ...f, vat_number: e.target.value }))}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Téléphone</span>
+          <input
+            className="input"
+            value={form.phone}
+            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
           />
         </label>
 
         <Button onClick={saveProfile} disabled={saving} className="w-full">
-          {saving
-            ? "Enregistrement…"
-            : hasProfile === true
-            ? "Enregistrer les modifications"
-            : "Valider mon profil"}
+          {saving ? "Enregistrement…" : isOnboardingMode ? "Continuer" : "Enregistrer les modifications"}
         </Button>
       </section>
     </main>
