@@ -20,7 +20,7 @@ export default function Home() {
     </a>
 
     <a
-      href="/login"
+      href="/signup"
       className="bg-primary text-primary-foreground px-5 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition"
     >
       Create account
@@ -72,7 +72,7 @@ export default function Home() {
                 </div>
 
                 <a
-                  href="/login"
+                  href="/signup"
                   className="block w-full bg-primary text-primary-foreground rounded-xl py-3 font-semibold hover:opacity-90 transition"
                 >
                   Create my account
@@ -220,7 +220,7 @@ export default function Home() {
 
       {/* CTA */}
       <section className="mt-10 text-center">
-        <Link href="/login">
+        <Link href="/signup">
           <Button size="md" className="px-8 h-11">
             Je crée mon compte
           </Button>

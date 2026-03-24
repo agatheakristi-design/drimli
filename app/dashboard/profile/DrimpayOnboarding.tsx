@@ -33,7 +33,6 @@ export default function DrimpayOnboarding({
           return;
         }
 
-        // 1) Dépose le token en cookie httpOnly côté serveur
         const r1 = await fetch("/api/auth/set-cookie", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -46,7 +45,6 @@ export default function DrimpayOnboarding({
           return;
         }
 
-        // 2) Appelle account-session (il lira le cookie)
         const res = await fetch("/api/drimpay/account-session", { method: "POST" });
         const json = await res.json().catch(() => null);
 
@@ -55,14 +53,13 @@ export default function DrimpayOnboarding({
           return;
         }
 
-        // Cas: pas encore activé → on affiche un message clair + bouton retour
         if (json?.activated === false) {
-          setError("Drimpay n'est pas encore activé sur ce compte.");
+          setError("Vos paiements ne sont pas encore activés sur ce compte.");
           return;
         }
 
         if (!json?.client_secret) {
-          setError(json?.error || "Impossible de démarrer l’onboarding Drimpay.");
+          setError(json?.error || "Impossible de démarrer l’onboarding des paiements.");
           return;
         }
 
@@ -72,9 +69,20 @@ export default function DrimpayOnboarding({
           return;
         }
 
+        const primaryColor =
+          typeof window !== "undefined"
+            ? getComputedStyle(document.documentElement).getPropertyValue("--primary").trim() || "#4F6F52"
+            : "#4F6F52";
+
         const instance = await loadConnectAndInitialize({
           publishableKey,
           fetchClientSecret: async () => json.client_secret,
+          appearance: {
+            variables: {
+              colorPrimary: primaryColor,
+            },
+          },
+          locale: "fr-FR",
         });
 
         if (!cancelled) setConnectInstance(instance);
@@ -88,7 +96,6 @@ export default function DrimpayOnboarding({
     };
   }, [retryKey]);
 
-  // ✅ ERREUR : on donne toujours une sortie + retry
   if (error) {
     return (
       <div className="space-y-3">
@@ -103,12 +110,16 @@ export default function DrimpayOnboarding({
     );
   }
 
-  if (!connectInstance) return <p>Chargement de Drimpay…</p>;
+  if (!connectInstance) return <p>Chargement des paiements…</p>;
 
   return (
     <div className="mt-3">
       <ConnectComponentsProvider connectInstance={connectInstance}>
-        <ConnectAccountOnboarding onExit={() => onDone?.()} />
+        <ConnectAccountOnboarding
+          onExit={() => {
+            onDone?.();
+          }}
+        />
       </ConnectComponentsProvider>
     </div>
   );

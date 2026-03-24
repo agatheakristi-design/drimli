@@ -101,16 +101,13 @@ export default function OnboardingPage() {
     );
   }
 
-  // ✅ La prochaine étape non remplie (sans choix)
   const next =
     !status?.profileComplete
       ? "/dashboard/profile"
-      : !status?.paymentComplete
-      ? "/paiements"
       : !status?.servicesComplete
       ? "/dashboard/services"
-      : !status?.availabilityComplete
-      ? "/dashboard/disponibilites"
+      : !status?.paymentComplete
+      ? "/paiements"
       : "/dashboard";
 
   return (
@@ -150,12 +147,7 @@ export default function OnboardingPage() {
                 <StepLine
                   ok={status.profileComplete}
                   title="Profil"
-                  desc="Infos publiques (nom, profession, ville, description)."
-                />
-                <StepLine
-                  ok={status.paymentComplete}
-                  title="Paiement"
-                  desc="Active DrimPay pour recevoir des paiements."
+                  desc="Complète les informations essentielles de ton compte."
                 />
                 <StepLine
                   ok={status.servicesComplete}
@@ -163,9 +155,9 @@ export default function OnboardingPage() {
                   desc="Crée au moins un service réservable."
                 />
                 <StepLine
-                  ok={status.availabilityComplete}
-                  title="Disponibilités"
-                  desc="Définis tes créneaux et absences."
+                  ok={status.paymentComplete}
+                  title="Paiements"
+                  desc="Active vos paiements pour recevoir de l’argent."
                 />
               </div>
             </>

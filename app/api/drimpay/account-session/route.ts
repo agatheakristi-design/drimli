@@ -11,8 +11,7 @@ function requireEnv(name: string): string {
   return v;
 }
 
-const stripe = new Stripe(requireEnv("STRIPE_SECRET_KEY"), {
-});
+const stripe = new Stripe(requireEnv("STRIPE_SECRET_KEY"));
 
 const supabaseAdmin = createClient(
   requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
@@ -35,7 +34,6 @@ export async function POST() {
       );
     }
 
-    // 1) On vérifie l'utilisateur depuis le token Supabase
     const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(token);
     if (userErr || !userData.user) {
       return NextResponse.json(
@@ -46,7 +44,6 @@ export async function POST() {
 
     const providerId = userData.user.id;
 
-    // 2) Charger le profil
     const { data: prof, error: profErr } = await supabaseAdmin
       .from("profiles")
       .select("provider_id, stripe_account_id")
@@ -57,7 +54,6 @@ export async function POST() {
       return NextResponse.json({ error: profErr.message }, { status: 400 });
     }
 
-    // Si pas de ligne profile, on la crée minimalement (MVP)
     if (!prof) {
       const { error: insErr } = await supabaseAdmin.from("profiles").insert({
         provider_id: providerId,
@@ -69,7 +65,6 @@ export async function POST() {
       }
     }
 
-    // 3) Créer ou réutiliser le compte Stripe Connect
     let stripeAccountId = prof?.stripe_account_id ?? null;
 
     if (!stripeAccountId) {
@@ -101,7 +96,6 @@ export async function POST() {
       }
     }
 
-    // 4) Créer une Account Session (Stripe Connect Embedded Components)
     const session = await stripe.accountSessions.create({
       account: stripeAccountId,
       components: {

@@ -91,7 +91,7 @@ export default function SignupPage() {
         return;
       }
 
-      router.replace("/dashboard/profile");
+      router.replace("/dashboard/services");
     } catch (e: any) {
       setStatus("Erreur inattendue : " + (e?.message || "unknown"));
       setLoading(false);
