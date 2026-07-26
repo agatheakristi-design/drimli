@@ -78,7 +78,15 @@ export async function POST(req: Request) {
     const feeCents = Math.round(amount * 0.10);
     const feeVatRate = "0"; // MVP TVA commission = 0
 
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+const appUrl = (
+
+  process.env.NEXT_PUBLIC_APP_URL ||
+
+  process.env.NEXT_PUBLIC_SITE_URL ||
+
+  "http://localhost:3000"
+
+).replace(/\/$/, "");
 
     // 5) Create Checkout Session (Stripe Connect destination charge + fee)
     const session = await stripe.checkout.sessions.create({
