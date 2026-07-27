@@ -48,7 +48,10 @@ async function generatePatientInvoicePdf(params: {
   issuedAtIso: string;
 }) {
   // Lazy import to keep startup light
-  const { chromium } = await import("playwright");
+  const [{ default: chromium }, { chromium: playwrightChromium }] = await Promise.all([
+    import("@sparticuz/chromium"),
+    import("playwright-core"),
+  ]);
 
   const vatRate = Number.isFinite(params.providerVatRate) ? params.providerVatRate : 0;
   const ttc = params.serviceTtcCents / 100;
@@ -144,7 +147,11 @@ async function generatePatientInvoicePdf(params: {
 </body>
 </html>`;
 
-  const browser = await chromium.launch();
+  const browser = await playwrightChromium.launch({
+    args: chromium.args,
+    executablePath: await chromium.executablePath(),
+    headless: true,
+  });
   const page = await browser.newPage();
   await page.setContent(html, { waitUntil: "load" });
   const pdfBuffer = await page.pdf({
