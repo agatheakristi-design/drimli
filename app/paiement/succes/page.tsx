@@ -86,17 +86,13 @@ function PaiementSuccesContent() {
           <div className="space-y-3">
             <h1 className="text-2xl font-black">Votre rendez-vous est confirmé</h1>
             <p className="text-muted-foreground">
-              Vous pourrez retrouver votre salle d’attente à tout moment avec le lien reçu par email.
+              Un email de confirmation vient de vous être envoyé.
+              Il contient toutes les informations utiles concernant votre rendez-vous.
             </p>
 
-            <Button
-              onClick={() => {
-                if (joinToken) router.replace(`/attente/${joinToken}`);
-              }}
-              disabled={!joinToken}
-            >
-              Entrer dans la salle d’attente
-            </Button>
+            <p className="text-sm text-muted-foreground">
+              Conservez cet email. Il vous permettra d’accéder facilement à votre rendez-vous le moment venu.
+            </p>
 
             <button
               className="text-sm underline text-muted-foreground"

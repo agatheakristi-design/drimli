@@ -232,7 +232,7 @@ export async function POST(req: Request) {
     // 1) Charger appointment
     const { data: appt, error: apptErr } = await supabaseAdmin
       .from("appointments")
-      .select("id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, join_token, confirmation_email_sent_at")
+      .select("id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, join_token, confirmation_email_sent_at, video_provider, video_join_url")
       .eq("id", appointmentId)
       .maybeSingle();
 
@@ -456,7 +456,6 @@ export async function POST(req: Request) {
       // On envoie seulement si on a pris le lock
       if (lockRow?.id) {
         const manageUrl = `${APP_URL}/rendez-vous/${encodeURIComponent(appt.join_token)}`;
-        const waitingRoomUrl = `${APP_URL}/attente/${encodeURIComponent(appt.join_token)}`;
 
         try {
           await sendAppointmentConfirmationEmail({
@@ -466,7 +465,9 @@ export async function POST(req: Request) {
             serviceTitle,
             startDateTimeIso: new Date(appt.start_datetime).toISOString(),
             manageUrl,
-            });
+            videoProvider: appt.video_provider,
+            videoJoinUrl: appt.video_join_url,
+          });
         } catch (e: any) {
           console.error("Email send failed:", e?.message || e);
         }

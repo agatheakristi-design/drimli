@@ -23,8 +23,9 @@ export type AppointmentEmailPayload = {
   providerName: string;
   serviceTitle: string;
   startDateTimeIso: string; // ISO
-  manageUrl: string; // lien /rendez-vous?token=...
-  waitingRoomUrl?: string; // (legacy) lien /attente/<token>
+  manageUrl: string; // point d'entrée du rendez-vous
+  videoProvider?: string | null;
+  videoJoinUrl?: string | null;
 };
 
 export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayload) {
@@ -34,7 +35,14 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
     ? `Bonjour ${p.patientName.trim()},`
     : `Bonjour,`;
 
-  const joinUrl = p.waitingRoomUrl || p.manageUrl;
+  const joinUrl = p.videoProvider === "google_meet" && p.videoJoinUrl ? p.videoJoinUrl : p.manageUrl;
+
+  const actionLabel =
+    p.videoProvider === "google_meet"
+      ? "Rejoindre la visio"
+      : p.videoProvider === "whatsapp"
+      ? "Accéder à la salle d'attente"
+      : "Voir les informations du rendez-vous";
 
   // Email simple (on fera joli après). Pas de CSS, compatible partout.
   const text = [
@@ -46,7 +54,7 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
     `Prestation : ${p.serviceTitle}`,
     `Date/heure : ${new Date(p.startDateTimeIso).toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`,
     "",
-    "Le jour du rendez-vous, cliquez simplement sur ce lien :",
+    "Le jour de votre rendez-vous, utilisez le lien ci-dessous pour accéder aux informations correspondantes :",
     joinUrl,
     "",
     "Lien de secours à copier :",
@@ -67,14 +75,13 @@ const html = `
     </p>
 
     <p>
-      Le jour du rendez-vous, cliquez simplement sur le bouton ci-dessous.<br/>
-      Drimli vous guidera automatiquement.
+      Le jour de votre rendez-vous, cliquez simplement sur le bouton ci-dessous pour accéder aux informations correspondantes.
     </p>
 
     <p style="margin: 16px 0;">
       <a href="${joinUrl}"
          style="display:inline-block; padding:12px 16px; background:#111; color:#fff; text-decoration:none; border-radius:12px; font-weight:700;">
-        Accéder à mon rendez-vous
+        ${escapeHtml(actionLabel)}
       </a>
     </p>
 
