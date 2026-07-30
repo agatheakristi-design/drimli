@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Container from "@/app/components/ui/Container";
+import type { VideoProvider } from "@/lib/video/types";
 import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
 
@@ -14,6 +15,9 @@ type AppointmentRow = {
   start_datetime: string | null;
   end_datetime: string | null;
   provider_id: string | null;
+  video_provider: VideoProvider;
+  video_join_url: string | null;
+  video_room_id: string | null;
 };
 
 type ProfileRow = {
@@ -66,7 +70,7 @@ export default function RendezVousTokenPage() {
 
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, join_token, status, start_datetime, end_datetime, provider_id")
+        .select("id, join_token, status, start_datetime, end_datetime, provider_id, video_provider, video_join_url, video_room_id")
         .eq("join_token", token)
         .maybeSingle<AppointmentRow>();
 
@@ -146,8 +150,13 @@ export default function RendezVousTokenPage() {
             </p>
           </div>
 
-          <Button onClick={() => router.push(`/attente/${encodeURIComponent(token)}`)}>
-            Entrer dans la salle d’attente
+          <Button
+            onClick={() => {
+              if (!appointment?.id) return;
+              router.push(`/appointments/${appointment.id}/join`);
+            }}
+          >
+            Rejoindre la consultation
           </Button>
 
           <p className="text-xs text-muted-foreground">

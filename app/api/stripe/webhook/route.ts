@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendAppointmentConfirmationEmail } from "@/lib/email";
+import { createGoogleMeetAppointment } from "@/lib/googleCalendar";
 
 export const runtime = "nodejs";
 
@@ -231,7 +232,7 @@ export async function POST(req: Request) {
     // 1) Charger appointment
     const { data: appt, error: apptErr } = await supabaseAdmin
       .from("appointments")
-      .select("id, provider_id, product_id, client_name, client_email, start_datetime, status, join_token, confirmation_email_sent_at")
+      .select("id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, join_token, confirmation_email_sent_at")
       .eq("id", appointmentId)
       .maybeSingle();
 
@@ -266,12 +267,39 @@ export async function POST(req: Request) {
       }
     }
 
+    // 2.5) Créer le rendez-vous Google Meet si le professionnel est connecté
+    try {
+      if (
+        appt.start_datetime &&
+        (appt as any).end_datetime
+      ) {
+        const meeting = await createGoogleMeetAppointment({
+          providerId: appt.provider_id,
+          title: "Rendez-vous Drimli",
+          start: new Date(appt.start_datetime).toISOString(),
+          end: new Date((appt as any).end_datetime).toISOString(),
+          attendeeEmail: appt.client_email,
+        });
+
+        await supabaseAdmin
+          .from("appointments")
+          .update({
+            video_provider: "google_meet",
+            video_join_url: meeting.hangoutLink,
+            video_room_id: meeting.eventId,
+          })
+          .eq("id", appt.id);
+      }
+    } catch (e: any) {
+      console.error("Google Meet creation failed:", e?.message || e);
+    }
+
     // 3) Charger infos pro + service
 
     const [{ data: prof, error: profErr }, { data: prod, error: prodErr }] = await Promise.all([
       supabaseAdmin
         .from("profiles")
-        .select("full_name")
+        .select("full_name, consultation_type, contact_whatsapp")
         .eq("provider_id", appt.provider_id)
         .maybeSingle(),
       supabaseAdmin
