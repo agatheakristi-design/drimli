@@ -49,7 +49,10 @@ export default function TaskList() {
           <ChevronRight className={styles.taskArrow} size={18} />
         </Link>
 
-        <button type="button" className={styles.taskRow}>
+        <Link
+          href="/dashboard/profile/media"
+          className={styles.taskRow}
+        >
           <span className={styles.taskIcon}>
             <Camera size={16} />
           </span>
@@ -60,7 +63,7 @@ export default function TaskList() {
           </span>
 
           <ChevronRight className={styles.taskArrow} size={18} />
-        </button>
+        </Link>
 
       </div>
     </section>
