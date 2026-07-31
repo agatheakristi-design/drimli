@@ -24,6 +24,8 @@ export type AppointmentEmailPayload = {
   serviceTitle: string;
   startDateTimeIso: string; // ISO
   manageUrl: string; // point d'entrée du rendez-vous
+  consultationType?: string | null;
+  address?: string | null;
   videoProvider?: string | null;
   videoJoinUrl?: string | null;
 };
@@ -35,14 +37,12 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
     ? `Bonjour ${p.patientName.trim()},`
     : `Bonjour,`;
 
-  const joinUrl = p.videoProvider === "google_meet" && p.videoJoinUrl ? p.videoJoinUrl : p.manageUrl;
+  const joinUrl = p.videoJoinUrl ?? p.manageUrl;
 
-  const actionLabel =
-    p.videoProvider === "google_meet"
-      ? "Rejoindre la visio"
-      : p.videoProvider === "whatsapp"
-      ? "Accéder à la salle d'attente"
-      : "Voir les informations du rendez-vous";
+  const isMeet = p.videoProvider === "google_meet";
+  const isWhatsapp = p.consultationType === "whatsapp";
+  const isPhone = p.consultationType === "phone";
+  const isOffice = p.consultationType === "office";
 
   // Email simple (on fera joli après). Pas de CSS, compatible partout.
   const text = [
@@ -54,11 +54,16 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
     `Prestation : ${p.serviceTitle}`,
     `Date/heure : ${new Date(p.startDateTimeIso).toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`,
     "",
-    "Le jour de votre rendez-vous, utilisez le lien ci-dessous pour accéder aux informations correspondantes :",
-    joinUrl,
-    "",
-    "Lien de secours à copier :",
-    joinUrl,
+    isMeet
+      ? "Cliquez sur le lien ci-dessous pour rejoindre votre visioconférence Google Meet :"
+      : isWhatsapp
+      ? "Le professionnel vous contactera sur WhatsApp à l'heure du rendez-vous."
+      : isPhone
+      ? "Le professionnel vous appellera à l'heure du rendez-vous."
+      : `Adresse : ${p.address ?? "À confirmer par le professionnel."}`,
+    ...(isMeet
+      ? ["", joinUrl, "", "Lien de secours à copier :", joinUrl]
+      : []),
     "",
     "—",
     "Drimli",
@@ -74,21 +79,28 @@ const html = `
       <strong>Date/heure :</strong> ${escapeHtml(new Date(p.startDateTimeIso).toLocaleString("fr-FR", { timeZone: "Europe/Paris" }))}<br/>
     </p>
 
-    <p>
-      Le jour de votre rendez-vous, cliquez simplement sur le bouton ci-dessous pour accéder aux informations correspondantes.
-    </p>
+    ${
+      isMeet
+        ? `
+    <p>Cliquez sur le bouton ci-dessous pour rejoindre votre visioconférence Google Meet.</p>
 
-    <p style="margin: 16px 0;">
+    <p style="margin:16px 0;">
       <a href="${joinUrl}"
-         style="display:inline-block; padding:12px 16px; background:#111; color:#fff; text-decoration:none; border-radius:12px; font-weight:700;">
-        ${escapeHtml(actionLabel)}
+         style="display:inline-block;padding:12px 16px;background:#111;color:#fff;text-decoration:none;border-radius:12px;font-weight:700;">
+        Rejoindre la visio
       </a>
     </p>
 
-    <p style="font-size: 13px; opacity: 0.75;">
-      Lien de secours à copier dans votre navigateur :<br/>
-      <a href="${joinUrl}">${p.manageUrl}</a>
-    </p>
+    <p style="font-size:13px;opacity:.75;">
+      Lien de secours :<br/>
+      <a href="${joinUrl}">${joinUrl}</a>
+    </p>`
+        : isWhatsapp
+        ? `<p>Le professionnel vous contactera sur <strong>WhatsApp</strong> à l'heure du rendez-vous.</p>`
+        : isPhone
+        ? `<p>Le professionnel vous appellera à l'heure du rendez-vous.</p>`
+        : `<p><strong>Adresse :</strong><br/>${escapeHtml(p.address ?? "À confirmer par le professionnel.")}</p>`
+    }
 
     <p style="opacity:0.7;">—<br/>Drimli</p>
   </div>

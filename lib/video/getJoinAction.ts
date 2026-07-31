@@ -10,11 +10,11 @@ export type AppointmentVideoFields = {
 export function getJoinAction(appt: AppointmentVideoFields): JoinAction {
   switch (appt.videoProvider) {
     case "google_meet":
-    case "whatsapp": {
-      const url = (appt.videoJoinUrl ?? "").trim();
-      if (!url) return { kind: "none" };
-      return { kind: "redirect", url };
-    }
+    case "whatsapp":
+      return {
+        kind: "message",
+        text: "Le professionnel vous contactera sur WhatsApp à l'heure du rendez-vous.",
+      };
 
     case "phone":
       return {

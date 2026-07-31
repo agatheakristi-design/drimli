@@ -1,0 +1,291 @@
+.screen {
+  min-height: 100svh;
+  background:
+    radial-gradient(
+      circle at 50% 16%,
+      rgb(0 0 0 / 1.8%),
+      transparent 34%
+    ),
+    var(--card);
+  color: var(--foreground);
+}
+
+.page {
+  min-height: 100svh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  padding: 28px 34px 34px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+}
+
+.logoLink {
+  display: inline-flex;
+  color: inherit;
+  text-decoration: none;
+  opacity: 0;
+  animation: fade-in 500ms ease 80ms forwards;
+}
+
+.logo {
+  font-size: 24px;
+  line-height: 0.96;
+}
+
+.main {
+  display: grid;
+  place-items: center;
+  padding: 56px 0 72px;
+}
+
+.content {
+  width: min(100%, 620px);
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(46px, 5.4vw, 68px);
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(14px);
+  animation: rise-in 700ms cubic-bezier(0.22, 1, 0.36, 1) 120ms forwards;
+}
+
+.intro {
+  margin: 18px auto 0;
+  color: var(--muted-foreground);
+  font-size: 15px;
+  line-height: 1.5;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: rise-in 650ms cubic-bezier(0.22, 1, 0.36, 1) 210ms forwards;
+}
+
+.formCard {
+  margin-top: 42px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  box-shadow:
+    0 24px 70px rgb(0 0 0 / 5.5%),
+    0 2px 8px rgb(0 0 0 / 2.5%);
+  backdrop-filter: blur(18px);
+  opacity: 0;
+  transform: translateY(12px);
+  animation: rise-in 700ms cubic-bezier(0.22, 1, 0.36, 1) 300ms forwards;
+}
+
+.field {
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.label {
+  display: block;
+  margin: 0 0 7px 4px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.control {
+  width: 100%;
+  height: 56px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 17px;
+  background: var(--muted);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.control:hover {
+  background: color-mix(in srgb, var(--muted) 88%, var(--foreground));
+}
+
+.control:focus {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: 0 0 0 4px rgb(17 17 17 / 3.5%);
+}
+
+.control::placeholder {
+  color: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
+}
+
+.select {
+  appearance: none;
+  padding-right: 40px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 24px,
+    calc(100% - 13px) 24px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.priceWrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 8px;
+}
+
+.priceInput {
+  min-width: 0;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.priceInput::-webkit-inner-spin-button,
+.priceInput::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.currencySelect {
+  padding-left: 14px;
+  padding-right: 32px;
+  font-weight: 600;
+}
+
+.submitButton {
+  width: 100%;
+  min-height: 58px;
+  margin-top: 14px;
+  border-radius: 17px;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 12%);
+}
+
+.submitButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgb(0 0 0 / 16%);
+}
+
+.note {
+  margin-top: 14px;
+  color: color-mix(in srgb, var(--muted-foreground) 65%, transparent);
+  font-size: 11px;
+  opacity: 0;
+  animation: fade-in 500ms ease 520ms forwards;
+}
+
+.feedback {
+  margin: 14px 4px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.error {
+  color: var(--destructive);
+}
+
+@keyframes rise-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 22px 18px 24px;
+  }
+
+  .main {
+    padding: 42px 0 52px;
+  }
+
+  .title {
+    font-size: clamp(42px, 12vw, 56px);
+  }
+
+  .intro {
+    margin-top: 14px;
+    font-size: 14px;
+  }
+
+  .formCard {
+    margin-top: 34px;
+    padding: 14px;
+    border-radius: 24px;
+  }
+
+  .fieldRow {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logoLink,
+  .title,
+  .intro,
+  .formCard,
+  .note {
+    animation-duration: 0.01ms;
+    animation-delay: 0ms;
+  }
+
+  .control,
+  .submitButton {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* Ajustement final fidèle au prototype */
+.formCard .control {
+  min-height: 56px;
+  padding: 0 18px;
+  border: 1px solid #e5e5e7;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.formCard .label {
+  margin: 0 0 8px 2px;
+  color: #6b6b73;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.formCard .field {
+  margin-bottom: 24px;
+}
+
+.formCard .fieldRow {
+  gap: 12px;
+}
+
+.formCard .fieldRow .field {
+  margin-bottom: 0;
+}

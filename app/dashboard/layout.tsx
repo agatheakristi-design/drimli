@@ -9,26 +9,25 @@ import DashboardGate from "@/app/components/DashboardGate";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-
   const isMainDashboard = pathname === "/dashboard";
+
+  if (isMainDashboard) {
+    return <DashboardGate>{children}</DashboardGate>;
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Container>
         <div className="py-8">
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
-
-            {/* Flèche uniquement si on n'est PAS sur /dashboard */}
-            {!isMainDashboard && (
-              <div>
-                <Link
-                  href="/dashboard"
-                  className="inline-flex items-center text-muted-foreground hover:text-foreground transition"
-                >
-                  <CornerUpLeft className="w-6 h-6 dashboard-back-icon stroke-[1.5]" />
-                </Link>
-              </div>
-            )}
+          <div className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center text-muted-foreground transition hover:text-foreground"
+              >
+                <CornerUpLeft className="dashboard-back-icon h-6 w-6 stroke-[1.5]" />
+              </Link>
+            </div>
 
             <DashboardGate>{children}</DashboardGate>
           </div>

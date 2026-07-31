@@ -215,12 +215,6 @@ export default function RendezVousPage() {
 
                   <div className="flex items-center gap-2">
                     <Button
-                      onClick={() => router.push(`/attente/${a.access_token}`)}
-                      disabled={isCancelling || !a.access_token}
-                    >
-                      Rejoindre
-                    </Button>
-                    <Button
                       variant="danger"
                       onClick={() => cancelAppointment(a.id)}
                       disabled={isCancelling}

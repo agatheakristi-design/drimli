@@ -1,48 +1,53 @@
 "use client";
 
+import Link from "next/link";
 import { ButtonHTMLAttributes } from "react";
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+type BaseProps = {
   variant?: "primary" | "secondary" | "danger";
   size?: "sm" | "md";
+  className?: string;
+  children: React.ReactNode;
 };
 
-export default function Button({
-  variant = "primary",
-  size = "md",
-  disabled,
-  className = "",
-  children,
-  ...props
-}: ButtonProps) {
-  const base =
-    "inline-flex items-center justify-center select-none whitespace-nowrap " +
-    "rounded-lg font-semibold transition " +
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 " +
-    "disabled:opacity-60 disabled:cursor-not-allowed";
-
-  const sizes = {
-    sm: "h-9 px-3 text-sm",
-    md: "h-10 px-4 text-sm",
+type ButtonProps = BaseProps &
+  ButtonHTMLAttributes<HTMLButtonElement> & {
+    href?: never;
   };
 
-  const variants = {
-    primary:
-      "bg-primary text-primary-foreground border border-primary " +
-      "hover:opacity-95 active:opacity-90",
-    secondary:
-      "bg-card text-foreground border border-border " +
-      "hover:bg-muted active:bg-muted",
-    danger:
-      "bg-destructive text-destructive-foreground border border-destructive " +
-      "hover:opacity-95 active:opacity-90",
-  };
+type LinkProps = BaseProps & {
+  href: string;
+};
+
+type Props = ButtonProps | LinkProps;
+
+export default function Button(props: Props) {
+  const {
+    variant = "primary",
+    size = "md",
+    className = "",
+    children,
+  } = props;
+
+  const classes = [
+    "btn",
+    `btn-${size}`,
+    `btn-${variant}`,
+    className,
+  ].join(" ");
+
+  if ("href" in props && typeof props.href === "string") {
+    return (
+      <Link href={props.href} className={classes}>
+        {children}
+      </Link>
+    );
+  }
 
   return (
     <button
       {...props}
-      disabled={disabled}
-      className={[base, sizes[size], variants[variant], className].join(" ")}
+      className={classes}
     >
       {children}
     </button>

@@ -1,69 +1,46 @@
 @import "tailwindcss";
 
-/* Drimli — sobre, aéré, pro (fond ivoire) */
+/* =========================================================
+   1. DESIGN TOKENS — source unique du design Drimli
+   ========================================================= */
+
 :root {
-  /* Fond ivoire très léger (évite le "médical") */
+  /* Couleurs */
   --background: #fbfaf6;
   --foreground: #111827;
 
-  /* Surfaces */
   --card: #ffffff;
   --card-foreground: #111827;
 
-  /* UI neutrals */
   --muted: #f4f2ec;
   --muted-foreground: #6b7280;
-  --border: #e7e3da;
 
-  /* Brand (bleu doux, pro) */
-  --primary: #4F6F52;
+  --border: #e5e5e7;
+
+  --primary: #111111;
   --primary-foreground: #ffffff;
-.input {
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #ddd;
-  width: 100%;
-}
 
-.textarea {
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #ddd;
-  width: 100%;
-  resize: vertical;
-}
-  /* Feedback */
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
 
-  /* Arrondis cohérents */
+  /* Rayons */
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 18px;
+
+  /* Ombres */
+  --shadow-sm: 0 4px 14px rgb(0 0 0 / 6%);
+  --shadow-md: 0 12px 28px rgb(0 0 0 / 10%);
+
+  /* Contrôles */
+  --control-height: 48px;
+  --control-padding-x: 14px;
 }
 
-/* Dark mode (automatique selon le système) */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0b0b0c;
-    --foreground: #f2f2f3;
+/* =========================================================
+   2. TAILWIND V4 BRIDGE
+   ========================================================= */
 
-    --card: #111113;
-    --card-foreground: #f2f2f3;
-
-    --muted: #17171a;
-    --muted-foreground: #a1a1aa;
-    --border: #2a2a2f;
-
-    --primary: #4F6F52;
-    --primary-foreground: #0b0b0c;
-
-    --destructive: #ef4444;
-    --destructive-foreground: #0b0b0c;
-  }
-}
-
-/* Pont Tailwind v4: expose les tokens comme couleurs/classes */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -90,56 +67,221 @@
   --font-mono: var(--font-geist-mono);
 }
 
-html, body {
-  height: 100%;
+/* =========================================================
+   3. BASE HTML
+   ========================================================= */
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans, Arial, Helvetica, sans-serif);
 }
 
-/* Drimli – Config navigation (Profil / Services / Dashboard) */
-.config-nav{
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* =========================================================
+   4. FORM CONTROLS
+   ========================================================= */
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  color: var(--foreground);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.input,
+.select {
+  min-height: var(--control-height);
+  padding: 0 var(--control-padding-x);
+}
+
+.select {
+  appearance: none;
+}
+
+.textarea {
+  min-height: 120px;
+  padding: 12px var(--control-padding-x);
+  resize: vertical;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--muted-foreground);
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background: var(--muted);
+}
+
+/* =========================================================
+   5. BUTTONS
+   ========================================================= */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+  transition:
+    opacity 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.btn:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-sm {
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.btn-md {
+  min-height: 40px;
+  padding: 10px 16px;
+  font-size: 14px;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.btn-primary:active:not(:disabled) {
+  opacity: 0.86;
+  transform: translateY(1px);
+}
+
+.btn-secondary {
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.btn-danger {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+  border-color: var(--destructive);
+}
+
+.btn-danger:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+/* =========================================================
+   6. CARDS
+   ========================================================= */
+
+.card {
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-header {
+  margin-bottom: 16px;
+}
+
+.card-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.card-description {
+  margin: 4px 0 0;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.card-content {
+  min-width: 0;
+}
+
+.card-footer {
+  margin-top: 24px;
+}
+
+/* =========================================================
+   7. EXISTING GLOBAL UTILITIES
+   ========================================================= */
+
+.config-nav {
   display: grid;
   gap: 12px;
   padding-top: 16px;
-  border-top: 1px solid hsl(var(--border));
+  border-top: 1px solid var(--border);
 }
-@media (min-width: 640px){
-  .config-nav{
+
+@media (min-width: 640px) {
+  .config-nav {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
-.dashboard-back-icon { color: var(--dashboard-icon-color, #6b7280); }
 
-/* --- Global buttons (single source of truth) --- */
-.btn-primary{
-  background: var(--primary);
-  color: var(--primary-foreground);
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: opacity .15s ease;
+.dashboard-back-icon {
+  color: var(--muted-foreground);
 }
-.btn-primary:hover{ opacity: .9; }
-
-.btn-outline{
-  background: transparent;
-  color: var(--foreground);
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: opacity .15s ease, background .15s ease;
-}
-.btn-outline:hover{ opacity: .85; background: rgba(0,0,0,.02); }

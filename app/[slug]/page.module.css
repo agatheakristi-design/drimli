@@ -1,0 +1,116 @@
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+.hero {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+  margin-bottom: 48px;
+}
+
+.avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 9999px;
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.heroContent {
+  flex: 1;
+}
+
+.heroContent h1 {
+  margin: 0;
+  font-size: 2.25rem;
+  font-weight: 700;
+}
+
+.profession {
+  margin: 8px 0 0;
+  font-size: 1.1rem;
+  color: #374151;
+}
+
+.city {
+  margin: 6px 0 0;
+  color: #6b7280;
+}
+
+.description {
+  margin-top: 20px;
+  line-height: 1.7;
+  color: #374151;
+}
+
+.services h2 {
+  margin-bottom: 20px;
+  font-size: 1.6rem;
+}
+
+.empty {
+  color: #6b7280;
+}
+
+.list {
+  display: grid;
+  gap: 20px;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 24px;
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+  transform: translateY(-2px);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.card h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.meta {
+  margin-top: 8px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.cardDescription {
+  margin-top: 18px;
+  line-height: 1.6;
+  color: #4b5563;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cardHeader a {
+    width: 100%;
+    text-align: center;
+  }
+}

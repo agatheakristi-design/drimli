@@ -299,7 +299,7 @@ export async function POST(req: Request) {
     const [{ data: prof, error: profErr }, { data: prod, error: prodErr }] = await Promise.all([
       supabaseAdmin
         .from("profiles")
-        .select("full_name, consultation_type, contact_whatsapp")
+        .select("full_name, consultation_type, contact_whatsapp, address")
         .eq("provider_id", appt.provider_id)
         .maybeSingle(),
       supabaseAdmin
@@ -465,6 +465,8 @@ export async function POST(req: Request) {
             serviceTitle,
             startDateTimeIso: new Date(appt.start_datetime).toISOString(),
             manageUrl,
+            consultationType: prof?.consultation_type ?? null,
+            address: prof?.address ?? null,
             videoProvider: appt.video_provider,
             videoJoinUrl: appt.video_join_url,
           });

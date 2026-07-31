@@ -1,10 +1,15 @@
-type Props = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
+import { TextareaHTMLAttributes } from "react";
 
-export default function Textarea(props: Props) {
+type Props = TextareaHTMLAttributes<HTMLTextAreaElement>;
+
+export default function Textarea({
+  className = "",
+  ...props
+}: Props) {
   return (
     <textarea
       {...props}
-      className="textarea"
+      className={["textarea", className].filter(Boolean).join(" ")}
     />
   );
 }
