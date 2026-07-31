@@ -4,6 +4,7 @@ import {
   ChevronRight,
   Plus,
 } from "lucide-react";
+import Link from "next/link";
 import styles from "./dashboard.module.css";
 
 export default function TaskList() {
@@ -16,7 +17,10 @@ export default function TaskList() {
 
       <div className={styles.tasksList}>
 
-        <button type="button" className={`${styles.taskRow} ${styles.taskRowDone}`}>
+        <Link
+          href="/dashboard/services"
+          className={`${styles.taskRow} ${styles.taskRowDone}`}
+        >
           <span className={styles.taskIcon}>
             <Check size={16} />
           </span>
@@ -27,7 +31,7 @@ export default function TaskList() {
           </span>
 
           <ChevronRight className={styles.taskArrow} size={18} />
-        </button>
+        </Link>
 
         <button type="button" className={styles.taskRow}>
           <span className={styles.taskIcon}>
