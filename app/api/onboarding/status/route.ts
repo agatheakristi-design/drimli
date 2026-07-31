@@ -59,16 +59,13 @@ export async function GET(req: Request) {
 
     const doneCount =
       (profileComplete ? 1 : 0) +
-      (servicesComplete ? 1 : 0) +
-      (paymentComplete ? 1 : 0);
+      (servicesComplete ? 1 : 0);
 
     const next =
       !profileComplete
         ? "/dashboard/profile"
         : !servicesComplete
         ? "/dashboard/services"
-        : !paymentComplete
-        ? "/paiements"
         : "/dashboard";
 
     return NextResponse.json({
@@ -77,8 +74,8 @@ export async function GET(req: Request) {
       servicesComplete,
       availabilityComplete: true,
       doneCount,
-      total: 3,
-      accountReady: profileComplete && servicesComplete && paymentComplete,
+      total: 2,
+      accountReady: profileComplete && servicesComplete,
       next,
     });
   } catch (e: any) {

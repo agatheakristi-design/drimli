@@ -6,7 +6,7 @@
       rgb(0 0 0 / 1.8%),
       transparent 34%
     ),
-    var(--background);
+    var(--card);
   color: var(--foreground);
 }
 
@@ -176,7 +176,7 @@
   min-height: 58px;
   margin-top: 14px;
   border-radius: 17px;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 12%);
 }
 
 .submitButton:hover {
@@ -270,11 +270,11 @@
 
   padding: 0 18px;
 
-  border: 1px solid var(--border);
+  border: 1px solid #e5e5e7;
 
   border-radius: 14px;
 
-  background: var(--card);
+  background: #fff;
 
 }
 
@@ -282,7 +282,7 @@
 
   margin: 0 0 8px 2px;
 
-  color: var(--muted-foreground);
+  color: #6b6b73;
 
   font-size: 13px;
 
