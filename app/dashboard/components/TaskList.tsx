@@ -33,7 +33,10 @@ export default function TaskList() {
           <ChevronRight className={styles.taskArrow} size={18} />
         </Link>
 
-        <button type="button" className={styles.taskRow}>
+        <Link
+          href="/dashboard/services"
+          className={styles.taskRow}
+        >
           <span className={styles.taskIcon}>
             <Plus size={16} />
           </span>
@@ -44,7 +47,7 @@ export default function TaskList() {
           </span>
 
           <ChevronRight className={styles.taskArrow} size={18} />
-        </button>
+        </Link>
 
         <button type="button" className={styles.taskRow}>
           <span className={styles.taskIcon}>
