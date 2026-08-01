@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/app/components/ui/Button";
@@ -64,6 +64,47 @@ export default function OnboardingForm() {
   const [form, setForm] = useState<OnboardingFormState>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadIdentity() {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData.user;
+
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("provider_id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      const firstName =
+        profile?.first_name ??
+        user.user_metadata?.first_name ??
+        "";
+
+      const lastName =
+        profile?.last_name ??
+        user.user_metadata?.last_name ??
+        "";
+
+      setForm((current) => ({
+        ...current,
+        firstName: current.firstName || firstName,
+        lastName: current.lastName || lastName,
+      }));
+    }
+
+    loadIdentity();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function updateField<Key extends keyof OnboardingFormState>(
     key: Key,
