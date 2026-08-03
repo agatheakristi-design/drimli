@@ -17,33 +17,9 @@ type PageProps = {
 };
 
 function normalizeProvider(v: string): VideoProvider {
-
   const x = (v || "").toLowerCase().trim();
 
-  switch (x) {
-
-    case "google_meet":
-
-      return "google_meet";
-
-    case "whatsapp":
-
-      return "whatsapp";
-
-    case "phone":
-
-      return "phone";
-
-    case "in_person":
-
-      return "in_person";
-
-    default:
-
-      return "none";
-
-  }
-
+  return x === "google_meet" ? "google_meet" : "none";
 }
 
 export default async function JoinAppointmentPage(props: PageProps) {

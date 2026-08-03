@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from("integrations")
-      .select("account_email")
+      .select("account_email, refresh_token, scope")
       .eq("provider_id", userData.user.id)
       .eq("provider", "google")
       .maybeSingle();
@@ -42,8 +42,22 @@ export async function GET(request: Request) {
       );
     }
 
+    const hasRefreshToken = Boolean(data?.refresh_token);
+    const hasCalendarScope = Boolean(
+      data?.scope?.includes("googleapis.com/auth/calendar")
+    );
+
+    const reason = !data
+      ? "not_connected"
+      : !hasRefreshToken
+        ? "refresh_token_missing"
+        : !hasCalendarScope
+          ? "calendar_scope_missing"
+          : null;
+
     return NextResponse.json({
-      connected: !!data,
+      connected: hasRefreshToken && hasCalendarScope,
+      reason,
       email: data?.account_email ?? null,
     });
   } catch (error: unknown) {

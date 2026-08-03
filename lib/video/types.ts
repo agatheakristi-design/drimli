@@ -1,9 +1,4 @@
-export type VideoProvider =
-  | "none"
-  | "whatsapp"
-  | "google_meet"
-  | "phone"
-  | "in_person";
+export type VideoProvider = "none" | "google_meet";
 
 export type JoinAction =
   | { kind: "none" }

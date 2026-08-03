@@ -42,6 +42,16 @@ type OnboardingStatus = {
   accountReady: boolean;
 };
 
+type GoogleStatus = {
+  connected: boolean;
+  reason:
+    | "not_connected"
+    | "refresh_token_missing"
+    | "calendar_scope_missing"
+    | null;
+  email: string | null;
+};
+
 const consultationOptions: Array<{
   value: Exclude<ConsultationType, "">;
   label: string;
@@ -61,7 +71,8 @@ export default function ProfilePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [status, setStatus] = useState("");
   const [googleConnecting, setGoogleConnecting] = useState(false);
-  const [googleEmail, setGoogleEmail] = useState("");
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleReason, setGoogleReason] = useState<GoogleStatus["reason"]>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -152,11 +163,11 @@ export default function ProfilePage() {
             });
 
             if (googleResponse.ok) {
-              const googleStatus = await googleResponse.json();
+              const googleStatus =
+                (await googleResponse.json()) as GoogleStatus;
 
-              setGoogleEmail(
-                googleStatus.connected ? googleStatus.email ?? "" : ""
-              );
+              setGoogleConnected(googleStatus.connected);
+              setGoogleReason(googleStatus.reason);
             }
 
 
@@ -213,9 +224,10 @@ export default function ProfilePage() {
       }
 
       window.location.href = result.url;
-    } catch (error) {
+    } catch {
       setStatus("Erreur de connexion Google.");
     } finally {
+      setGoogleConnecting(false);
     }
   }
 
@@ -493,7 +505,7 @@ export default function ProfilePage() {
                         : ""
                     }`}
                     onClick={() => {
-                      if (option.value === "meet" && !googleEmail) {
+                      if (option.value === "meet" && !googleConnected) {
                         updateField("consultation_type", option.value);
                         void connectGoogle();
                         return;
@@ -505,7 +517,7 @@ export default function ProfilePage() {
                     }
                     aria-pressed={selected}
                   >
-                    {option.value === "meet" && googleEmail ? (
+                    {option.value === "meet" && googleConnected ? (
                       <span
                         style={{
                           display: "inline-flex",
@@ -529,6 +541,9 @@ export default function ProfilePage() {
                     ) : option.value === "meet" &&
                       googleConnecting ? (
                       "Connexion en cours…"
+                    ) : option.value === "meet" &&
+                      googleReason === "calendar_scope_missing" ? (
+                      "Reconnecter Google Calendar"
                     ) : (
                       option.label
                     )}

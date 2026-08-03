@@ -5,21 +5,46 @@ function isUuid(v: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 }
 
+function stringValue(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => null);
+    const rawBody: unknown = await req.json().catch(() => null);
+    const body =
+      rawBody && typeof rawBody === "object"
+        ? (rawBody as Record<string, unknown>)
+        : {};
 
-    const providerId = body?.providerId as string | undefined;
-    const productId = body?.productId as string | undefined;
-    const start = body?.start as string | undefined;
-    const end = body?.end as string | undefined;
+    const providerId = stringValue(body.providerId);
+    const productId = stringValue(body.productId);
+    const start = stringValue(body.start);
+    const end = stringValue(body.end);
 
-    const clientEmail = body?.clientEmail as string | undefined;
-    const clientPhone = body?.clientPhone as string | undefined;
+    const clientEmail = stringValue(body.clientEmail);
+    const clientPhone = stringValue(body.clientPhone);
+    const firstName = stringValue(body.first_name ?? body.firstName);
+    const lastName = stringValue(body.last_name ?? body.lastName);
+    const providedClientName = stringValue(
+      body.client_name ?? body.clientName
+    );
 
-    if (!providerId || !productId || !start || !end || !clientEmail || !clientPhone) {
+    if ((firstName && !lastName) || (!firstName && lastName)) {
       return NextResponse.json(
-        { error: "Missing fields. Expected providerId, productId, start, end, clientEmail, clientPhone." },
+        { error: "First name and last name are both required." },
+        { status: 400 }
+      );
+    }
+
+    const clientName =
+      firstName && lastName
+        ? `${firstName} ${lastName}`.trim()
+        : providedClientName;
+
+    if (!providerId || !productId || !start || !end || !clientName || !clientEmail || !clientPhone) {
+      return NextResponse.json(
+        { error: "Missing fields. Expected providerId, productId, start, end, client name, clientEmail, clientPhone." },
         { status: 400 }
       );
     }
@@ -62,6 +87,7 @@ export async function POST(req: Request) {
         start_datetime: start,
         end_datetime: end,
         status: "pending",
+        client_name: clientName,
         client_email: clientEmail,
         client_phone: clientPhone,
       })
@@ -73,7 +99,12 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ id: data?.id }, { status: 200 });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Unknown error" }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
   }
 }

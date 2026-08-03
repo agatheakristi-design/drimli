@@ -2,7 +2,10 @@ import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendAppointmentConfirmationEmail } from "@/lib/email";
-import { createGoogleMeetAppointment } from "@/lib/googleCalendar";
+import {
+  createGoogleMeetAppointment,
+  GoogleMeetError,
+} from "@/lib/googleCalendar";
 
 export const runtime = "nodejs";
 
@@ -24,7 +27,11 @@ const supabaseAdmin = createClient(
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
 
-function pickAppointmentId(metadata: Record<string, any> | null | undefined): string | null {
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function pickAppointmentId(metadata: Record<string, string> | null | undefined): string | null {
   if (!metadata) return null;
   if (typeof metadata.appointmentId === "string") return metadata.appointmentId;
   if (typeof metadata.appointment_id === "string") return metadata.appointment_id;
@@ -187,9 +194,12 @@ export async function POST(req: Request) {
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
-    } catch (err: any) {
+    } catch (error: unknown) {
       return NextResponse.json(
-        { error: "Webhook signature verification failed", details: err?.message },
+        {
+          error: "Webhook signature verification failed",
+          details: errorMessage(error),
+        },
         { status: 400 }
       );
     }
@@ -213,10 +223,7 @@ export async function POST(req: Request) {
 
     // Email client collecté par Stripe Checkout
     const stripeClientEmail =
-      (session.customer_details && typeof (session.customer_details as any).email === "string"
-        ? (session.customer_details as any).email
-        : null) ||
-      (typeof (session as any).customer_email === "string" ? (session as any).customer_email : null);
+      session.customer_details?.email || session.customer_email || null;
 
     const appointmentId = pickAppointmentId(session.metadata);
     if (!appointmentId) {
@@ -227,12 +234,12 @@ export async function POST(req: Request) {
     const paymentIntentId =
       typeof session.payment_intent === "string"
         ? session.payment_intent
-        : (session.payment_intent as any)?.id ?? null;
+        : session.payment_intent?.id ?? null;
 
     // 1) Charger appointment
     const { data: appt, error: apptErr } = await supabaseAdmin
       .from("appointments")
-      .select("id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, join_token, confirmation_email_sent_at, video_provider, video_join_url")
+      .select("id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, join_token, access_token, confirmation_email_sent_at, video_provider, video_join_url, video_room_id")
       .eq("id", appointmentId)
       .maybeSingle();
 
@@ -240,6 +247,9 @@ export async function POST(req: Request) {
       console.error("Appointment not found:", apptErr?.message);
       return NextResponse.json({ received: true, warning: "Appointment not found" });
     }
+
+    let videoProvider = appt.video_provider;
+    let videoJoinUrl = appt.video_join_url;
 
     // 1.5) Sync client_email from Stripe (si Drimli ne l'avait pas)
     if (!appt.client_email && stripeClientEmail) {
@@ -250,7 +260,7 @@ export async function POST(req: Request) {
       if (emUpErr) {
         console.error("Failed to store client_email:", emUpErr.message);
       } else {
-        (appt as any).client_email = stripeClientEmail;
+        appt.client_email = stripeClientEmail;
       }
     }
 
@@ -270,28 +280,63 @@ export async function POST(req: Request) {
     // 2.5) Créer le rendez-vous Google Meet si le professionnel est connecté
     try {
       if (
+        !videoJoinUrl &&
         appt.start_datetime &&
-        (appt as any).end_datetime
+        appt.end_datetime
       ) {
         const meeting = await createGoogleMeetAppointment({
           providerId: appt.provider_id,
           title: "Rendez-vous Drimli",
           start: new Date(appt.start_datetime).toISOString(),
-          end: new Date((appt as any).end_datetime).toISOString(),
+          end: new Date(appt.end_datetime).toISOString(),
           attendeeEmail: appt.client_email,
         });
 
-        await supabaseAdmin
+        const { data: videoUpdate, error: videoUpdateError } =
+          await supabaseAdmin
           .from("appointments")
           .update({
             video_provider: "google_meet",
             video_join_url: meeting.hangoutLink,
             video_room_id: meeting.eventId,
           })
-          .eq("id", appt.id);
+          .eq("id", appt.id)
+          .select("video_provider, video_join_url, video_room_id")
+          .maybeSingle();
+
+        if (videoUpdateError) {
+          throw new GoogleMeetError(
+            "supabase_write",
+            `Failed to store Google Meet fields: ${videoUpdateError.message}`
+          );
+        }
+
+        if (!videoUpdate?.video_join_url) {
+          throw new GoogleMeetError(
+            "supabase_write",
+            "Google Meet was created but appointments.video_join_url was not persisted."
+          );
+        }
+
+        videoProvider = videoUpdate.video_provider;
+        videoJoinUrl = videoUpdate.video_join_url;
+
+        console.log("[GOOGLE_MEET_SUCCESS]", {
+          appointmentId: appt.id,
+          providerId: appt.provider_id,
+          stripeCheckoutSessionId: session.id,
+          eventId: videoUpdate.video_room_id,
+          hangoutLinkPresent: Boolean(videoUpdate.video_join_url),
+        });
       }
-    } catch (e: any) {
-      console.error("Google Meet creation failed:", e?.message || e);
+    } catch (error: unknown) {
+      console.error("[GOOGLE_MEET_ERROR]", {
+        appointmentId: appt.id,
+        providerId: appt.provider_id,
+        stripeCheckoutSessionId: session.id,
+        stage: error instanceof GoogleMeetError ? error.stage : "unknown",
+        message: errorMessage(error),
+      });
     }
 
     // 3) Charger infos pro + service
@@ -299,7 +344,7 @@ export async function POST(req: Request) {
     const [{ data: prof, error: profErr }, { data: prod, error: prodErr }] = await Promise.all([
       supabaseAdmin
         .from("profiles")
-        .select("full_name, consultation_type, contact_whatsapp, address")
+        .select("full_name")
         .eq("provider_id", appt.provider_id)
         .maybeSingle(),
       supabaseAdmin
@@ -308,6 +353,13 @@ export async function POST(req: Request) {
         .eq("id", appt.product_id)
         .maybeSingle(),
     ]);
+
+    if (profErr) {
+      console.error("Profile lookup failed:", profErr.message);
+    }
+    if (prodErr) {
+      console.error("Product lookup failed:", prodErr.message);
+    }
 
     const providerName = String(prof?.full_name ?? "").trim();
 
@@ -325,8 +377,8 @@ export async function POST(req: Request) {
       try {
         const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
         feeCents = pi.application_fee_amount ?? null;
-      } catch (e: any) {
-        console.error("Could not retrieve payment intent:", e?.message || e);
+      } catch (error: unknown) {
+        console.error("Could not retrieve payment intent:", errorMessage(error));
       }
     }
     if (!feeCents && session.metadata?.drimli_fee_cents) {
@@ -424,7 +476,7 @@ export async function POST(req: Request) {
     // 5.5) Assurer un join_token (lien Drimcall)
     if (!appt.join_token) {
       // On réutilise access_token si présent (compat), sinon on génère
-      const fallback = (appt as any).access_token || null;
+      const fallback = appt.access_token || null;
       const token = fallback || Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
       const { data: upTok, error: upTokErr } = await supabaseAdmin
         .from("appointments")
@@ -433,7 +485,7 @@ export async function POST(req: Request) {
         .select("join_token")
         .maybeSingle();
       if (!upTokErr && upTok?.join_token) {
-        (appt as any).join_token = upTok.join_token;
+        appt.join_token = upTok.join_token;
       }
     }
 
@@ -465,20 +517,18 @@ export async function POST(req: Request) {
             serviceTitle,
             startDateTimeIso: new Date(appt.start_datetime).toISOString(),
             manageUrl,
-            consultationType: prof?.consultation_type ?? null,
-            address: prof?.address ?? null,
-            videoProvider: appt.video_provider,
-            videoJoinUrl: appt.video_join_url,
+            videoProvider,
+            videoJoinUrl,
           });
-        } catch (e: any) {
-          console.error("Email send failed:", e?.message || e);
+        } catch (error: unknown) {
+          console.error("Email send failed:", errorMessage(error));
         }
       }
     }
 
     return NextResponse.json({ received: true });
-  } catch (e: any) {
-    console.error("Webhook handler error:", e?.message || e);
+  } catch (error: unknown) {
+    console.error("Webhook handler error:", errorMessage(error));
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

@@ -59,6 +59,14 @@ export async function GET(request: NextRequest) {
 
     const { tokens } = await oauth2Client.getToken(code);
 
+    const returnedScope = tokens.scope?.trim() ?? "";
+
+    if (!returnedScope.includes("googleapis.com/auth/calendar")) {
+      throw new Error(
+        "Google Calendar permission was not granted. Reconnect and accept Calendar access."
+      );
+    }
+
     oauth2Client.setCredentials(tokens);
 
     const oauth2 = google.oauth2({
@@ -68,36 +76,76 @@ export async function GET(request: NextRequest) {
 
     const { data: profile } = await oauth2.userinfo.get();
 
-    await supabaseAdmin.from("integrations").upsert(
-      {
-        provider_id: userId,
-        provider: "google",
-        account_email: profile.email,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        token_type: tokens.token_type,
-        scope: tokens.scope,
-        expires_at: tokens.expiry_date
-          ? new Date(tokens.expiry_date).toISOString()
-          : null,
-      },
-      {
-        onConflict: "provider_id,provider",
-      }
-    );
+    const { data: existingIntegration, error: existingError } =
+      await supabaseAdmin
+        .from("integrations")
+        .select("refresh_token")
+        .eq("provider_id", userId)
+        .eq("provider", "google")
+        .maybeSingle();
+
+    if (existingError) {
+      throw new Error(
+        `Unable to read the existing Google integration: ${existingError.message}`
+      );
+    }
+
+    const refreshToken =
+      tokens.refresh_token ?? existingIntegration?.refresh_token ?? null;
+
+    if (!refreshToken) {
+      throw new Error(
+        "Google did not provide a refresh token. Revoke the existing Google authorization, then reconnect."
+      );
+    }
+
+    const { data: storedIntegration, error: integrationError } =
+      await supabaseAdmin
+        .from("integrations")
+        .upsert(
+          {
+            provider_id: userId,
+            provider: "google",
+            account_email: profile.email,
+            access_token: tokens.access_token,
+            refresh_token: refreshToken,
+            token_type: tokens.token_type,
+            scope: returnedScope,
+            expires_at: tokens.expiry_date
+              ? new Date(tokens.expiry_date).toISOString()
+              : null,
+          },
+          {
+            onConflict: "provider_id,provider",
+          }
+        )
+        .select("scope")
+        .maybeSingle();
+
+    if (integrationError) {
+      throw new Error(
+        `Unable to store the Google integration: ${integrationError.message}`
+      );
+    }
+
+    if (!storedIntegration?.scope?.includes("googleapis.com/auth/calendar")) {
+      throw new Error(
+        "Google Calendar permission was granted but could not be stored."
+      );
+    }
 
     return NextResponse.redirect(
       new URL("/dashboard/profile", request.url)
     );
-  } catch (error) {
-    console.error(error);
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Google authentication failed";
+
+    console.error("[GOOGLE_OAUTH_CALLBACK_ERROR]", { message });
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Google authentication failed",
+        error: message,
       },
       { status: 500 }
     );

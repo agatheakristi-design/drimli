@@ -42,9 +42,9 @@ function formatParisDate(iso: string) {
 }
 
 export default function Page() {
-  const params = useParams();
+  const params = useParams<{ serviceId: string }>();
   const serviceId = useMemo(() => {
-    const raw = (params as any)?.serviceId;
+    const raw = params?.serviceId;
     return typeof raw === "string" ? raw : "";
   }, [params]);
 
@@ -57,6 +57,8 @@ export default function Page() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
 
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientPhone, setClientPhone] = useState("");
 
@@ -148,14 +150,22 @@ export default function Page() {
 
       setSlots(Array.isArray(json) ? (json as Slot[]) : []);
       setSlotsLoading(false);
-    } catch (e: any) {
-      setErrorText(e?.message || "❌ Erreur chargement des créneaux");
+    } catch (error: unknown) {
+      setErrorText(
+        error instanceof Error
+          ? error.message
+          : "❌ Erreur chargement des créneaux"
+      );
       setSlotsLoading(false);
     }
   }
 
  async function createPendingAppointment(slot: Slot) {
   if (!service) return null;
+
+  const trimmedFirstName = firstName.trim();
+  const trimmedLastName = lastName.trim();
+  const clientName = `${trimmedFirstName} ${trimmedLastName}`.trim();
 
   setCreating(true);
   setErrorText("");
@@ -169,6 +179,9 @@ export default function Page() {
         productId: service.id,
         start: slot.start,
         end: slot.end,
+        first_name: trimmedFirstName,
+        last_name: trimmedLastName,
+        client_name: clientName,
         clientEmail: clientEmail.trim(),
         clientPhone: clientPhone.trim(),
       }),
@@ -184,9 +197,12 @@ export default function Page() {
     }
 
     return json?.id ?? null;
-  } catch (e: any) {
+  } catch (error: unknown) {
     setCreating(false);
-    setErrorText("❌ Erreur création rendez-vous : " + (e?.message || "unknown"));
+    setErrorText(
+      "❌ Erreur création rendez-vous : " +
+        (error instanceof Error ? error.message : "unknown")
+    );
     return null;
   }
 }
@@ -194,6 +210,14 @@ export default function Page() {
   async function pay() {
     if (!selectedSlot) return;
 
+    if (!firstName.trim()) {
+      setErrorText("❌ Merci d’indiquer votre prénom.");
+      return;
+    }
+    if (!lastName.trim()) {
+      setErrorText("❌ Merci d’indiquer votre nom.");
+      return;
+    }
     if (!clientEmail.trim()) {
       setErrorText("❌ Merci d’indiquer votre email.");
       return;
@@ -267,6 +291,32 @@ export default function Page() {
       <Card>
         <div className="space-y-4">
           <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Prénom</p>
+              <input
+                className="w-full rounded-xl border border-border bg-background px-4 py-3"
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Votre prénom"
+                autoComplete="given-name"
+                required
+              />
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Nom</p>
+              <input
+                className="w-full rounded-xl border border-border bg-background px-4 py-3"
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Votre nom"
+                autoComplete="family-name"
+                required
+              />
+            </div>
+
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Pour recevoir votre lien de connexion</p>
               <input
