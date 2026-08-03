@@ -51,6 +51,28 @@ function safeMeetFailureMessage(stage: string) {
   return messages[stage] ?? "Google Meet creation failed.";
 }
 
+type SupabaseWriteDiagnostic = {
+  code: string | null;
+  message: string;
+  details: string | null;
+  hint: string | null;
+};
+
+class SupabaseMeetWriteError extends GoogleMeetError {
+  constructor(public readonly diagnostic: SupabaseWriteDiagnostic) {
+    super("supabase_write", "Google Meet fields could not be stored.");
+    this.name = "SupabaseMeetWriteError";
+  }
+}
+
+function sanitizeDatabaseDiagnostic(value: string | null | undefined) {
+  if (!value) return null;
+
+  return value
+    .replace(/https:\/\/meet\.google\.com\/[^\s,)'";]+/gi, "[MEET_URL_REDACTED]")
+    .slice(0, 1_000);
+}
+
 function pickAppointmentId(metadata: Record<string, string> | null | undefined): string | null {
   if (!metadata) return null;
   if (typeof metadata.appointmentId === "string") return metadata.appointmentId;
@@ -344,17 +366,23 @@ export async function POST(req: Request) {
           .maybeSingle();
 
         if (videoUpdateError) {
-          throw new GoogleMeetError(
-            "supabase_write",
-            `Failed to store Google Meet fields: ${videoUpdateError.message}`
-          );
+          throw new SupabaseMeetWriteError({
+            code: videoUpdateError.code ?? null,
+            message:
+              sanitizeDatabaseDiagnostic(videoUpdateError.message) ??
+              "Supabase update failed.",
+            details: sanitizeDatabaseDiagnostic(videoUpdateError.details),
+            hint: sanitizeDatabaseDiagnostic(videoUpdateError.hint),
+          });
         }
 
         if (!videoUpdate?.video_join_url) {
-          throw new GoogleMeetError(
-            "supabase_write",
-            "Google Meet was created but appointments.video_join_url was not persisted."
-          );
+          throw new SupabaseMeetWriteError({
+            code: null,
+            message: "Supabase update returned no persisted Google Meet URL.",
+            details: "The update matched no readable appointment row.",
+            hint: "Check the appointment filter and update/select permissions.",
+          });
         }
 
         console.log("[GOOGLE_MEET_SUCCESS]", {
@@ -371,7 +399,22 @@ export async function POST(req: Request) {
         appointmentId: appt.id,
         providerId: appt.provider_id,
         stage,
-        message: safeMeetFailureMessage(stage),
+        message:
+          error instanceof SupabaseMeetWriteError
+            ? error.diagnostic.message
+            : safeMeetFailureMessage(stage),
+        ...(error instanceof SupabaseMeetWriteError
+          ? {
+              code: error.diagnostic.code,
+              details: error.diagnostic.details,
+              hint: error.diagnostic.hint,
+              fields: [
+                "video_provider",
+                "video_join_url",
+                "video_room_id",
+              ],
+            }
+          : {}),
       });
       return NextResponse.json(
         { error: "Meeting creation failed" },
