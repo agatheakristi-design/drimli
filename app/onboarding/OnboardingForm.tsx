@@ -188,6 +188,29 @@ export default function OnboardingForm() {
     }
   }
 
+  async function completeOnboarding() {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+
+    if (!token) {
+      throw new Error(
+        "Votre session a expiré. Reconnectez-vous puis recommencez."
+      );
+    }
+
+    const response = await fetch("/api/onboarding/complete", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const result = await response.json().catch(() => null);
+
+    if (!response.ok || !result?.published || !result?.slug) {
+      throw new Error(
+        result?.error || "Impossible de publier votre page professionnelle."
+      );
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     console.log("SUBMIT");
     event.preventDefault();
@@ -272,6 +295,8 @@ export default function OnboardingForm() {
 
       console.log("ETAPE 4");
       await ensureDefaultAvailability(user.id);
+
+      await completeOnboarding();
 
       setStatus("Votre page est prête.");
 
