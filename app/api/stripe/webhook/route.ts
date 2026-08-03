@@ -43,6 +43,8 @@ function safeMeetFailureMessage(stage: string) {
     calendar_insert: "Google Calendar event creation failed.",
     conference_creation: "Google Meet conference creation failed.",
     hangout_link_retrieval: "Google Meet URL retrieval failed.",
+    organizer_mismatch:
+      "Google Calendar organizer does not match the connected professional account.",
     supabase_write: "Google Meet fields could not be stored.",
     appointment_reload: "Confirmed appointment could not be reloaded.",
     email_send: "Confirmation email could not be sent.",

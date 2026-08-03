@@ -81,18 +81,24 @@ export default function AppointmentDetails({
       </dl>
 
       {appointment.videoJoinUrl ? (
-        <Button
-          className={styles.appointmentPrimaryAction}
-          onClick={() =>
-            window.open(
-              appointment.videoJoinUrl ?? "",
-              "_blank",
-              "noopener,noreferrer"
-            )
-          }
-        >
-          Rejoindre la visio
-        </Button>
+        <>
+          <p className={styles.appointmentEmptyState}>
+            Rejoignez avec le compte Google connecté à DRIMLI pour disposer
+            des droits d’organisateur.
+          </p>
+          <Button
+            className={styles.appointmentPrimaryAction}
+            onClick={() =>
+              window.open(
+                appointment.videoJoinUrl ?? "",
+                "_blank",
+                "noopener,noreferrer"
+              )
+            }
+          >
+            Rejoindre la visio
+          </Button>
+        </>
       ) : (
         <p className={styles.appointmentEmptyState}>
           Lien de visioconférence indisponible

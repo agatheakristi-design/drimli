@@ -20,6 +20,7 @@ export type GoogleMeetFailureStage =
   | "calendar_insert"
   | "conference_creation"
   | "hangout_link_retrieval"
+  | "organizer_mismatch"
   | "supabase_write"
   | "appointment_reload"
   | "email_send";
@@ -45,7 +46,7 @@ export async function createGoogleMeetAppointment(params: {
 }) {
   const { data: integration, error } = await supabaseAdmin
     .from("integrations")
-    .select("access_token, refresh_token, expires_at, scope")
+    .select("account_email, access_token, refresh_token, expires_at, scope")
     .eq("provider_id", params.providerId)
     .eq("provider", "google")
     .maybeSingle();
@@ -256,6 +257,35 @@ export async function createGoogleMeetAppointment(params: {
     throw new GoogleMeetError(
       "hangout_link_retrieval",
       `Google Calendar did not return a Google Meet link (conference status: ${conferenceStatus}).`
+    );
+  }
+
+  const connectedGoogleEmail = integration.account_email?.trim() ?? "";
+  const organizerEmail = event.organizer?.email?.trim() ?? "";
+  const creatorEmail = event.creator?.email?.trim() ?? "";
+  const organizerMatchesConnectedAccount = Boolean(
+    connectedGoogleEmail &&
+      organizerEmail &&
+      connectedGoogleEmail.toLowerCase() === organizerEmail.toLowerCase()
+  );
+
+  console.log("[GOOGLE_MEET_ORGANIZER]", {
+    appointmentId: params.appointmentId,
+    providerId: params.providerId,
+    connectedGoogleEmail: connectedGoogleEmail || null,
+    organizerEmail: organizerEmail || null,
+    creatorEmail: creatorEmail || null,
+    organizerMatchesConnectedAccount,
+    calendarId: "primary",
+    eventId,
+    conferenceId: event.conferenceData?.conferenceId ?? null,
+    hangoutLinkPresent: true,
+  });
+
+  if (!organizerMatchesConnectedAccount) {
+    throw new GoogleMeetError(
+      "organizer_mismatch",
+      "Google Calendar organizer does not match the connected professional account."
     );
   }
 
