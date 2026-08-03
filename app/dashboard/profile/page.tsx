@@ -5,9 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/app/components/ui/Button";
 import Input from "@/app/components/ui/Input";
-import Sidebar from "../components/Sidebar";
 import TopBar from "../components/TopBar";
-import dashboardStyles from "../components/dashboard.module.css";
 import styles from "./profile.module.css";
 
 type ConsultationType =
@@ -74,7 +72,6 @@ export default function ProfilePage() {
   const [googleConnected, setGoogleConnected] = useState(false);
   const [googleReason, setGoogleReason] = useState<GoogleStatus["reason"]>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isOnboardingMode, setIsOnboardingMode] = useState(true);
 
@@ -92,9 +89,6 @@ export default function ProfilePage() {
     consultation_type: "",
   });
 
-  const fullName =
-    `${form.first_name} ${form.last_name}`.trim() || "Professionnel";
-
   useEffect(() => {
     async function loadProfile() {
       try {
@@ -109,7 +103,6 @@ export default function ProfilePage() {
         }
 
         setUserId(user.id);
-        setEmail(user.email ?? "");
 
         const { data, error } = await supabase
           .from("profiles")
@@ -362,11 +355,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className={dashboardStyles.layout}>
-      <Sidebar fullName={fullName} email={email} />
-
-      <main className={dashboardStyles.main}>
-        <TopBar />
+    <div>
+      <TopBar />
 
         <header className={styles.pageHeader}>
           <h1>
@@ -675,7 +665,6 @@ export default function ProfilePage() {
             </Button>
           </div>
         </div>
-      </main>
     </div>
   );
 }

@@ -1,38 +1,59 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { CornerUpLeft } from "lucide-react";
-import Container from "@/app/components/ui/Container";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import DashboardGate from "@/app/components/DashboardGate";
+import Sidebar from "./components/Sidebar";
+import styles from "./components/dashboard.module.css";
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const isMainDashboard = pathname === "/dashboard";
+export default function DashboardLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [fullName, setFullName] = useState("Professionnel");
+  const [email, setEmail] = useState("");
 
-  if (isMainDashboard) {
-    return <DashboardGate>{children}</DashboardGate>;
-  }
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAccount() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || cancelled) return;
+
+      setEmail(user.email ?? "");
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("provider_id", user.id)
+        .maybeSingle();
+
+      if (!cancelled && data?.full_name) {
+        setFullName(data.full_name);
+      }
+    }
+
+    loadAccount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Container>
-        <div className="py-8">
-          <div className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <div>
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center text-muted-foreground transition hover:text-foreground"
-              >
-                <CornerUpLeft className="dashboard-back-icon h-6 w-6 stroke-[1.5]" />
-              </Link>
-            </div>
+    <DashboardGate>
+      <div className={styles.layout}>
+        <Sidebar fullName={fullName} email={email} />
 
-            <DashboardGate>{children}</DashboardGate>
-          </div>
-        </div>
-      </Container>
-    </div>
+        <main className={styles.main}>
+          {children}
+        </main>
+      </div>
+    </DashboardGate>
   );
 }

@@ -5,8 +5,8 @@
   display: flex;
   flex-direction: column;
   padding: 28px 22px 22px;
-  border-right: 1px solid #ececef;
-  background: rgba(250, 250, 251, 0.88);
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--muted) 88%, transparent);
   backdrop-filter: blur(18px);
 }
 
@@ -32,19 +32,19 @@
   padding: 0 13px;
   border-radius: 13px;
   text-decoration: none;
-  color: #74747a;
+  color: var(--muted-foreground);
   font-size: 13px;
   font-weight: 500;
   transition: background .16s ease, color .16s ease;
 }
 
 .navigationItem:hover {
-  background: #f1f1f3;
+  background: var(--muted);
   color: #111;
 }
 
 .navigationItemActive {
-  background: #fff;
+  background: var(--card);
   color: #111;
   box-shadow: 0 1px 8px rgba(0,0,0,.055);
 }
@@ -58,7 +58,7 @@
 .account {
   margin-top: auto;
   padding-top: 20px;
-  border-top: 1px solid #e7e7ea;
+  border-top: 1px solid var(--border);
 }
 
 .accountRow {
@@ -74,7 +74,7 @@
   height: 34px;
   border-radius: 9999px;
   background: #111;
-  color: #fff;
+  color: var(--card);
   font-size: 11px;
   font-weight: 600;
 }
@@ -90,7 +90,7 @@
 
 .accountCopy span {
   margin-top: 2px;
-  color: #99999f;
+  color: var(--muted-foreground);
   font-size: 10px;
 }
 
@@ -104,7 +104,7 @@
     height: auto;
     padding: 20px;
     border-right: 0;
-    border-bottom: 1px solid #ececef;
+    border-bottom: 1px solid var(--border);
   }
 
   .navigation {
@@ -126,7 +126,7 @@
   min-height: 100vh;
   display: grid;
   grid-template-columns: 230px minmax(0, 1fr);
-  background: #fff;
+  background: var(--card);
 }
 
 .main {
@@ -170,9 +170,9 @@
   align-items: end;
   gap: 34px;
   padding: clamp(34px, 4.6vw, 58px);
-  border: 1px solid #e9e9ec;
+  border: 1px solid var(--border);
   border-radius: 30px;
-  background: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.045);
 }
 
@@ -182,7 +182,7 @@
 
 .eyebrow {
   margin: 0 0 12px;
-  color: #99999f;
+  color: var(--muted-foreground);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -199,7 +199,7 @@
 
 .welcomeText {
   margin: 20px 0 0;
-  color: #7d7d83;
+  color: var(--muted-foreground);
   font-size: 16px;
   line-height: 1.55;
 }
@@ -223,7 +223,7 @@
   border: 0;
   border-radius: 15px;
   background: #111;
-  color: #fff;
+  color: var(--card);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -282,13 +282,13 @@
   justify-content: space-between;
   min-height: 185px;
   padding: 25px 27px;
-  border: 1px solid #e9e9ec;
+  border: 1px solid var(--border);
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
 }
 
 .progressLabel {
-  color: #8d8d93;
+  color: var(--muted-foreground);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.07em;
@@ -307,7 +307,7 @@
   margin-top: 19px;
   overflow: hidden;
   border-radius: 999px;
-  background: #ededf0;
+  background: var(--muted);
 }
 
 .progressFill {
@@ -319,7 +319,7 @@
 
 .progressNote {
   margin-top: 12px;
-  color: #99999f;
+  color: var(--muted-foreground);
   font-size: 11px;
   line-height: 1.4;
 }
@@ -331,9 +331,9 @@
   gap: 22px;
   min-height: 185px;
   padding: 26px 27px;
-  border: 1px solid #e9e9ec;
+  border: 1px solid var(--border);
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
 }
 
 .linkCopy {
@@ -343,7 +343,7 @@
 
 .linkCopy span {
   display: block;
-  color: #99999f;
+  color: var(--muted-foreground);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.07em;
@@ -368,7 +368,7 @@
   border: 0;
   border-radius: 13px;
   background: #111;
-  color: #fff;
+  color: var(--card);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -418,7 +418,7 @@
   gap: 4px;
   padding: 4px;
   border-radius: 999px;
-  background: #f3f3f5;
+  background: var(--muted);
 }
 
 .languageButton {
@@ -428,7 +428,7 @@
   padding: 6px 12px;
   font-size: 12px;
   font-weight: 600;
-  color: #74747a;
+  color: var(--muted-foreground);
   cursor: pointer;
   transition: all .15s ease;
 }
@@ -438,14 +438,14 @@
 }
 
 .languageButtonActive {
-  background: #fff;
+  background: var(--card);
   color: #111;
   box-shadow: 0 1px 6px rgba(0,0,0,.06);
 }
 
 .tasksPanel {
-  background: #fff;
-  border: 1px solid #ececef;
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 22px;
   padding: 22px;
 }
@@ -467,7 +467,7 @@
 .sectionHeading span {
   font-size: 13px;
   font-weight: 500;
-  color: #74747a;
+  color: var(--muted-foreground);
 }
 
 .tasksList {
@@ -481,9 +481,9 @@
   gap: 14px;
   width: 100%;
   padding: 16px;
-  border: 1px solid #ececef;
+  border: 1px solid var(--border);
   border-radius: 16px;
-  background: #fff;
+  background: var(--card);
   cursor: pointer;
   transition: border-color .15s ease, box-shadow .15s ease,
     transform .15s ease;
@@ -497,7 +497,7 @@
 }
 
 .taskRowDone {
-  background: #fafafc;
+  background: var(--muted);
 }
 
 .taskIcon {
@@ -506,7 +506,7 @@
   width: 38px;
   height: 38px;
   border-radius: 12px;
-  background: #f3f3f5;
+  background: var(--muted);
   color: #111;
   flex-shrink: 0;
 }
@@ -527,12 +527,12 @@
 
 .taskCopy span {
   font-size: 13px;
-  color: #74747a;
+  color: var(--muted-foreground);
 }
 
 .taskArrow {
   flex-shrink: 0;
-  color: #8d8d94;
+  color: var(--muted-foreground);
 }
 
 
@@ -546,15 +546,15 @@
   flex-direction: column;
   gap: 10px;
   padding: 22px;
-  border: 1px solid #ececef;
+  border: 1px solid var(--border);
   border-radius: 22px;
-  background: #fff;
+  background: var(--card);
 }
 
 .statsLabel {
   font-size: 13px;
   font-weight: 500;
-  color: #74747a;
+  color: var(--muted-foreground);
 }
 
 .statsValue {
@@ -572,3 +572,211 @@
   color: #16a34a;
 }
 
+
+
+.taskStatic {
+  cursor: default;
+}
+
+.taskStatic:hover {
+  border-color: var(--border);
+  box-shadow: none;
+  transform: none;
+}
+
+
+.inlineTask {
+  display: grid;
+  gap: 10px;
+}
+
+.inlineEditor {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--muted);
+}
+
+.inlineEditorLabel {
+  display: block;
+  margin-bottom: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
+}
+
+.inlineTextarea {
+  display: block;
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+  padding: 14px 15px;
+  border: 1px solid #dedee3;
+  border-radius: 13px;
+  background: var(--card);
+  color: #111;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.55;
+  outline: none;
+}
+
+.inlineTextarea:focus {
+  border-color: #bdbdc5;
+  box-shadow: 0 0 0 4px rgba(17, 17, 17, .04);
+}
+
+.inlineTextarea::placeholder {
+  color: var(--muted-foreground);
+}
+
+.inlineEditorFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.inlineEditorStatus {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.inlineEditorActions {
+  display: flex;
+  gap: 8px;
+}
+
+.inlineSecondaryButton,
+.inlinePrimaryButton {
+  min-height: 40px;
+  padding: 0 15px;
+  border-radius: 11px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inlineSecondaryButton {
+  border: 1px solid #dedee3;
+  background: var(--card);
+  color: #111;
+}
+
+.inlinePrimaryButton {
+  border: 1px solid #111;
+  background: #111;
+  color: var(--card);
+}
+
+.inlineSecondaryButton:disabled,
+.inlinePrimaryButton:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+@media (max-width: 640px) {
+  .inlineEditorFooter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inlineEditorActions {
+    justify-content: flex-end;
+  }
+}
+
+.taskRowExpanded {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+}
+
+.taskRowExpanded:hover {
+  transform: none;
+}
+
+.taskRowHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.taskRowExpanded .inlineEditor {
+  margin: 0 16px 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.taskRowExpanded:not(:has(.inlineEditor)) {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px;
+}
+
+.taskRowExpanded:not(:has(.inlineEditor)) .taskRowHeader {
+  padding: 0;
+}
+
+.taskRowExpanded:has(.inlineEditor) {
+  display: block;
+  padding: 0;
+}
+
+.taskRowExpanded:has(.inlineEditor) .taskRowHeader {
+  padding: 16px;
+}
+
+
+/* Correction définitive de la tâche Description */
+.taskRow.taskRowExpanded {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+}
+
+.taskRow.taskRowExpanded .taskRowHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 70px;
+  padding: 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.taskRow.taskRowExpanded:not(.taskRowExpandedOpen):hover {
+  border-color: #d9d9df;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .05);
+  transform: translateY(-1px);
+}
+
+.taskRow.taskRowExpandedOpen:hover {
+  transform: none;
+}
+
+.taskRow.taskRowExpandedOpen .inlineEditor {
+  margin: 0 16px 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}

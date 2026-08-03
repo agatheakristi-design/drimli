@@ -1,0 +1,82 @@
+.accordion {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.item + .item {
+  border-top: 1px solid var(--border);
+}
+
+.heading {
+  margin: 0;
+}
+
+.trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 0;
+  background: var(--card);
+  color: var(--foreground);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.trigger:hover {
+  background: var(--muted);
+}
+
+.trigger:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  outline-offset: -3px;
+}
+
+.chevron {
+  flex: 0 0 auto;
+  color: var(--muted-foreground);
+  transition: transform 180ms ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.content {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 180ms ease,
+    visibility 0s linear 180ms;
+}
+
+.contentOpen {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows 180ms ease,
+    visibility 0s linear 0s;
+}
+
+.contentInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger,
+  .chevron,
+  .content,
+  .contentOpen {
+    transition: none;
+  }
+}

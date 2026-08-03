@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 
 type DayKey = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
+type DayAvailability = { start: string; end: string } | null;
+type IntervalRow = { start_datetime: string | null; end_datetime: string | null };
 
 const DAY_INDEX: Record<DayKey, number> = {
   sun: 0,
@@ -25,6 +27,107 @@ function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string) {
   const bS = new Date(bStart).getTime();
   const bE = new Date(bEnd).getTime();
   return aS < bE && bS < aE;
+}
+
+function addOneDay(date: string) {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + 1);
+  return value.toISOString().slice(0, 10);
+}
+
+function parisOffsetMs(instantMs: number) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(instantMs));
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value])
+  );
+  const parisAsUtc = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second)
+  );
+
+  return parisAsUtc - instantMs;
+}
+
+export function parisDateTimeToIso(date: string, time: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
+    throw new Error("Invalid Europe/Paris date or time");
+  }
+
+  const wallTimeAsUtc = Date.parse(`${date}T${time}:00Z`);
+  let instant = wallTimeAsUtc - parisOffsetMs(wallTimeAsUtc);
+  instant = wallTimeAsUtc - parisOffsetMs(instant);
+
+  const result = new Date(instant);
+  const resultParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(result);
+  const resultValues = Object.fromEntries(
+    resultParts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value])
+  );
+  const formattedDate = `${resultValues.year}-${resultValues.month}-${resultValues.day}`;
+  const formattedTime = `${resultValues.hour}:${resultValues.minute}`;
+
+  if (formattedDate !== date || formattedTime !== time) {
+    throw new Error("Invalid Europe/Paris wall-clock time");
+  }
+
+  return result.toISOString();
+}
+
+export function generateSlots(params: {
+  date: string;
+  openingTime: string;
+  closingTime: string;
+  durationMinutes: number;
+}) {
+  const openingMs = Date.parse(
+    parisDateTimeToIso(params.date, params.openingTime)
+  );
+  const closingMs = Date.parse(
+    parisDateTimeToIso(params.date, params.closingTime)
+  );
+  const durationMs = params.durationMinutes * 60 * 1000;
+  const slots: { start: string; end: string }[] = [];
+
+  if (
+    !Number.isFinite(durationMs) ||
+    durationMs <= 0 ||
+    closingMs <= openingMs
+  ) {
+    return slots;
+  }
+
+  for (let cursor = openingMs; cursor + durationMs <= closingMs; cursor += durationMs) {
+    slots.push({
+      start: new Date(cursor).toISOString(),
+      end: new Date(cursor + durationMs).toISOString(),
+    });
+  }
+
+  return slots;
 }
 
 export async function GET(req: Request) {
@@ -89,14 +192,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Service/provider mismatch" }, { status: 400 });
     }
 
-    const durationMs = service.duration_minutes * 60 * 1000;
-
     // 2) charger disponibilités du pro
     const { data: profile, error: profErr } = await admin
       .from("profiles")
       .select("availability")
       .eq("provider_id", providerId)
-      .maybeSingle<{ availability: any }>();
+      .maybeSingle<{
+        availability: Partial<Record<DayKey, DayAvailability>> | null;
+      }>();
 
     if (profErr) return NextResponse.json({ error: profErr.message }, { status: 500 });
     if (!profile?.availability) return NextResponse.json([], { status: 200 });
@@ -110,20 +213,16 @@ export async function GET(req: Request) {
     if (!dayAvailability?.start || !dayAvailability?.end) return NextResponse.json([], { status: 200 });
 
     // 3) slots théoriques
-    const slots: { start: string; end: string }[] = [];
-    let cursor = new Date(`${dateStr}T${dayAvailability.start}:00`);
-    const endDay = new Date(`${dateStr}T${dayAvailability.end}:00`);
-
-    while (cursor.getTime() + durationMs <= endDay.getTime()) {
-      const start = new Date(cursor);
-      const end = new Date(cursor.getTime() + durationMs);
-      slots.push({ start: start.toISOString(), end: end.toISOString() });
-      cursor = new Date(cursor.getTime() + durationMs);
-    }
+    const slots = generateSlots({
+      date: dateStr,
+      openingTime: dayAvailability.start,
+      closingTime: dayAvailability.end,
+      durationMinutes: service.duration_minutes,
+    });
 
     // Fenêtre journée
-    const startWindow = new Date(`${dateStr}T00:00:00`).toISOString();
-    const endWindow = new Date(`${dateStr}T23:59:59`).toISOString();
+    const startWindow = parisDateTimeToIso(dateStr, "00:00");
+    const endWindow = parisDateTimeToIso(addOneDay(dateStr), "00:00");
 
     // 4) RDV déjà pris (pending + confirmed)
     const { data: appts, error: apptErr } = await admin
@@ -131,12 +230,15 @@ export async function GET(req: Request) {
       .select("start_datetime, end_datetime, status")
       .eq("provider_id", providerId)
       .in("status", ["pending", "confirmed"])
-      .gte("start_datetime", startWindow)
-      .lte("start_datetime", endWindow);
+      .lt("start_datetime", endWindow)
+      .gt("end_datetime", startWindow);
 
     if (apptErr) return NextResponse.json({ error: apptErr.message }, { status: 500 });
 
-    const busy = (appts ?? []).filter((a: any) => a.start_datetime && a.end_datetime);
+    const busy = ((appts ?? []) as IntervalRow[]).filter(
+      (appointment) =>
+        appointment.start_datetime && appointment.end_datetime
+    );
 
     // 5) Blocages (pause déjeuner, indispo, etc.)
     const { data: blocks, error: blocksErr } = await admin
@@ -148,18 +250,39 @@ export async function GET(req: Request) {
 
     if (blocksErr) return NextResponse.json({ error: blocksErr.message }, { status: 500 });
 
-    const blocked = (blocks ?? []).filter((b: any) => b.start_datetime && b.end_datetime);
+    const blocked = ((blocks ?? []) as IntervalRow[]).filter(
+      (block) => block.start_datetime && block.end_datetime
+    );
 
     // 6) Ne garder que les slots libres
     const free = slots.filter((s) => {
-      const isBusy = busy.some((b: any) => overlaps(s.start, s.end, b.start_datetime, b.end_datetime));
+      const isBusy = busy.some((appointment) =>
+        overlaps(
+          s.start,
+          s.end,
+          appointment.start_datetime!,
+          appointment.end_datetime!
+        )
+      );
       if (isBusy) return false;
-      const isBlocked = blocked.some((b: any) => overlaps(s.start, s.end, b.start_datetime, b.end_datetime));
+      const isBlocked = blocked.some((block) =>
+        overlaps(
+          s.start,
+          s.end,
+          block.start_datetime!,
+          block.end_datetime!
+        )
+      );
       return !isBlocked;
     });
 
     return NextResponse.json(free, { status: 200 });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Internal error",
+      },
+      { status: 500 }
+    );
   }
 }

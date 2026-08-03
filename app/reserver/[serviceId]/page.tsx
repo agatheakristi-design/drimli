@@ -192,7 +192,24 @@ export default function Page() {
     setCreating(false);
 
     if (!res.ok) {
-      setErrorText("❌ Erreur création rendez-vous : " + (json?.error || "unknown"));
+      if (json?.code === "SLOT_NO_LONGER_AVAILABLE") {
+        setSelectedSlot(null);
+
+        if (date) {
+          await loadSlots(date);
+        }
+
+        setErrorText(
+          json.error ||
+            "Ce créneau vient d’être réservé. Choisissez-en un autre."
+        );
+        return null;
+      }
+
+      setErrorText(
+        "❌ Erreur création rendez-vous : " +
+          (json?.error || "unknown")
+      );
       return null;
     }
 

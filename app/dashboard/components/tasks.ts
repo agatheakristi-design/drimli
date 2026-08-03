@@ -26,7 +26,7 @@ export const tasks = [
   {
     label: "Définir vos disponibilités",
     description: "Indiquez quand vos clients peuvent réserver.",
-    href: "/dashboard/disponibilites",
+    href: "/dashboard/calendrier",
     done: false,
   },
   {

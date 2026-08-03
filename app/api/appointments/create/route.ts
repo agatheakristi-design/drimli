@@ -9,6 +9,16 @@ function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function slotNoLongerAvailable() {
+  return NextResponse.json(
+    {
+      code: "SLOT_NO_LONGER_AVAILABLE",
+      error: "Ce créneau vient d’être réservé. Choisissez-en un autre.",
+    },
+    { status: 409 }
+  );
+}
+
 export async function POST(req: Request) {
   try {
     const rawBody: unknown = await req.json().catch(() => null);
@@ -53,6 +63,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "providerId/productId must be UUID." }, { status: 400 });
     }
 
+    const startMs = Date.parse(start);
+    const endMs = Date.parse(end);
+
+    if (
+      !Number.isFinite(startMs) ||
+      !Number.isFinite(endMs) ||
+      endMs <= startMs
+    ) {
+      return NextResponse.json(
+        { error: "Invalid appointment start or end." },
+        { status: 400 }
+      );
+    }
+
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -68,15 +92,62 @@ export async function POST(req: Request) {
     // (Optionnel mais recommandé) : vérifier que le service existe et correspond au provider
     const { data: product, error: prodErr } = await admin
       .from("products")
-      .select("id, provider_id, active")
+      .select("id, provider_id, active, duration_minutes")
       .eq("id", productId)
-      .maybeSingle<{ id: string; provider_id: string; active: boolean | null }>();
+      .maybeSingle<{
+        id: string;
+        provider_id: string;
+        active: boolean | null;
+        duration_minutes: number | null;
+      }>();
 
     if (prodErr) {
       return NextResponse.json({ error: prodErr.message }, { status: 400 });
     }
     if (!product || product.active === false || product.provider_id !== providerId) {
       return NextResponse.json({ error: "Service invalid or inactive." }, { status: 400 });
+    }
+
+    if (
+      !product.duration_minutes ||
+      endMs - startMs !== product.duration_minutes * 60 * 1000
+    ) {
+      return NextResponse.json(
+        { error: "Appointment duration does not match the service." },
+        { status: 400 }
+      );
+    }
+
+    const [appointmentsResult, blocksResult] = await Promise.all([
+      admin
+        .from("appointments")
+        .select("id")
+        .eq("provider_id", providerId)
+        .in("status", ["pending", "confirmed"])
+        .lt("start_datetime", end)
+        .gt("end_datetime", start)
+        .limit(1),
+      admin
+        .from("provider_blocks")
+        .select("id")
+        .eq("provider_id", providerId)
+        .lt("start_datetime", end)
+        .gt("end_datetime", start)
+        .limit(1),
+    ]);
+
+    if (appointmentsResult.error || blocksResult.error) {
+      return NextResponse.json(
+        { error: "Unable to verify slot availability." },
+        { status: 500 }
+      );
+    }
+
+    if (
+      (appointmentsResult.data?.length ?? 0) > 0 ||
+      (blocksResult.data?.length ?? 0) > 0
+    ) {
+      return slotNoLongerAvailable();
     }
 
     const { data, error } = await admin
@@ -95,7 +166,17 @@ export async function POST(req: Request) {
       .maybeSingle<{ id: string }>();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      if (
+        error.code === "23P01" ||
+        error.message.includes("no_overlap_same_provider")
+      ) {
+        return slotNoLongerAvailable();
+      }
+
+      return NextResponse.json(
+        { error: "Unable to create appointment." },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({ id: data?.id }, { status: 200 });

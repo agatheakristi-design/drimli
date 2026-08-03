@@ -6,13 +6,13 @@
 
 :root {
   /* Couleurs */
-  --background: #fbfaf6;
+  --background: #ffffff;
   --foreground: #111827;
 
   --card: #ffffff;
   --card-foreground: #111827;
 
-  --muted: #f4f2ec;
+  --muted: #f6f6f7;
   --muted-foreground: #6b7280;
 
   --border: #e5e5e7;

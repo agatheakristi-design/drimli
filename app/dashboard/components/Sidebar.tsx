@@ -26,7 +26,7 @@ const navigation = [
   },
   {
     label: "Calendrier",
-    href: "/dashboard/disponibilites",
+    href: "/dashboard/calendrier",
     icon: CalendarDays,
   },
   {
@@ -46,7 +46,7 @@ const navigation = [
   },
   {
     label: "Ma page",
-    href: "/dashboard/profile",
+    href: "/dashboard/publish",
     icon: Globe,
   },
 ];

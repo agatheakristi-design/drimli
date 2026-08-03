@@ -1,17 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabaseClient";
+
+function subscribeToOrigin() {
+  return () => undefined;
+}
+
+export function usePublicUrl(slug: string | null) {
+  const origin = useSyncExternalStore(
+    subscribeToOrigin,
+    () => window.location.origin,
+    () => ""
+  );
+
+  return slug && origin ? `${origin}/${slug}` : null;
+}
+
+export async function copyPublicUrl(publicUrl: string) {
+  await navigator.clipboard.writeText(publicUrl);
+}
 
 export default function PublicPageLink() {
   const [slug, setSlug] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
-  const publicUrl = useMemo(() => {
-    if (!slug) return null;
-    if (typeof window === "undefined") return null;
-    return `${window.location.origin}/${slug}`;
-  }, [slug]);
+  const publicUrl = usePublicUrl(slug);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,7 +60,7 @@ export default function PublicPageLink() {
           setSlug(data.slug);
           setStatus(null);
         }
-      } catch (e: any) {
+      } catch {
         if (!cancelled) setStatus("Erreur inattendue.");
       }
     })();
@@ -59,7 +73,7 @@ export default function PublicPageLink() {
   async function copy() {
     if (!publicUrl) return;
     try {
-      await navigator.clipboard.writeText(publicUrl);
+      await copyPublicUrl(publicUrl);
       setStatus("✅ URL copiée !");
       setTimeout(() => setStatus(null), 1500);
     } catch {
