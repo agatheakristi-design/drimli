@@ -1,7 +1,10 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendAppointmentConfirmationEmail } from "@/lib/email";
+import {
+  isGoogleMeetUrl,
+  sendAppointmentConfirmationEmail,
+} from "@/lib/email";
 import {
   createGoogleMeetAppointment,
   GoogleMeetError,
@@ -25,10 +28,27 @@ const supabaseAdmin = createClient(
   { auth: { persistSession: false } }
 );
 
-const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
-
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function safeMeetFailureMessage(stage: string) {
+  const messages: Record<string, string> = {
+    integration_lookup: "Google integration could not be checked.",
+    integration_missing: "Google integration is absent.",
+    refresh_token_missing: "Google refresh token is absent.",
+    calendar_scope_missing: "Google Calendar scope is absent.",
+    oauth_refresh: "Google OAuth refresh failed.",
+    token_storage: "Refreshed Google credentials could not be stored.",
+    calendar_insert: "Google Calendar event creation failed.",
+    conference_creation: "Google Meet conference creation failed.",
+    hangout_link_retrieval: "Google Meet URL retrieval failed.",
+    supabase_write: "Google Meet fields could not be stored.",
+    appointment_reload: "Confirmed appointment could not be reloaded.",
+    email_send: "Confirmation email could not be sent.",
+  };
+
+  return messages[stage] ?? "Google Meet creation failed.";
 }
 
 function pickAppointmentId(metadata: Record<string, string> | null | undefined): string | null {
@@ -211,11 +231,12 @@ export async function POST(req: Request) {
       .eq("id", event.id)
       .maybeSingle();
 
-    if (alreadyEvent) return NextResponse.json({ received: true, idempotent: true });
-
-    await supabaseAdmin.from("stripe_webhook_events").insert({ id: event.id, type: event.type });
-
     if (event.type !== "checkout.session.completed") {
+      if (!alreadyEvent) {
+        await supabaseAdmin
+          .from("stripe_webhook_events")
+          .insert({ id: event.id, type: event.type });
+      }
       return NextResponse.json({ received: true });
     }
 
@@ -239,7 +260,7 @@ export async function POST(req: Request) {
     // 1) Charger appointment
     const { data: appt, error: apptErr } = await supabaseAdmin
       .from("appointments")
-      .select("id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, join_token, access_token, confirmation_email_sent_at, video_provider, video_join_url, video_room_id")
+      .select("id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, confirmation_email_sent_at, video_provider, video_join_url, video_room_id")
       .eq("id", appointmentId)
       .maybeSingle();
 
@@ -248,8 +269,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true, warning: "Appointment not found" });
     }
 
-    let videoProvider = appt.video_provider;
-    let videoJoinUrl = appt.video_join_url;
+    if (alreadyEvent && appt.confirmation_email_sent_at) {
+      if (
+        appt.video_provider === "google_meet" &&
+        isGoogleMeetUrl(appt.video_join_url)
+      ) {
+        return NextResponse.json({ received: true, idempotent: true });
+      }
+
+      console.error("[GOOGLE_MEET_ERROR]", {
+        appointmentId: appt.id,
+        providerId: appt.provider_id,
+        stage: "appointment_reload",
+        message: "Inconsistent state: email marked sent without a Google Meet URL.",
+      });
+      return NextResponse.json(
+        { error: "Inconsistent appointment confirmation state" },
+        { status: 500 }
+      );
+    }
 
     // 1.5) Sync client_email from Stripe (si Drimli ne l'avait pas)
     if (!appt.client_email && stripeClientEmail) {
@@ -280,11 +318,12 @@ export async function POST(req: Request) {
     // 2.5) Créer le rendez-vous Google Meet si le professionnel est connecté
     try {
       if (
-        !videoJoinUrl &&
+        !appt.video_join_url &&
         appt.start_datetime &&
         appt.end_datetime
       ) {
         const meeting = await createGoogleMeetAppointment({
+          appointmentId: appt.id,
           providerId: appt.provider_id,
           title: "Rendez-vous Drimli",
           start: new Date(appt.start_datetime).toISOString(),
@@ -318,25 +357,70 @@ export async function POST(req: Request) {
           );
         }
 
-        videoProvider = videoUpdate.video_provider;
-        videoJoinUrl = videoUpdate.video_join_url;
-
         console.log("[GOOGLE_MEET_SUCCESS]", {
           appointmentId: appt.id,
           providerId: appt.provider_id,
-          stripeCheckoutSessionId: session.id,
           eventId: videoUpdate.video_room_id,
-          hangoutLinkPresent: Boolean(videoUpdate.video_join_url),
+          hangoutLinkPresent: true,
         });
       }
     } catch (error: unknown) {
+      const stage =
+        error instanceof GoogleMeetError ? error.stage : "unknown";
       console.error("[GOOGLE_MEET_ERROR]", {
         appointmentId: appt.id,
         providerId: appt.provider_id,
-        stripeCheckoutSessionId: session.id,
-        stage: error instanceof GoogleMeetError ? error.stage : "unknown",
-        message: errorMessage(error),
+        stage,
+        message: safeMeetFailureMessage(stage),
       });
+      return NextResponse.json(
+        { error: "Meeting creation failed" },
+        { status: 500 }
+      );
+    }
+
+    const { data: reloadedAppointment, error: reloadError } =
+      await supabaseAdmin
+        .from("appointments")
+        .select(
+          "id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, confirmation_email_sent_at, video_provider, video_join_url, video_room_id"
+        )
+        .eq("id", appt.id)
+        .maybeSingle();
+
+    if (reloadError || !reloadedAppointment) {
+      console.error("[GOOGLE_MEET_ERROR]", {
+        appointmentId: appt.id,
+        providerId: appt.provider_id,
+        stage: "appointment_reload",
+        message: "Confirmed appointment could not be reloaded.",
+      });
+      return NextResponse.json(
+        { error: "Appointment reload failed" },
+        { status: 500 }
+      );
+    }
+
+    const hasValidMeetUrl = isGoogleMeetUrl(
+      reloadedAppointment.video_join_url
+    );
+
+    if (
+      reloadedAppointment.video_provider !== "google_meet" ||
+      !hasValidMeetUrl
+    ) {
+      console.error("[GOOGLE_MEET_ERROR]", {
+        appointmentId: appt.id,
+        providerId: appt.provider_id,
+        stage: "appointment_reload",
+        message: reloadedAppointment.confirmation_email_sent_at
+          ? "Inconsistent state: email marked sent without a Google Meet URL."
+          : "Google Meet URL is absent after appointment reload.",
+      });
+      return NextResponse.json(
+        { error: "Meeting link unavailable" },
+        { status: 500 }
+      );
     }
 
     // 3) Charger infos pro + service
@@ -370,7 +454,57 @@ export async function POST(req: Request) {
     const serviceTitle = (prod?.title || "Prestation").toString();
     const serviceTtcCents = Number(prod?.price_cents ?? 0) || 0;
 
-    // 4) Facture COMMISSION (déjà en place chez toi) — on garde le code simple
+    // 4) Email de confirmation — uniquement après persistance et relecture de Meet
+    if (
+      !reloadedAppointment.confirmation_email_sent_at &&
+      reloadedAppointment.client_email &&
+      reloadedAppointment.start_datetime &&
+      reloadedAppointment.end_datetime
+    ) {
+      try {
+        await sendAppointmentConfirmationEmail({
+          appointmentId: appt.id,
+          to: reloadedAppointment.client_email,
+          patientName: reloadedAppointment.client_name,
+          providerName,
+          serviceTitle,
+          startDateTimeIso: new Date(
+            reloadedAppointment.start_datetime
+          ).toISOString(),
+          endDateTimeIso: new Date(
+            reloadedAppointment.end_datetime
+          ).toISOString(),
+          videoProvider: reloadedAppointment.video_provider,
+          videoJoinUrl: reloadedAppointment.video_join_url,
+        });
+
+        const { error: sentAtError } = await supabaseAdmin
+          .from("appointments")
+          .update({ confirmation_email_sent_at: new Date().toISOString() })
+          .eq("id", appt.id)
+          .is("confirmation_email_sent_at", null);
+
+        if (sentAtError) {
+          throw new GoogleMeetError(
+            "email_send",
+            "Confirmation email was sent but its status could not be stored."
+          );
+        }
+      } catch {
+        console.error("[GOOGLE_MEET_ERROR]", {
+          appointmentId: appt.id,
+          providerId: appt.provider_id,
+          stage: "email_send",
+          message: safeMeetFailureMessage("email_send"),
+        });
+        return NextResponse.json(
+          { error: "Confirmation email failed" },
+          { status: 500 }
+        );
+      }
+    }
+
+    // 5) Facture COMMISSION (déjà en place chez toi) — on garde le code simple
     // Récupérer la commission (application_fee_amount) si possible
     let feeCents: number | null = null;
     if (paymentIntentId) {
@@ -420,7 +554,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 5) Générer + archiver la facture PATIENT (PDF)
+    // 6) Générer + archiver la facture PATIENT (PDF)
     // On évite les doublons grâce à l’index unique session_id
     const { data: existingPatientInvoice } = await supabaseAdmin
       .from("patient_invoices")
@@ -473,56 +607,13 @@ export async function POST(req: Request) {
       }
     }
 
-    // 5.5) Assurer un join_token (lien Drimcall)
-    if (!appt.join_token) {
-      // On réutilise access_token si présent (compat), sinon on génère
-      const fallback = appt.access_token || null;
-      const token = fallback || Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-      const { data: upTok, error: upTokErr } = await supabaseAdmin
-        .from("appointments")
-        .update({ join_token: token })
-        .eq("id", appt.id)
-        .select("join_token")
-        .maybeSingle();
-      if (!upTokErr && upTok?.join_token) {
-        appt.join_token = upTok.join_token;
-      }
-    }
+    if (!alreadyEvent) {
+      const { error: eventStoreError } = await supabaseAdmin
+        .from("stripe_webhook_events")
+        .insert({ id: event.id, type: event.type });
 
-    // 6) Email de confirmation (Drimcall) — 1 seule fois
-
-    if (appt.client_email && appt.join_token && appt.start_datetime) {
-      // Verrou anti-doublon : on "réserve" l'envoi en base
-      const { data: lockRow, error: lockErr } = await supabaseAdmin
-        .from("appointments")
-        .update({ confirmation_email_sent_at: new Date().toISOString() })
-        .eq("id", appt.id)
-        .is("confirmation_email_sent_at", null)
-        .select("id")
-        .maybeSingle<{ id: string }>();
-
-      if (lockErr) {
-        console.error("Email lock failed:", lockErr.message);
-      }
-
-      // On envoie seulement si on a pris le lock
-      if (lockRow?.id) {
-        const manageUrl = `${APP_URL}/rendez-vous/${encodeURIComponent(appt.join_token)}`;
-
-        try {
-          await sendAppointmentConfirmationEmail({
-            to: appt.client_email,
-            patientName: appt.client_name,
-            providerName,
-            serviceTitle,
-            startDateTimeIso: new Date(appt.start_datetime).toISOString(),
-            manageUrl,
-            videoProvider,
-            videoJoinUrl,
-          });
-        } catch (error: unknown) {
-          console.error("Email send failed:", errorMessage(error));
-        }
+      if (eventStoreError) {
+        console.warn("Stripe webhook event completion marker was not stored.");
       }
     }
 

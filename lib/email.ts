@@ -18,15 +18,32 @@ const resend = new Resend(requireEnv("RESEND_API_KEY"));
 const FROM = process.env.RESEND_FROM || "Drimli <onboarding@resend.dev>";
 
 export type AppointmentEmailPayload = {
+  appointmentId: string;
   to: string;
   patientName?: string | null;
   providerName: string;
   serviceTitle: string;
-  startDateTimeIso: string; // ISO
-  manageUrl: string; // point d'entrée du rendez-vous
+  startDateTimeIso: string;
+  endDateTimeIso: string;
   videoProvider?: string | null;
   videoJoinUrl?: string | null;
 };
+
+export function isGoogleMeetUrl(
+  value: string | null | undefined
+): value is string {
+  if (!value) return false;
+
+  try {
+    const url = new URL(value);
+    return (
+      value.startsWith("https://meet.google.com/") &&
+      url.origin === "https://meet.google.com"
+    );
+  } catch {
+    return false;
+  }
+}
 
 export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayload) {
   const subject = `Votre rendez-vous avec ${p.providerName} est confirmé`;
@@ -35,8 +52,32 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
     ? `Bonjour ${p.patientName.trim()},`
     : `Bonjour,`;
 
-  const hasMeet =
-    p.videoProvider === "google_meet" && Boolean(p.videoJoinUrl);
+  const meetUrl =
+    p.videoProvider === "google_meet" && isGoogleMeetUrl(p.videoJoinUrl)
+      ? p.videoJoinUrl
+      : null;
+
+  if (!meetUrl) {
+    throw new Error("A valid Google Meet URL is required for confirmation email.");
+  }
+
+  const dateLabel = new Date(p.startDateTimeIso).toLocaleDateString("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const startLabel = new Date(p.startDateTimeIso).toLocaleTimeString("fr-FR", {
+    timeZone: "Europe/Paris",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const endLabel = new Date(p.endDateTimeIso).toLocaleTimeString("fr-FR", {
+    timeZone: "Europe/Paris",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   // Email simple (on fera joli après). Pas de CSS, compatible partout.
   const text = [
@@ -46,73 +87,52 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
     "",
     `Professionnel : ${p.providerName}`,
     `Prestation : ${p.serviceTitle}`,
-    `Date/heure : ${new Date(p.startDateTimeIso).toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`,
+    `Date : ${dateLabel}`,
+    `Horaire : ${startLabel} – ${endLabel}`,
     "",
-    hasMeet
-      ? "Cliquez sur le lien ci-dessous pour rejoindre votre visioconférence Google Meet :"
-      : "Le lien de visioconférence sera disponible prochainement dans votre espace de rendez-vous.",
-    ...(hasMeet && p.videoJoinUrl
-      ? [
-          "",
-          p.videoJoinUrl,
-          "",
-          "Lien Google Meet à copier :",
-          p.videoJoinUrl,
-        ]
-      : []),
-    "",
-    "Gérer votre rendez-vous :",
-    p.manageUrl,
+    "Rejoindre la visio :",
+    meetUrl,
     "",
     "—",
     "Drimli",
   ].join("\n");
 const html = `
   <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; line-height: 1.6; color:#111;">
-    <p>${patientLine}</p>
+    <p>${escapeHtml(patientLine)}</p>
 
-    <p><strong>Votre rendez-vous avec ${p.providerName} est confirmé.</strong></p>
+    <p><strong>Votre rendez-vous avec ${escapeHtml(p.providerName)} est confirmé.</strong></p>
 
     <p>
       <strong>Prestation :</strong> ${escapeHtml(p.serviceTitle)}<br/>
-      <strong>Date/heure :</strong> ${escapeHtml(new Date(p.startDateTimeIso).toLocaleString("fr-FR", { timeZone: "Europe/Paris" }))}<br/>
+      <strong>Date :</strong> ${escapeHtml(dateLabel)}<br/>
+      <strong>Horaire :</strong> ${escapeHtml(startLabel)} – ${escapeHtml(endLabel)}<br/>
     </p>
 
-    ${
-      hasMeet && p.videoJoinUrl
-        ? `
     <p>Cliquez sur le bouton ci-dessous pour rejoindre votre visioconférence Google Meet.</p>
 
     <p style="margin:16px 0;">
-      <a href="${escapeHtml(p.videoJoinUrl)}"
+      <a href="${escapeHtml(meetUrl)}"
+         target="_blank"
+         rel="noreferrer"
          style="display:inline-block;padding:12px 16px;background:#111;color:#fff;text-decoration:none;border-radius:12px;font-weight:700;">
         Rejoindre la visio
       </a>
-    </p>
-
-    <p style="font-size:13px;opacity:.75;">
-      Lien de secours :<br/>
-      <a href="${escapeHtml(p.videoJoinUrl)}">${escapeHtml(p.videoJoinUrl)}</a>
-    </p>`
-        : `<p>Le lien de visioconférence sera disponible prochainement dans votre espace de rendez-vous.</p>`
-    }
-
-    <p>
-      <strong>Gérer votre rendez-vous :</strong><br/>
-      <a href="${escapeHtml(p.manageUrl)}">${escapeHtml(p.manageUrl)}</a>
     </p>
 
     <p style="opacity:0.7;">—<br/>Drimli</p>
   </div>
   `;
 
-  const { data, error } = await resend.emails.send({
-    from: FROM,
-    to: p.to,
-    subject,
-    text,
-    html,
-  });
+  const { data, error } = await resend.emails.send(
+    {
+      from: FROM,
+      to: p.to,
+      subject,
+      text,
+      html,
+    },
+    { idempotencyKey: `appointment-confirmation/${p.appointmentId}` }
+  );
 
   if (error) {
     throw new Error(error.message);

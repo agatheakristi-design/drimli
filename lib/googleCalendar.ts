@@ -20,7 +20,9 @@ export type GoogleMeetFailureStage =
   | "calendar_insert"
   | "conference_creation"
   | "hangout_link_retrieval"
-  | "supabase_write";
+  | "supabase_write"
+  | "appointment_reload"
+  | "email_send";
 
 export class GoogleMeetError extends Error {
   constructor(
@@ -33,6 +35,7 @@ export class GoogleMeetError extends Error {
 }
 
 export async function createGoogleMeetAppointment(params: {
+  appointmentId: string;
   providerId: string;
   title: string;
   description?: string;
@@ -129,12 +132,19 @@ export async function createGoogleMeetAppointment(params: {
     auth: oauth2Client,
   });
 
-  let response;
+  const calendarEventId = `drimli${crypto
+    .createHash("sha256")
+    .update(params.appointmentId)
+    .digest("hex")
+    .slice(0, 40)}`;
+  let event;
+
   try {
-    response = await calendar.events.insert({
+    const response = await calendar.events.insert({
       calendarId: "primary",
       conferenceDataVersion: 1,
       requestBody: {
+        id: calendarEventId,
         summary: params.title,
         description: params.description,
         start: {
@@ -148,7 +158,7 @@ export async function createGoogleMeetAppointment(params: {
           : undefined,
         conferenceData: {
           createRequest: {
-            requestId: crypto.randomUUID(),
+            requestId: `meet-${params.appointmentId}`,
             conferenceSolutionKey: {
               type: "hangoutsMeet",
             },
@@ -156,15 +166,42 @@ export async function createGoogleMeetAppointment(params: {
         },
       },
     });
+    event = response.data;
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    throw new GoogleMeetError(
-      "calendar_insert",
-      `Google Calendar event insertion failed: ${message}`
-    );
+    const status =
+      typeof error === "object" && error !== null
+        ? "code" in error && error.code === 409
+          ? 409
+          : "response" in error &&
+              typeof error.response === "object" &&
+              error.response !== null &&
+              "status" in error.response
+            ? error.response.status
+            : null
+        : null;
+
+    if (status !== 409) {
+      throw new GoogleMeetError(
+        "calendar_insert",
+        "Google Calendar event insertion failed."
+      );
+    }
+
+    try {
+      const existingEvent = await calendar.events.get({
+        calendarId: "primary",
+        eventId: calendarEventId,
+      });
+      event = existingEvent.data;
+    } catch {
+      throw new GoogleMeetError(
+        "calendar_insert",
+        "Existing Google Calendar event could not be retrieved."
+      );
+    }
   }
 
-  const eventId = response.data.id;
+  const eventId = event.id;
 
   if (!eventId) {
     throw new GoogleMeetError(
@@ -173,14 +210,13 @@ export async function createGoogleMeetAppointment(params: {
     );
   }
 
-  let event = response.data;
   let hangoutLink =
     event.hangoutLink ||
     event.conferenceData?.entryPoints?.find(
       (entryPoint) => entryPoint.entryPointType === "video"
     )?.uri;
 
-  for (let attempt = 0; !hangoutLink && attempt < 4; attempt += 1) {
+  for (let attempt = 0; !hangoutLink && attempt < 10; attempt += 1) {
     const conferenceStatus =
       event.conferenceData?.createRequest?.status?.statusCode;
 
