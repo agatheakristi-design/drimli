@@ -1,5 +1,11 @@
 export const tasks = [
   {
+    label: "Informations professionnelles",
+    description: "Identité, activité, adresse et informations légales.",
+    href: null,
+    done: false,
+  },
+  {
     label: "Premier service créé",
     description: "Votre première offre est publiée.",
     href: "/dashboard/services",
@@ -14,19 +20,13 @@ export const tasks = [
   {
     label: "Ajouter une photo",
     description: "Rendez votre page plus personnelle.",
-    href: "/dashboard/profile/media",
+    href: null,
     done: false,
   },
   {
     label: "Écrire une description",
     description: "Présentez votre activité et votre expertise.",
-    href: "/dashboard/profile",
-    done: false,
-  },
-  {
-    label: "Définir vos disponibilités",
-    description: "Indiquez quand vos clients peuvent réserver.",
-    href: "/dashboard/calendrier",
+    href: null,
     done: false,
   },
   {
@@ -38,7 +38,7 @@ export const tasks = [
   {
     label: "Connecter Google Meet",
     description: "Ajoutez la visioconférence à vos rendez-vous.",
-    href: "/dashboard/profile",
+    href: null,
     done: false,
   },
   {

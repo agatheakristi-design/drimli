@@ -35,9 +35,10 @@ export default function AuthCallbackPage() {
         }
 
         // 3) Session OK
-        router.replace("/dashboard/profile");
-      } catch (e: any) {
-        if (!cancelled) setMsg("❌ Erreur inattendue : " + (e?.message || "unknown"));
+        router.replace("/dashboard");
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "unknown";
+        if (!cancelled) setMsg("❌ Erreur inattendue : " + message);
       }
     })();
 

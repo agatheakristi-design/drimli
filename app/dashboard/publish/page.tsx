@@ -52,8 +52,6 @@ export default function PublishPage() {
   const [published, setPublished] = useState(false);
 
   const [bookingUrl, setBookingUrl] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
-  const [contactWhatsapp, setContactWhatsapp] = useState("");
   const [contactEmail, setContactEmail] = useState("");
 
   useEffect(() => {
@@ -70,7 +68,7 @@ export default function PublishPage() {
       const { data } = await supabase
         .from("profiles")
         .select(
-          "full_name, profession, slug, published, booking_url, contact_phone, contact_whatsapp, contact_email"
+          "full_name, profession, slug, published, booking_url, contact_email"
         )
         .eq("provider_id", uid)
         .maybeSingle();
@@ -86,8 +84,6 @@ export default function PublishPage() {
       setSlug(data?.slug ?? proposed);
 
       setBookingUrl(data?.booking_url ?? "");
-      setContactPhone(data?.contact_phone ?? "");
-      setContactWhatsapp(data?.contact_whatsapp ?? "");
       setContactEmail(data?.contact_email ?? "");
 
       setLoading(false);
@@ -115,8 +111,6 @@ export default function PublishPage() {
           slug: uniqueSlug,
           published,
           booking_url: bookingUrl,
-          contact_phone: contactPhone,
-          contact_whatsapp: contactWhatsapp,
           contact_email: contactEmail,
           updated_at: new Date().toISOString(),
         })
@@ -126,8 +120,10 @@ export default function PublishPage() {
 
       setSlug(uniqueSlug);
       setStatus("✅ Enregistré !");
-    } catch (e: any) {
-      setStatus("❌ " + (e?.message ?? "Erreur"));
+    } catch (error: unknown) {
+      setStatus(
+        "❌ " + (error instanceof Error ? error.message : "Erreur")
+      );
     } finally {
       setSaving(false);
     }
@@ -196,24 +192,6 @@ export default function PublishPage() {
         </label>
 
         <div style={{ fontWeight: 900 }}>Contact</div>
-
-        <label>
-          <div style={labelStyle}>WhatsApp</div>
-          <input
-            value={contactWhatsapp}
-            onChange={(e) => setContactWhatsapp(e.target.value)}
-            style={inputStyle}
-          />
-        </label>
-
-        <label>
-          <div style={labelStyle}>Téléphone</div>
-          <input
-            value={contactPhone}
-            onChange={(e) => setContactPhone(e.target.value)}
-            style={inputStyle}
-          />
-        </label>
 
         <label>
           <div style={labelStyle}>Email</div>

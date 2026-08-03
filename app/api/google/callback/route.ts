@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.redirect(
-      new URL("/dashboard/profile", request.url)
+      new URL("/dashboard?google=connected", request.url)
     );
   } catch (error: unknown) {
     const message =
@@ -143,11 +143,8 @@ export async function GET(request: NextRequest) {
 
     console.error("[GOOGLE_OAUTH_CALLBACK_ERROR]", { message });
 
-    return NextResponse.json(
-      {
-        error: message,
-      },
-      { status: 500 }
+    return NextResponse.redirect(
+      new URL("/dashboard?google=error", request.url)
     );
   }
 }

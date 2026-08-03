@@ -96,7 +96,7 @@ export async function GET(req: Request) {
 
     const next =
       !profileComplete
-        ? "/dashboard/profile"
+        ? "/dashboard"
         : !servicesComplete
         ? "/dashboard/services"
         : "/dashboard";

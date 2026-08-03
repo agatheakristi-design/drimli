@@ -2,6 +2,7 @@
 
 import {
   ChangeEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -13,7 +14,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-import DrimpayOnboarding from "@/app/dashboard/profile/DrimpayOnboarding";
+import DrimpayOnboarding from "./DrimpayOnboarding";
+import GoogleMeetOnboarding from "./GoogleMeetOnboarding";
+import ProfessionalDetailsTask from "./ProfessionalDetailsTask";
 import { tasks } from "./tasks";
 import styles from "./dashboard.module.css";
 
@@ -24,6 +27,8 @@ export default function TaskList() {
 
   const [photoDone, setPhotoDone] = useState(false);
   const [paymentReady, setPaymentReady] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [profileReady, setProfileReady] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoStatus, setPhotoStatus] = useState("");
 
@@ -84,6 +89,10 @@ export default function TaskList() {
   }, []);
 
   function isTaskDone(label: string, defaultValue: boolean) {
+    if (label === "Informations professionnelles") {
+      return profileReady;
+    }
+
     if (label === "Ajouter une photo") {
       return photoDone;
     }
@@ -96,8 +105,20 @@ export default function TaskList() {
       return paymentReady;
     }
 
+    if (label === "Connecter Google Meet") {
+      return googleReady;
+    }
+
     return defaultValue;
   }
+
+  const handleGoogleCompletion = useCallback((connected: boolean) => {
+    setGoogleReady(connected);
+  }, []);
+
+  const handleProfileCompletion = useCallback((complete: boolean) => {
+    setProfileReady(complete);
+  }, []);
 
   async function uploadPhoto(file: File) {
     if (!userId) {
@@ -275,6 +296,24 @@ export default function TaskList() {
           const className = `${styles.taskRow} ${
             done ? styles.taskRowDone : ""
           }`;
+
+          if (task.label === "Informations professionnelles") {
+            return (
+              <ProfessionalDetailsTask
+                key={task.label}
+                onCompletionChange={handleProfileCompletion}
+              />
+            );
+          }
+
+          if (task.label === "Connecter Google Meet") {
+            return (
+              <GoogleMeetOnboarding
+                key={task.label}
+                onCompletionChange={handleGoogleCompletion}
+              />
+            );
+          }
 
           if (task.label === "Premier service créé") {
             return (

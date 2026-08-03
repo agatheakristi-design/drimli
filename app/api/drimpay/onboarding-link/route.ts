@@ -49,8 +49,8 @@ export async function POST(req: Request) {
   const link = await stripe.accountLinks.create({
     account: resolvedAccount.accountId,
     type: "account_onboarding",
-    refresh_url: `${origin}/dashboard/profile?drimpay=retry`,
-    return_url: `${origin}/dashboard/profile?drimpay=done`,
+    refresh_url: `${origin}/dashboard?drimpay=retry`,
+    return_url: `${origin}/dashboard?drimpay=done`,
   });
 
   return NextResponse.json({ url: link.url });

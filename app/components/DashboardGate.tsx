@@ -36,8 +36,6 @@ export default function DashboardGate({ children }: { children: React.ReactNode 
 
       // ✅ Pages autorisées pendant onboarding
       const allowedDuringOnboarding =
-        pathname === "/dashboard/profile" ||
-        pathname.startsWith("/dashboard/profile/") ||
         pathname === "/dashboard/services" ||
         pathname.startsWith("/dashboard/services/") ||
         pathname === "/dashboard/disponibilites" ||

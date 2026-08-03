@@ -4,11 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CalendarDays,
-  CreditCard,
-  Globe,
   Home,
-  List,
-  Video,
 } from "lucide-react";
 import LogoutButton from "@/app/components/LogoutButton";
 import styles from "./dashboard.module.css";
@@ -25,29 +21,9 @@ const navigation = [
     icon: Home,
   },
   {
-    label: "Calendrier",
+    label: "Mes rendez-vous",
     href: "/dashboard/calendrier",
     icon: CalendarDays,
-  },
-  {
-    label: "Réservations",
-    href: "/dashboard/rendez-vous",
-    icon: List,
-  },
-  {
-    label: "Paiements",
-    href: "/paiements",
-    icon: CreditCard,
-  },
-  {
-    label: "Visio",
-    href: "/dashboard/rendez-vous",
-    icon: Video,
-  },
-  {
-    label: "Ma page",
-    href: "/dashboard/publish",
-    icon: Globe,
   },
 ];
 

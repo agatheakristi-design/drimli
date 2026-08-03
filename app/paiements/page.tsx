@@ -7,14 +7,13 @@ import { supabase } from "@/lib/supabaseClient";
 import Container from "@/app/components/ui/Container";
 import Card from "@/app/components/ui/Card";
 
-import DrimpayOnboarding from "@/app/dashboard/profile/DrimpayOnboarding";
+import DrimpayOnboarding from "@/app/dashboard/components/DrimpayOnboarding";
 
 export default function PaiementsPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
-  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,24 +32,13 @@ export default function PaiementsPage() {
           return;
         }
 
-        const { data: prof, error } = await supabase
-          .from("profiles")
-          .select("stripe_account_id")
-          .eq("provider_id", user.id)
-          .maybeSingle();
-
         if (cancelled) return;
-
-        if (error) {
-          setStatus("❌ Erreur chargement profil : " + error.message);
-        } else {
-          setStripeAccountId(prof?.stripe_account_id ?? null);
-        }
-
         setLoading(false);
-      } catch (e: any) {
+      } catch (error: unknown) {
         if (!cancelled) {
-          setStatus("❌ Erreur inattendue : " + (e?.message || "unknown"));
+          const message =
+            error instanceof Error ? error.message : "unknown";
+          setStatus("❌ Erreur inattendue : " + message);
           setLoading(false);
         }
       }
