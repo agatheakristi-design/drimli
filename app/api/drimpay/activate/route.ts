@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import {
+  requestTransfersCapability,
+  resolveStripeAccountId,
+  stripeAccountState,
+} from "@/lib/stripeConnect";
 
 export const runtime = "nodejs";
 
@@ -57,29 +62,60 @@ export async function POST(req: Request) {
 
     // 2) Client admin (service_role) pour lire/écrire profiles
     const supabaseAdmin = createSupabaseClient(supabaseUrl, serviceRoleKey);
+    const stripe = new Stripe(stripeSecretKey);
 
     const { data: profile, error: pErr } = await supabaseAdmin
       .from("profiles")
-      .select("provider_id, email, stripe_account_id")
+      .select("provider_id, email, stripe_account_id, stripe_connect_account_id")
       .eq("provider_id", user.id)
       .maybeSingle();
 
     if (pErr) return NextResponse.json({ error: "DB error", details: pErr.message }, { status: 500 });
     if (!profile) return NextResponse.json({ error: "Profile not found", debug_user_id: user.id }, { status: 400 });
 
-    if (profile.stripe_account_id) {
-      return NextResponse.json({ stripeAccountId: profile.stripe_account_id });
+    const resolvedAccount = resolveStripeAccountId(profile);
+
+    if (resolvedAccount.conflict) {
+      return NextResponse.json(
+        { error: "Stripe account references conflict" },
+        { status: 409 }
+      );
+    }
+
+    if (resolvedAccount.accountId) {
+      let account: Stripe.Account = await stripe.accounts.retrieve(
+        resolvedAccount.accountId
+      );
+      account = await requestTransfersCapability(stripe, account);
+      const accountState = stripeAccountState(account);
+
+      const { error: statusUpdateError } = await supabaseAdmin
+        .from("profiles")
+        .update({
+          stripe_account_id: account.id,
+          drimpay_status: accountState.ready ? "active" : "pending",
+        })
+        .eq("provider_id", user.id);
+
+      if (statusUpdateError) {
+        return NextResponse.json(
+          { error: "Unable to update Stripe account status" },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        stripeAccountId: account.id,
+        ready: accountState.ready,
+      });
     }
 
     // 3) Créer le compte Stripe Express
-    const stripe = new Stripe(stripeSecretKey);
-
     const account = await stripe.accounts.create({
       type: "express",
       country: "FR",
       email: profile.email || user.email || undefined,
       capabilities: {
-        card_payments: { requested: true },
         transfers: { requested: true },
       },
     });
@@ -92,11 +128,11 @@ export async function POST(req: Request) {
     if (uErr) return NextResponse.json({ error: "DB update failed", details: uErr.message }, { status: 500 });
 
     return NextResponse.json({ stripeAccountId: account.id });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json(
-      { error: "Server crash", details: e?.message || String(e) },
+      { error: "Server crash", details: message },
       { status: 500 }
     );
   }
 }
-

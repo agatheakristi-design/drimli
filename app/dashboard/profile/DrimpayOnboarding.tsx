@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { ConnectComponentsProvider, ConnectAccountOnboarding } from "@stripe/react-connect-js";
-import { loadConnectAndInitialize } from "@stripe/connect-js";
+import {
+  loadConnectAndInitialize,
+  type StripeConnectInstance,
+} from "@stripe/connect-js";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/app/components/ui/Button";
 
@@ -13,7 +16,9 @@ export default function DrimpayOnboarding({
   onDone?: () => void;
   onBack?: () => void;
 }) {
-  const [connectInstance, setConnectInstance] = useState<any>(null);
+  const [connectInstance, setConnectInstance] =
+    useState<StripeConnectInstance | null>(null);
+  const [paymentReady, setPaymentReady] = useState(false);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
 
@@ -63,6 +68,8 @@ export default function DrimpayOnboarding({
           return;
         }
 
+        setPaymentReady(Boolean(json.ready));
+
         const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
         if (!publishableKey) {
           setError("Clé Stripe manquante : NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
@@ -86,8 +93,12 @@ export default function DrimpayOnboarding({
         });
 
         if (!cancelled) setConnectInstance(instance);
-      } catch (e: any) {
-        setError(e?.message || "Erreur inattendue pendant l’onboarding.");
+      } catch (error: unknown) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Erreur inattendue pendant l’onboarding."
+        );
       }
     })();
 
@@ -114,6 +125,11 @@ export default function DrimpayOnboarding({
 
   return (
     <div className="mt-3">
+      <p className="mb-3">
+        {paymentReady
+          ? "Votre compte de paiement est activé."
+          : "Terminer la configuration des paiements pour activer les virements."}
+      </p>
       <ConnectComponentsProvider connectInstance={connectInstance}>
         <ConnectAccountOnboarding
           onExit={() => {

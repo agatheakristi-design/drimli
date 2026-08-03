@@ -23,6 +23,7 @@ export default function TaskList() {
   const [userId, setUserId] = useState<string | null>(null);
 
   const [photoDone, setPhotoDone] = useState(false);
+  const [paymentReady, setPaymentReady] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoStatus, setPhotoStatus] = useState("");
 
@@ -56,6 +57,23 @@ export default function TaskList() {
       const savedDescription = data?.description?.trim() ?? "";
       setDescription(savedDescription);
       setDescriptionDraft(savedDescription);
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (accessToken) {
+        const response = await fetch("/api/onboarding/status", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: "no-store",
+        });
+
+        if (response.ok) {
+          const status = (await response.json()) as {
+            paymentComplete?: boolean;
+          };
+          setPaymentReady(Boolean(status.paymentComplete));
+        }
+      }
     }
 
     loadProfileStatus();
@@ -72,6 +90,10 @@ export default function TaskList() {
 
     if (label === "Écrire une description") {
       return Boolean(description.trim());
+    }
+
+    if (label === "Connecter les paiements") {
+      return paymentReady;
     }
 
     return defaultValue;
@@ -222,7 +244,15 @@ export default function TaskList() {
               ? photoStatus
               : task.label === "Écrire une description" && description
                 ? "Votre présentation est enregistrée."
+                : task.label === "Connecter les paiements"
+                  ? paymentReady
+                    ? "Votre compte de paiement est activé."
+                    : "Stripe n’est pas prêt. Terminez la configuration pour recevoir des paiements."
                 : task.description;
+          const taskLabel =
+            task.label === "Connecter les paiements" && !paymentReady
+              ? "Terminer la configuration des paiements"
+              : task.label;
 
           const content = (
             <>
@@ -231,7 +261,7 @@ export default function TaskList() {
               </span>
 
               <span className={styles.taskCopy}>
-                <strong>{task.label}</strong>
+                <strong>{taskLabel}</strong>
                 <span>{descriptionText}</span>
               </span>
 

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import {
+  resolveStripeAccountId,
+  stripeAccountState,
+} from "@/lib/stripeConnect";
 
 export const runtime = "nodejs";
 
@@ -19,6 +23,16 @@ const supabaseAdmin = createClient(
   requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
   { auth: { persistSession: false } }
 );
+
+function stripeAccountNotReady() {
+  return NextResponse.json(
+    {
+      code: "STRIPE_ACCOUNT_NOT_READY",
+      error: "Le compte de paiement du professionnel n’est pas encore activé.",
+    },
+    { status: 409 }
+  );
+}
 
 export async function POST(req: Request) {
   try {
@@ -65,13 +79,41 @@ export async function POST(req: Request) {
     // 3) Load provider Stripe Connect account
     const { data: prof, error: profErr } = await supabaseAdmin
       .from("profiles")
-      .select("stripe_account_id")
+      .select("stripe_account_id, stripe_connect_account_id")
       .eq("provider_id", appt.provider_id)
       .maybeSingle();
 
     if (profErr) return NextResponse.json({ error: profErr.message }, { status: 400 });
-    if (!prof?.stripe_account_id) {
-      return NextResponse.json({ error: "Provider Stripe account not connected" }, { status: 400 });
+    if (!prof) return stripeAccountNotReady();
+
+    const stripeAccount = resolveStripeAccountId(prof);
+
+    if (!stripeAccount.accountId || stripeAccount.conflict) {
+      return stripeAccountNotReady();
+    }
+
+    let destinationAccount: Stripe.Account;
+
+    try {
+      destinationAccount = await stripe.accounts.retrieve(
+        stripeAccount.accountId
+      );
+    } catch {
+      return stripeAccountNotReady();
+    }
+
+    const destinationState = stripeAccountState(destinationAccount);
+
+    if (!destinationState.ready) {
+      console.warn("[STRIPE_CONNECT_NOT_READY]", {
+        providerId: appt.provider_id,
+        accountId: destinationAccount.id,
+        detailsSubmitted: destinationState.detailsSubmitted,
+        chargesEnabled: destinationState.chargesEnabled,
+        payoutsEnabled: destinationState.payoutsEnabled,
+        transfers: destinationState.transfers,
+      });
+      return stripeAccountNotReady();
     }
 
     // 4) Compute Drimli commission (MVP: 10%)
@@ -104,7 +146,7 @@ const appUrl = (
       ],
       payment_intent_data: {
         application_fee_amount: feeCents,
-        transfer_data: { destination: prof.stripe_account_id },
+        transfer_data: { destination: destinationAccount.id },
         metadata: {
           appointment_id: appt.id,
           provider_id: appt.provider_id,
@@ -125,7 +167,10 @@ const appUrl = (
     });
 
     return NextResponse.json({ url: session.url }, { status: 200 });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Unknown error" }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      { error: "Impossible de démarrer le paiement." },
+      { status: 500 }
+    );
   }
 }

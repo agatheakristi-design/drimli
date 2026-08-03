@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import Stripe from "stripe";
+import {
+  resolveStripeAccountId,
+  stripeAccountState,
+} from "@/lib/stripeConnect";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 function isFilled(v?: string | null) {
   return !!(v && v.trim().length > 0);
@@ -28,7 +35,9 @@ export async function GET(req: Request) {
 
     const { data: prof, error: profErr } = await supabaseAdmin
       .from("profiles")
-      .select("first_name, last_name, full_name, stripe_account_id")
+      .select(
+        "first_name, last_name, full_name, stripe_account_id, stripe_connect_account_id, drimpay_status"
+      )
       .eq("provider_id", userId)
       .maybeSingle();
 
@@ -43,7 +52,31 @@ export async function GET(req: Request) {
         isFilled(prof.full_name)
       );
 
-    const paymentComplete = !!prof?.stripe_account_id;
+    let paymentComplete = false;
+
+    if (prof) {
+      const resolvedAccount = resolveStripeAccountId(prof);
+
+      if (resolvedAccount.accountId && !resolvedAccount.conflict) {
+        try {
+          const account = await stripe.accounts.retrieve(
+            resolvedAccount.accountId
+          );
+          paymentComplete = stripeAccountState(account).ready;
+        } catch {
+          paymentComplete = false;
+        }
+      }
+
+      const normalizedStatus = paymentComplete ? "active" : "pending";
+
+      if (prof.drimpay_status !== normalizedStatus) {
+        await supabaseAdmin
+          .from("profiles")
+          .update({ drimpay_status: normalizedStatus })
+          .eq("provider_id", userId);
+      }
+    }
 
     const { count: prodCount, error: prodErr } = await supabaseAdmin
       .from("products")
@@ -78,7 +111,10 @@ export async function GET(req: Request) {
       accountReady: profileComplete && servicesComplete,
       next,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "unknown" }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "unknown" },
+      { status: 500 }
+    );
   }
 }

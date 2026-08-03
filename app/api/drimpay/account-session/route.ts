@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import {
+  requestTransfersCapability,
+  resolveStripeAccountId,
+  stripeAccountState,
+} from "@/lib/stripeConnect";
 
 export const runtime = "nodejs";
 
@@ -22,6 +27,7 @@ const supabaseAdmin = createClient(
 type ProfileRow = {
   provider_id: string;
   stripe_account_id: string | null;
+  stripe_connect_account_id: string | null;
 };
 
 export async function POST() {
@@ -46,7 +52,7 @@ export async function POST() {
 
     const { data: prof, error: profErr } = await supabaseAdmin
       .from("profiles")
-      .select("provider_id, stripe_account_id")
+      .select("provider_id, stripe_account_id, stripe_connect_account_id")
       .eq("provider_id", providerId)
       .maybeSingle<ProfileRow>();
 
@@ -58,6 +64,7 @@ export async function POST() {
       const { error: insErr } = await supabaseAdmin.from("profiles").insert({
         provider_id: providerId,
         stripe_account_id: null,
+        stripe_connect_account_id: null,
       });
 
       if (insErr) {
@@ -65,14 +72,24 @@ export async function POST() {
       }
     }
 
-    let stripeAccountId = prof?.stripe_account_id ?? null;
+    const resolvedAccount = prof
+      ? resolveStripeAccountId(prof)
+      : { accountId: null, needsCanonicalBackfill: false, conflict: false };
+
+    if (resolvedAccount.conflict) {
+      return NextResponse.json(
+        { error: "Les informations du compte Stripe sont incohérentes." },
+        { status: 409 }
+      );
+    }
+
+    let stripeAccountId = resolvedAccount.accountId;
 
     if (!stripeAccountId) {
       const account = await stripe.accounts.create({
         type: "express",
         country: "FR",
         capabilities: {
-          card_payments: { requested: true },
           transfers: { requested: true },
         },
         metadata: {
@@ -94,6 +111,36 @@ export async function POST() {
           { status: 500 }
         );
       }
+    } else if (resolvedAccount.needsCanonicalBackfill) {
+      const { error: backfillError } = await supabaseAdmin
+        .from("profiles")
+        .update({ stripe_account_id: stripeAccountId })
+        .eq("provider_id", providerId);
+
+      if (backfillError) {
+        return NextResponse.json(
+          { error: "Failed to normalize Stripe account reference" },
+          { status: 500 }
+        );
+      }
+    }
+
+    let account: Stripe.Account = await stripe.accounts.retrieve(
+      stripeAccountId
+    );
+    account = await requestTransfersCapability(stripe, account);
+    const accountState = stripeAccountState(account);
+
+    const { error: statusError } = await supabaseAdmin
+      .from("profiles")
+      .update({ drimpay_status: accountState.ready ? "active" : "pending" })
+      .eq("provider_id", providerId);
+
+    if (statusError) {
+      return NextResponse.json(
+        { error: "Failed to update payment account status" },
+        { status: 500 }
+      );
     }
 
     const session = await stripe.accountSessions.create({
@@ -106,6 +153,7 @@ export async function POST() {
     return NextResponse.json(
       {
         activated: true,
+        ready: accountState.ready,
         stripe_account_id: stripeAccountId,
         client_secret: session.client_secret,
       },
