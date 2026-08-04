@@ -35,6 +35,16 @@
   /* Contrôles */
   --control-height: 48px;
   --control-padding-x: 14px;
+
+  /* Mise en page */
+  --content-max-width: 960px;
+  --header-height: 72px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
 }
 
 /* =========================================================

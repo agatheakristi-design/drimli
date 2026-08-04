@@ -4,7 +4,10 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 
 type DayKey = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
-type DayAvailability = { start: string; end: string } | null;
+type AvailabilityRange = { start: string; end: string };
+type Availability = Partial<Record<DayKey, AvailabilityRange | null>> & {
+  week?: Partial<Record<DayKey, AvailabilityRange[]>>;
+};
 type IntervalRow = { start_datetime: string | null; end_datetime: string | null };
 
 const DAY_INDEX: Record<DayKey, number> = {
@@ -192,13 +195,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Service/provider mismatch" }, { status: 400 });
     }
 
+    const durationMinutes = service.duration_minutes;
+
     // 2) charger disponibilités du pro
     const { data: profile, error: profErr } = await admin
       .from("profiles")
       .select("availability")
       .eq("provider_id", providerId)
       .maybeSingle<{
-        availability: Partial<Record<DayKey, DayAvailability>> | null;
+        availability: Availability | null;
       }>();
 
     if (profErr) return NextResponse.json({ error: profErr.message }, { status: 500 });
@@ -209,16 +214,25 @@ export async function GET(req: Request) {
     const dayKey = (Object.keys(DAY_INDEX) as DayKey[]).find((k) => DAY_INDEX[k] === dayDate.getUTCDay());
     if (!dayKey) return NextResponse.json([], { status: 200 });
 
-    const dayAvailability = profile.availability[dayKey];
-    if (!dayAvailability?.start || !dayAvailability?.end) return NextResponse.json([], { status: 200 });
+    const weeklyRanges = profile.availability.week?.[dayKey];
+    const legacyRange = profile.availability[dayKey];
+    const dayRanges = Array.isArray(weeklyRanges)
+      ? weeklyRanges
+      : legacyRange?.start && legacyRange.end
+        ? [legacyRange]
+        : [];
+
+    if (dayRanges.length === 0) return NextResponse.json([], { status: 200 });
 
     // 3) slots théoriques
-    const slots = generateSlots({
-      date: dateStr,
-      openingTime: dayAvailability.start,
-      closingTime: dayAvailability.end,
-      durationMinutes: service.duration_minutes,
-    });
+    const slots = dayRanges.flatMap((range) =>
+      generateSlots({
+        date: dateStr,
+        openingTime: range.start,
+        closingTime: range.end,
+        durationMinutes,
+      })
+    );
 
     // Fenêtre journée
     const startWindow = parisDateTimeToIso(dateStr, "00:00");

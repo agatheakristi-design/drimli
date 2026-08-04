@@ -1,23 +1,20 @@
 import { createClient } from "@supabase/supabase-js";
 import styles from "./page.module.css";
-import Button from "@/app/components/ui/Button";
+import PublicFlowShell from "@/app/components/public/PublicFlowShell";
+import ExpandableServiceList, {
+  type PublicService,
+} from "@/app/components/public/ExpandableServiceList";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-function euros(priceCents?: number | null) {
-  if (priceCents == null) return null;
-  return (priceCents / 100).toFixed(0) + " €";
-}
-
-function minutesLabel(m?: number | null) {
-  if (!m) return null;
-  return `${m} min`;
-}
-
-export default async function Page({ params }: { params: any }) {
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ slug: string }> | { slug: string };
+}) {
   const resolvedParams = await Promise.resolve(params);
   const slug = resolvedParams.slug as string;
 
@@ -30,15 +27,27 @@ export default async function Page({ params }: { params: any }) {
     .maybeSingle();
 
   if (error) {
-    return <main className={styles.page}>Erreur : {error.message}</main>;
+    return (
+      <PublicFlowShell>
+        <p className={styles.state}>Impossible de charger cette page.</p>
+      </PublicFlowShell>
+    );
   }
 
   if (!profile) {
-    return <main className={styles.page}>Page introuvable</main>;
+    return (
+      <PublicFlowShell>
+        <p className={styles.state}>Page introuvable</p>
+      </PublicFlowShell>
+    );
   }
 
   if (!profile.published) {
-    return <main className={styles.page}>Profil non publié</main>;
+    return (
+      <PublicFlowShell>
+        <p className={styles.state}>Profil non publié</p>
+      </PublicFlowShell>
+    );
   }
 
   const { data: products } = await supabase
@@ -51,7 +60,7 @@ export default async function Page({ params }: { params: any }) {
     .order("created_at", { ascending: false });
 
   return (
-    <main className={styles.page}>
+    <PublicFlowShell>
       <section className={styles.hero}>
         {profile.avatar_url && (
           <img
@@ -69,7 +78,7 @@ export default async function Page({ params }: { params: any }) {
           )}
 
           {profile.city && (
-            <p className={styles.city}>📍 {profile.city}</p>
+            <p className={styles.city}>{profile.city}</p>
           )}
 
           {profile.description && (
@@ -79,44 +88,21 @@ export default async function Page({ params }: { params: any }) {
       </section>
 
       <section className={styles.services}>
-        <h2>Prestations</h2>
+        <div className={styles.sectionHeading}>
+          <h2>Prestations</h2>
+        </div>
 
         {(products ?? []).length === 0 ? (
           <p className={styles.empty}>
             Aucune prestation disponible pour le moment.
           </p>
         ) : (
-          <div className={styles.list}>
-            {(products ?? []).map((p: any) => (
-              <article key={p.id} className={styles.card}>
-                <div className={styles.cardHeader}>
-                  <div>
-                    <h3>{p.title ?? "Prestation"}</h3>
-
-                    {(p.duration_minutes || p.price_cents != null) && (
-                      <div className={styles.meta}>
-                        {[minutesLabel(p.duration_minutes), euros(p.price_cents)]
-                          .filter(Boolean)
-                          .join(" • ")}
-                      </div>
-                    )}
-                  </div>
-
-                  <Button href={`/reserver/${p.id}`}>
-                    Réserver
-                  </Button>
-                </div>
-
-                {p.description && (
-                  <p className={styles.cardDescription}>
-                    {p.description}
-                  </p>
-                )}
-              </article>
-            ))}
-          </div>
+          <ExpandableServiceList
+            providerId={profile.provider_id}
+            services={(products ?? []) as PublicService[]}
+          />
         )}
       </section>
-    </main>
+    </PublicFlowShell>
   );
 }

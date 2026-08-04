@@ -1,0 +1,150 @@
+.list {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.card {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.cardOpen {
+  border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
+  box-shadow: var(--shadow-md);
+}
+
+.trigger {
+  width: 100%;
+  padding: var(--space-lg);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  border: 0;
+  background: var(--card);
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+}
+
+.trigger:hover {
+  background: color-mix(in srgb, var(--card) 76%, var(--muted));
+}
+
+.trigger:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  outline-offset: -3px;
+}
+
+.triggerContent {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.titleRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  align-items: flex-start;
+}
+
+.titleRow strong,
+.price {
+  font-size: 1.125rem;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.price {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.preview {
+  max-width: 42rem;
+  overflow: hidden;
+  display: -webkit-box;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.duration {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.chevron {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+  color: var(--muted-foreground);
+  transition: transform 180ms ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 180ms ease,
+    visibility 0s linear 180ms;
+}
+
+.panelOpen {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows 180ms ease,
+    visibility 0s linear;
+}
+
+.panelInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.booking {
+  margin: 0 var(--space-lg) var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 40rem) {
+  .trigger {
+    padding: var(--space-md);
+  }
+
+  .titleRow {
+    gap: var(--space-md);
+  }
+
+  .booking {
+    margin: 0 var(--space-md) var(--space-md);
+    padding-top: var(--space-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .chevron,
+  .panel,
+  .panelOpen {
+    transition: none;
+  }
+}

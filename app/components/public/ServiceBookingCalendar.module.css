@@ -1,0 +1,215 @@
+.heading {
+  margin-bottom: var(--space-lg);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.heading h3,
+.slotsColumn h4 {
+  margin: 0;
+  color: var(--foreground);
+}
+
+.heading h3 {
+  font-size: 1.375rem;
+}
+
+.heading span {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.bookingModule {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(16rem, 0.85fr);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+}
+
+.calendarColumn,
+.slotsColumn {
+  padding: var(--space-xl);
+}
+
+.calendarColumn {
+  border-right: 1px solid var(--border);
+}
+
+.monthHeader {
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.monthHeader strong,
+.slotsColumn h4 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.monthNavigation {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.monthNavigation button,
+.days button,
+.slot {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.monthNavigation button {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted-foreground);
+}
+
+.monthNavigation button:hover:not(:disabled),
+.days button:hover:not(:disabled):not(.selectedDay) {
+  background: var(--muted);
+}
+
+.monthNavigation button:disabled,
+.days button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.weekdays,
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.weekdays {
+  margin-top: var(--space-lg);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.weekdays span {
+  padding-block: var(--space-sm);
+}
+
+.days {
+  row-gap: var(--space-xs);
+}
+
+.days button {
+  width: 2.5rem;
+  height: 2.5rem;
+  justify-self: center;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--foreground);
+}
+
+.days .selectedDay {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.slotsColumn {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.slotList {
+  min-height: 12rem;
+  margin-top: var(--space-lg);
+  display: grid;
+  align-content: start;
+  gap: var(--space-sm);
+}
+
+.slot {
+  min-height: 3rem;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.slot:hover:not(.selectedSlot) {
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+}
+
+.slotList .selectedSlot {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.state {
+  margin: 0;
+  padding: var(--space-lg) 0;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.reserveButton {
+  width: 100%;
+  margin-top: var(--space-lg);
+}
+
+.monthNavigation button:focus-visible,
+.days button:focus-visible,
+.slot:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 48rem) {
+  .heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .bookingModule {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .calendarColumn,
+  .slotsColumn {
+    padding: var(--space-lg);
+  }
+
+  .calendarColumn {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 30rem) {
+  .calendarColumn,
+  .slotsColumn {
+    padding: var(--space-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .monthNavigation button,
+  .days button,
+  .slot {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}
