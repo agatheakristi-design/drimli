@@ -21,7 +21,7 @@ function PaiementSuccesContent() {
 
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
-  const [joinToken, setJoinToken] = useState<string | null>(null);
+  const [calendarReady, setCalendarReady] = useState(false);
   const [titleVisible, setTitleVisible] = useState(false);
   const [titleLeaving, setTitleLeaving] = useState(false);
   const [messageVisible, setMessageVisible] = useState(false);
@@ -35,7 +35,7 @@ function PaiementSuccesContent() {
     (async () => {
       setLoading(true);
       setErrorText("");
-      setJoinToken(null);
+      setCalendarReady(false);
 
       if (!sessionId) {
         setErrorText("Session Stripe manquante.");
@@ -61,15 +61,7 @@ function PaiementSuccesContent() {
       }
 
       const apptId = json?.appointment_id ?? null;
-      if (apptId) {
-        const tRes = await fetch("/api/appointments/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ appointmentId: apptId }),
-        });
-        const tJson = await tRes.json().catch(() => null);
-        if (tRes.ok && tJson?.join_token) setJoinToken(tJson.join_token);
-      }
+      setCalendarReady(Boolean(apptId));
 
       setLoading(false);
     })();
@@ -95,8 +87,8 @@ function PaiementSuccesContent() {
   }, [errorText, loading]);
 
   function addToCalendar() {
-    if (joinToken) {
-      window.location.href = `/api/appointments/ics?token=${encodeURIComponent(joinToken)}`;
+    if (calendarReady && sessionId) {
+      window.location.href = `/api/appointments/calendar?session_id=${encodeURIComponent(sessionId)}`;
     }
   }
 
@@ -155,7 +147,7 @@ function PaiementSuccesContent() {
             calendarVisible ? styles.progressiveActionVisible : ""
           }`}
           onClick={addToCalendar}
-          disabled={!joinToken}
+          disabled={!calendarReady}
         >
           <CalendarDays aria-hidden="true" />
           <span>Ajouter au calendrier</span>
