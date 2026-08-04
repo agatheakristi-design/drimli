@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { CalendarDays, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 import Container from "@/app/components/ui/Container";
 import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
+import styles from "./page.module.css";
 
 function isUuid(v: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -23,6 +25,13 @@ type ServiceRow = {
 };
 
 type Slot = { start: string; end: string };
+
+type ProfileRow = {
+  full_name: string | null;
+  profession: string | null;
+  description: string | null;
+  avatar_url: string | null;
+};
 
 function formatParisTime(iso: string) {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -50,6 +59,7 @@ export default function Page() {
 
   const [loading, setLoading] = useState(true);
   const [service, setService] = useState<ServiceRow | null>(null);
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [errorText, setErrorText] = useState("");
 
   const [date, setDate] = useState(""); // YYYY-MM-DD
@@ -70,6 +80,52 @@ export default function Page() {
   month: "2-digit",
   day: "2-digit",
 }).format(new Date()); // format YYYY-MM-DD
+
+  async function loadSlotsForService(
+    serviceRow: ServiceRow,
+    selectedDate: string,
+    preferredSlot: Slot | null = null
+  ) {
+    setSlotsLoading(true);
+    setErrorText("");
+    setSlots([]);
+    setSelectedSlot(null);
+
+    try {
+      const url = `/api/slots?providerId=${encodeURIComponent(serviceRow.provider_id)}&serviceId=${encodeURIComponent(
+        serviceRow.id
+      )}&date=${encodeURIComponent(selectedDate)}`;
+
+      const res = await fetch(url);
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setErrorText(json?.error || "❌ Erreur chargement des créneaux");
+        setSlotsLoading(false);
+        return;
+      }
+
+      const availableSlots = Array.isArray(json) ? (json as Slot[]) : [];
+      setSlots(availableSlots);
+
+      if (preferredSlot) {
+        const availablePreferredSlot = availableSlots.find(
+          (slot) =>
+            slot.start === preferredSlot.start && slot.end === preferredSlot.end
+        );
+        setSelectedSlot(availablePreferredSlot ?? null);
+      }
+
+      setSlotsLoading(false);
+    } catch (error: unknown) {
+      setErrorText(
+        error instanceof Error
+          ? error.message
+          : "❌ Erreur chargement des créneaux"
+      );
+      setSlotsLoading(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +174,33 @@ export default function Page() {
       }
 
       setService(data);
+
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("full_name, profession, description, avatar_url")
+        .eq("provider_id", data.provider_id)
+        .maybeSingle<ProfileRow>();
+
+      if (cancelled) return;
+
+      setProfile(profileData ?? null);
+
+      const query = new URLSearchParams(window.location.search);
+      const requestedDate = query.get("date") ?? "";
+      const requestedStart = query.get("start") ?? "";
+      const requestedEnd = query.get("end") ?? "";
+
+      if (requestedDate) {
+        setDate(requestedDate);
+        await loadSlotsForService(
+          data,
+          requestedDate,
+          requestedStart && requestedEnd
+            ? { start: requestedStart, end: requestedEnd }
+            : null
+        );
+      }
+
       setLoading(false);
     })();
 
@@ -128,36 +211,7 @@ export default function Page() {
 
   async function loadSlots(selectedDate: string) {
     if (!service) return;
-
-    setSlotsLoading(true);
-    setErrorText("");
-    setSlots([]);
-    setSelectedSlot(null);
-
-    try {
-      const url = `/api/slots?providerId=${encodeURIComponent(service.provider_id)}&serviceId=${encodeURIComponent(
-        service.id
-      )}&date=${encodeURIComponent(selectedDate)}`;
-
-      const res = await fetch(url);
-      const json = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        setErrorText(json?.error || "❌ Erreur chargement des créneaux");
-        setSlotsLoading(false);
-        return;
-      }
-
-      setSlots(Array.isArray(json) ? (json as Slot[]) : []);
-      setSlotsLoading(false);
-    } catch (error: unknown) {
-      setErrorText(
-        error instanceof Error
-          ? error.message
-          : "❌ Erreur chargement des créneaux"
-      );
-      setSlotsLoading(false);
-    }
+    await loadSlotsForService(service, selectedDate);
   }
 
  async function createPendingAppointment(slot: Slot) {
@@ -274,155 +328,232 @@ export default function Page() {
 
   if (loading) {
     return (
-      <Container>
-        <Card>Chargement…</Card>
-      </Container>
+      <div className={styles.page}>
+        <header className={styles.header}>
+          <Container className={styles.headerInner}>Drimli</Container>
+        </header>
+        <Container className={styles.stateContainer}>
+          <Card>Chargement…</Card>
+        </Container>
+      </div>
     );
   }
 
   if (errorText && !service) {
     return (
-      <Container>
-        <Card>{errorText}</Card>
-      </Container>
+      <div className={styles.page}>
+        <header className={styles.header}>
+          <Container className={styles.headerInner}>Drimli</Container>
+        </header>
+        <Container className={styles.stateContainer}>
+          <Card>{errorText}</Card>
+        </Container>
+      </div>
     );
   }
 
   return (
-    <Container>
-      <Card>
-        <div className="space-y-2">
-          <h1 className="text-2xl font-black">{service?.title ?? "Réserver"}</h1>
-          {service?.description ? (
-            <p className="text-muted-foreground">{service.description}</p>
-          ) : null}
-          <p className="text-sm text-muted-foreground">
-            {service?.duration_minutes ?? 60} min •{" "}
-            {service?.price_cents != null ? `${service.price_cents / 100} €` : "—"}
-          </p>
-        </div>
-      </Card>
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <Container className={styles.headerInner}>Drimli</Container>
+      </header>
 
-      <div className="h-4" />
+      <Container className={styles.content}>
+        <main className={styles.layout}>
+          <section className={styles.professional} aria-label="Professionnel">
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt=""
+                  className={styles.avatar}
+                />
+              ) : (
+                <div className={styles.avatarPlaceholder} aria-hidden="true">
+                  {profile?.full_name?.charAt(0) ?? "D"}
+                </div>
+              )}
 
-      <Card>
-        <div className="space-y-4">
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Prénom</p>
-              <input
-                className="w-full rounded-xl border border-border bg-background px-4 py-3"
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Votre prénom"
-                autoComplete="given-name"
-                required
-              />
-            </div>
+              <div className={styles.professionalContent}>
+                <h1>{profile?.full_name ?? "Votre professionnel"}</h1>
+                {profile?.profession ? (
+                  <p className={styles.profession}>{profile.profession}</p>
+                ) : null}
+                {profile?.description ? (
+                  <p className={styles.professionalDescription}>
+                    {profile.description}
+                  </p>
+                ) : null}
+              </div>
+          </section>
 
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Nom</p>
-              <input
-                className="w-full rounded-xl border border-border bg-background px-4 py-3"
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Votre nom"
-                autoComplete="family-name"
-                required
-              />
-            </div>
+          <section className={styles.formSection}>
+              <h2>Renseigner vos informations</h2>
 
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Pour recevoir votre lien de connexion</p>
-              <input
-                className="w-full rounded-xl border border-border bg-background px-4 py-3"
-                type="email"
-                value={clientEmail}
-                onChange={(e) => setClientEmail(e.target.value)}
-                placeholder="Votre email"
-                required
-              />
-            </div>
+              {!selectedSlot ? (
+                <div className={styles.slotPicker}>
+                  <div className={styles.field}>
+                    <label htmlFor="appointment-date">Choisir une date</label>
+                    <input
+                      id="appointment-date"
+                      className="input"
+                      type="date"
+                      value={date}
+                      min={todayParis}
+                      onChange={async (event) => {
+                        const selectedDate = event.target.value;
+                        setDate(selectedDate);
+                        if (selectedDate) await loadSlots(selectedDate);
+                      }}
+                    />
+                  </div>
 
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Pour accéder à votre rendez-vous</p>
-              <input
-                className="w-full rounded-xl border border-border bg-background px-4 py-3"
-                type="tel"
-                value={clientPhone}
-                onChange={(e) => setClientPhone(e.target.value)}
-                placeholder="Votre téléphone"
-                required
-              />
-            </div>
-          </div>
+                  {!date ? (
+                    <p className={styles.helper}>Choisissez une date pour voir les créneaux.</p>
+                  ) : slotsLoading ? (
+                    <p className={styles.helper}>Chargement des créneaux…</p>
+                  ) : slots.length === 0 ? (
+                    <p className={styles.helper}>Aucun créneau disponible ce jour-là.</p>
+                  ) : (
+                    <div className={styles.slotGroup}>
+                      <p>Sélectionnez un créneau</p>
+                      <div className={styles.slots}>
+                        {slots.map((slot) => {
+                          return (
+                            <button
+                              key={`${slot.start}-${slot.end}`}
+                              type="button"
+                              aria-pressed="false"
+                              onClick={() => setSelectedSlot(slot)}
+                              disabled={creating || paying}
+                              className={styles.slot}
+                            >
+                              {formatParisTime(slot.start)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
 
-          <div>
-            <p className="font-extrabold">Choisir une date</p>
-            <input
-              className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3"
-              type="date"
-              value={date}
-              min={todayParis}
-              onChange={async (e) => {
-                const d = e.target.value;
-                setDate(d);
-                if (d) await loadSlots(d);
-              }}
-            />
-          </div>
+              <div className={styles.formFields}>
+                <fieldset className={styles.nameGroup}>
+                  <legend>Nom complet</legend>
+                  <div className={styles.nameFields}>
+                    <div className={styles.field}>
+                      <label htmlFor="first-name">Prénom</label>
+                      <input
+                        id="first-name"
+                        className="input"
+                        type="text"
+                        value={firstName}
+                        onChange={(event) => setFirstName(event.target.value)}
+                        placeholder="Votre prénom"
+                        autoComplete="given-name"
+                        required
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label htmlFor="last-name">Nom</label>
+                      <input
+                        id="last-name"
+                        className="input"
+                        type="text"
+                        value={lastName}
+                        onChange={(event) => setLastName(event.target.value)}
+                        placeholder="Votre nom"
+                        autoComplete="family-name"
+                        required
+                      />
+                    </div>
+                  </div>
+                </fieldset>
 
-          {!date ? (
-            <p className="text-sm text-muted-foreground">
-              Choisis une date pour voir les créneaux.
-            </p>
-          ) : slotsLoading ? (
-            <p>Chargement des créneaux…</p>
-          ) : slots.length === 0 ? (
-            <p>Aucun créneau disponible ce jour-là.</p>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                {selectedSlot
-                  ? `Sélectionné : ${formatParisDate(selectedSlot.start)} à ${formatParisTime(selectedSlot.start)}`
-                  : "Sélectionne un créneau"}
-              </p>
+                <div className={styles.field}>
+                  <label htmlFor="client-email">Email</label>
+                  <input
+                    id="client-email"
+                    className="input"
+                    type="email"
+                    value={clientEmail}
+                    onChange={(event) => setClientEmail(event.target.value)}
+                    placeholder="vous@email.com"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
 
-              <div className="flex flex-wrap gap-2">
-                {slots.map((s, idx) => {
-                  const selected = selectedSlot?.start === s.start;
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setSelectedSlot(s)}
-                      disabled={creating || paying}
-                      className={[
-                        "rounded-xl border px-4 py-2 font-extrabold",
-                        selected ? "border-black" : "border-border",
-                      ].join(" ")}
-                    >
-                      {formatParisTime(s.start)}
-                    </button>
-                  );
-                })}
+                <div className={styles.field}>
+                  <label htmlFor="client-phone">Téléphone</label>
+                  <input
+                    id="client-phone"
+                    className="input"
+                    type="tel"
+                    value={clientPhone}
+                    onChange={(event) => setClientPhone(event.target.value)}
+                    placeholder="06 12 34 56 78"
+                    autoComplete="tel"
+                    required
+                  />
+                </div>
               </div>
 
-              <Button
-  onClick={pay}
-  disabled={!selectedSlot || creating || paying}
-  className="w-full"
->
-  {paying ? "Redirection vers le paiement…" : "Payer et confirmer"}
-</Button>
-            </div>
-          )}
+              {errorText ? (
+                <p className={styles.error} role="alert">{errorText}</p>
+              ) : null}
+          </section>
 
-          {errorText ? <p>{errorText}</p> : null}
-        </div>
-      </Card>
-    </Container>
+          <aside className={styles.summaryColumn} aria-label="Récapitulatif">
+            <Card className={styles.summaryCard}>
+              <p className={styles.eyebrow}>Récapitulatif</p>
+
+              <div className={styles.dateSummary}>
+                <CalendarDays size={18} aria-hidden="true" />
+                <span>
+                  {selectedSlot
+                    ? `${formatParisDate(selectedSlot.start)} · ${formatParisTime(selectedSlot.start)}`
+                    : "Créneau à sélectionner"}
+                </span>
+              </div>
+
+              <div className={styles.serviceSummary}>
+                <div>
+                  <h2>{service?.title ?? "Prestation"}</h2>
+                  <p>{service?.duration_minutes ?? 60} min</p>
+                </div>
+                <strong>
+                  {service?.price_cents != null
+                    ? `${service.price_cents / 100} €`
+                    : "—"}
+                </strong>
+              </div>
+
+              <div className={styles.paymentAction}>
+                <Button
+                  type="button"
+                  onClick={pay}
+                  disabled={!selectedSlot || creating || paying}
+                  className={styles.paymentButton}
+                >
+                  {paying ? "Redirection vers le paiement…" : "Procéder au paiement"}
+                </Button>
+              </div>
+
+              <div className={styles.assurances}>
+                <p>
+                  <ShieldCheck size={18} aria-hidden="true" />
+                  Paiement sécurisé
+                </p>
+                <p>
+                  <CalendarDays size={18} aria-hidden="true" />
+                  Annulation possible jusqu&apos;à 24 h avant
+                </p>
+              </div>
+            </Card>
+          </aside>
+        </main>
+      </Container>
+    </div>
   );
 }

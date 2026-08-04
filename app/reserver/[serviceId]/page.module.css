@@ -1,0 +1,350 @@
+.page {
+  min-height: 100svh;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.header {
+  min-height: var(--header-height);
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.headerInner {
+  display: flex;
+  align-items: center;
+  color: var(--foreground);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.stateContainer {
+  padding-block: var(--space-2xl);
+}
+
+.content {
+  padding-block: var(--space-2xl);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.55fr);
+  grid-template-areas:
+    "professional empty"
+    "form summary";
+  align-items: start;
+  column-gap: var(--space-2xl);
+  row-gap: var(--space-2xl);
+}
+
+.professional {
+  grid-area: professional;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-xl);
+}
+
+.avatar,
+.avatarPlaceholder {
+  width: calc(var(--space-2xl) * 2);
+  height: calc(var(--space-2xl) * 2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.avatar {
+  object-fit: cover;
+}
+
+.avatarPlaceholder {
+  display: grid;
+  place-items: center;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.professionalContent {
+  min-width: 0;
+}
+
+.professionalContent h1,
+.formSection h2,
+.serviceSummary h2,
+.professionalContent p,
+.serviceSummary p,
+.dateSummary,
+.eyebrow,
+.assurances p,
+.helper,
+.slotGroup p,
+.error {
+  margin: 0;
+}
+
+.professionalContent h1 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  font-weight: 650;
+}
+
+.profession {
+  margin-top: var(--space-sm) !important;
+  color: var(--foreground);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.professionalDescription {
+  max-width: var(--content-max-width);
+  margin-top: var(--space-xs) !important;
+  color: var(--muted-foreground);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.formSection {
+  grid-area: form;
+  min-width: 0;
+}
+
+.formSection h2 {
+  margin-bottom: var(--space-lg);
+  font-size: 1.375rem;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+
+.formFields,
+.slotPicker {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.slotPicker {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+}
+
+.nameGroup {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.nameGroup legend,
+.field label,
+.slotGroup > p {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.nameFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.field {
+  min-width: 0;
+}
+
+.field input {
+  display: block;
+}
+
+.slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.slot {
+  min-height: var(--control-height);
+  padding-inline: var(--control-padding-x);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  color: var(--foreground);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.slot:hover:not(:disabled):not(.slotSelected) {
+  background: var(--muted);
+}
+
+.slots .slotSelected {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.slot:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  outline-offset: 2px;
+}
+
+.slot:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.helper,
+.error {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.error {
+  margin-top: var(--space-md);
+  color: var(--destructive);
+}
+
+.summaryColumn {
+  grid-area: summary;
+  min-width: 0;
+  align-self: end;
+}
+
+.summaryCard {
+  box-shadow: var(--shadow-sm);
+}
+
+.eyebrow {
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dateSummary {
+  margin-top: var(--space-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.dateSummary svg,
+.assurances svg {
+  flex: 0 0 auto;
+}
+
+.serviceSummary {
+  margin-top: var(--space-md);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.serviceSummary h2,
+.serviceSummary strong {
+  font-size: 1.0625rem;
+  line-height: 1.35;
+  font-weight: 650;
+}
+
+.serviceSummary p {
+  margin-top: var(--space-xs);
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.serviceSummary strong {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.paymentAction {
+  margin-top: var(--space-lg);
+  padding-block: var(--space-lg);
+  border-top: 1px solid var(--border);
+}
+
+.paymentButton {
+  width: 100%;
+  min-height: var(--control-height);
+}
+
+.assurances {
+  margin-top: var(--space-lg);
+  display: grid;
+  gap: var(--space-md);
+}
+
+.assurances p {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 48rem) {
+  .content {
+    padding-block: var(--space-xl);
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "professional"
+      "form"
+      "summary";
+    align-items: stretch;
+    gap: var(--space-xl);
+  }
+
+  .summaryColumn {
+    align-self: stretch;
+  }
+
+  .professional {
+    align-items: flex-start;
+    gap: var(--space-lg);
+  }
+
+  .avatar,
+  .avatarPlaceholder {
+    width: calc(var(--space-2xl) + var(--space-lg));
+    height: calc(var(--space-2xl) + var(--space-lg));
+  }
+}
+
+@media (max-width: 30rem) {
+  .professional {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .nameFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot {
+    transition: none;
+  }
+}
