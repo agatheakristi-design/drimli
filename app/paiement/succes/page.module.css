@@ -1,0 +1,209 @@
+.page {
+  min-height: 100svh;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: radial-gradient(
+    circle at 50% 46%,
+    var(--card) 0%,
+    color-mix(in srgb, var(--card) 92%, var(--muted)) 54%,
+    var(--muted) 100%
+  );
+}
+
+.copy {
+  width: min(100%, 61.25rem);
+  min-height: 4.375rem;
+  display: grid;
+  place-items: center;
+  transform: translateY(-3.375rem);
+}
+
+.message {
+  grid-area: 1 / 1;
+  margin: 0;
+  color: var(--foreground);
+  font-size: 1.5625rem;
+  line-height: 1.28;
+  letter-spacing: -0.025em;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 2.8s cubic-bezier(0.22, 0.82, 0.3, 1);
+}
+
+.visible {
+  opacity: 1;
+}
+
+.leaving {
+  opacity: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.875rem;
+  margin-top: 1.625rem;
+  opacity: 0;
+  transform: translateY(0.625rem);
+}
+
+.actionsVisible {
+  opacity: 1;
+  transform: translateY(-3.375rem);
+  transition:
+    opacity 1.6s cubic-bezier(0.22, 0.82, 0.3, 1),
+    transform 1.6s cubic-bezier(0.22, 0.82, 0.3, 1);
+}
+
+.progressiveAction {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(0.5rem);
+}
+
+.progressiveActionVisible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition:
+    opacity 1.2s cubic-bezier(0.22, 0.82, 0.3, 1),
+    transform 1.2s cubic-bezier(0.22, 0.82, 0.3, 1),
+    visibility 0s linear;
+}
+
+.action {
+  min-height: var(--control-height);
+  padding: 0 var(--control-padding-x);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  color: var(--foreground);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5625rem;
+  text-decoration: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(1.125rem);
+  transition:
+    background-color 200ms ease,
+    transform 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.action:hover:not(:disabled) {
+  background: var(--card);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.action:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  outline-offset: 2px;
+}
+
+.action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.action svg {
+  width: 1.0625rem;
+  height: 1.0625rem;
+  flex: 0 0 auto;
+  stroke-width: 1.6;
+}
+
+.signature {
+  position: fixed;
+  left: 50%;
+  bottom: 2rem;
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.018em;
+  line-height: 1.55;
+  opacity: 0;
+  transform: translate(-50%, 0.5rem);
+}
+
+.signatureVisible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  transition:
+    opacity 1.8s ease,
+    transform 1.8s ease;
+}
+
+.signature strong {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.status {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.error {
+  width: min(100%, 30rem);
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+}
+
+.error h1,
+.error p {
+  margin: 0;
+}
+
+.error h1 {
+  font-size: 1.5625rem;
+  line-height: 1.28;
+  font-weight: 500;
+}
+
+.error p {
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 47.5rem) {
+  .copy {
+    min-height: 5.75rem;
+  }
+
+  .message {
+    max-width: 92vw;
+    font-size: 1.1875rem;
+    white-space: normal;
+  }
+
+  .actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .action {
+    width: min(100%, 18rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message,
+  .actionsVisible,
+  .progressiveActionVisible,
+  .signatureVisible {
+    transition: none;
+  }
+}

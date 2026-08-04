@@ -2,9 +2,17 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Container from "@/app/components/ui/Container";
-import Card from "@/app/components/ui/Card";
+import { CalendarDays, FileText } from "lucide-react";
 import Button from "@/app/components/ui/Button";
+import styles from "./page.module.css";
+
+function VerificationState({ children }: { children: React.ReactNode }) {
+  return (
+    <main className={styles.page}>
+      <p className={styles.status}>{children}</p>
+    </main>
+  );
+}
 
 function PaiementSuccesContent() {
   const sp = useSearchParams();
@@ -13,8 +21,13 @@ function PaiementSuccesContent() {
 
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
-  const [appointmentId, setAppointmentId] = useState<string | null>(null);
   const [joinToken, setJoinToken] = useState<string | null>(null);
+  const [titleVisible, setTitleVisible] = useState(false);
+  const [titleLeaving, setTitleLeaving] = useState(false);
+  const [messageVisible, setMessageVisible] = useState(false);
+  const [invoiceVisible, setInvoiceVisible] = useState(false);
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [signatureVisible, setSignatureVisible] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -22,7 +35,6 @@ function PaiementSuccesContent() {
     (async () => {
       setLoading(true);
       setErrorText("");
-      setAppointmentId(null);
       setJoinToken(null);
 
       if (!sessionId) {
@@ -49,8 +61,6 @@ function PaiementSuccesContent() {
       }
 
       const apptId = json?.appointment_id ?? null;
-      setAppointmentId(apptId);
-
       if (apptId) {
         const tRes = await fetch("/api/appointments/token", {
           method: "POST",
@@ -69,50 +79,105 @@ function PaiementSuccesContent() {
     };
   }, [sessionId]);
 
+  useEffect(() => {
+    if (loading || errorText) return;
+
+    const timers = [
+      window.setTimeout(() => setTitleVisible(true), 520),
+      window.setTimeout(() => setTitleLeaving(true), 2820),
+      window.setTimeout(() => setMessageVisible(true), 4240),
+      window.setTimeout(() => setInvoiceVisible(true), 6240),
+      window.setTimeout(() => setCalendarVisible(true), 7040),
+      window.setTimeout(() => setSignatureVisible(true), 8740),
+    ];
+
+    return () => timers.forEach(window.clearTimeout);
+  }, [errorText, loading]);
+
+  function addToCalendar() {
+    if (joinToken) {
+      window.location.href = `/api/appointments/ics?token=${encodeURIComponent(joinToken)}`;
+    }
+  }
+
+  if (loading) {
+    return <VerificationState>Vérification du paiement…</VerificationState>;
+  }
+
+  if (errorText) {
+    return (
+      <main className={styles.page}>
+        <div className={styles.error}>
+          <h1>Une erreur est survenue</h1>
+          <p>{errorText}</p>
+          <Button variant="secondary" onClick={() => router.replace("/")}>
+            Revenir à l’accueil
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <Container>
-      <Card>
-        {loading ? (
-          <p>Vérification du paiement…</p>
-        ) : errorText ? (
-          <div className="space-y-3">
-            <h1 className="text-2xl font-black">Une erreur est survenue</h1>
-            <p>{errorText}</p>
-            <Button variant="secondary" onClick={() => router.replace("/")}>
-              Revenir à l’accueil
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <h1 className="text-2xl font-black">Votre rendez-vous est confirmé</h1>
-            <p className="text-muted-foreground">
-              Un email de confirmation vient de vous être envoyé.
-              Il contient toutes les informations utiles concernant votre rendez-vous.
-            </p>
+    <main className={styles.page} aria-labelledby="success-title">
+      <div className={styles.copy}>
+        <h1
+          id="success-title"
+          className={`${styles.message} ${titleVisible ? styles.visible : ""} ${
+            titleLeaving ? styles.leaving : ""
+          }`}
+        >
+          Merci, votre séance est confirmée.
+        </h1>
+        <p
+          className={`${styles.message} ${messageVisible ? styles.visible : ""}`}
+        >
+          Le lien de connexion vous sera envoyé par e-mail.
+        </p>
+      </div>
 
-            <p className="text-sm text-muted-foreground">
-              Conservez cet email. Il vous permettra d’accéder facilement à votre rendez-vous le moment venu.
-            </p>
+      <div
+        className={`${styles.actions} ${invoiceVisible ? styles.actionsVisible : ""}`}
+      >
+        <a
+          className={`${styles.action} ${styles.progressiveAction} ${
+            invoiceVisible ? styles.progressiveActionVisible : ""
+          }`}
+          href={`/api/invoices/patient/download?session_id=${encodeURIComponent(sessionId ?? "")}`}
+        >
+          <FileText aria-hidden="true" />
+          <span>Télécharger la facture</span>
+        </a>
 
-            <button
-              className="text-sm underline text-muted-foreground"
-              onClick={() => {
-                if (joinToken) window.location.href = `/api/appointments/ics?token=${encodeURIComponent(joinToken)}`;
-              }}
-              disabled={!joinToken as any}
-            >
-              Ajouter à mon calendrier
-            </button>
-          </div>
-        )}
-      </Card>
-    </Container>
+        <button
+          type="button"
+          className={`${styles.action} ${styles.progressiveAction} ${
+            calendarVisible ? styles.progressiveActionVisible : ""
+          }`}
+          onClick={addToCalendar}
+          disabled={!joinToken}
+        >
+          <CalendarDays aria-hidden="true" />
+          <span>Ajouter au calendrier</span>
+        </button>
+      </div>
+
+      <p
+        className={`${styles.signature} ${
+          signatureVisible ? styles.signatureVisible : ""
+        }`}
+      >
+        Powered by <strong>drimli</strong>
+      </p>
+    </main>
   );
 }
 
 export default function PaiementSuccesPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={<VerificationState>Vérification du paiement…</VerificationState>}
+    >
       <PaiementSuccesContent />
     </Suspense>
   );
