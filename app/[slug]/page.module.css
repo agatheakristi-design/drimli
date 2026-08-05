@@ -7,8 +7,8 @@
 }
 
 .avatar {
-  width: 7.5rem;
-  height: 7.5rem;
+  width: 10rem;
+  height: 10rem;
   flex: 0 0 auto;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -37,18 +37,35 @@
   line-height: 1.5;
 }
 
-.city {
-  margin: var(--space-xs) 0 0;
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-}
-
 .description {
   max-width: 42rem;
   margin: var(--space-md) 0 0;
   color: var(--muted-foreground);
   font-size: 0.9375rem;
   line-height: 1.7;
+}
+
+.reassurance {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: var(--space-sm) 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.reassurance strong,
+.ratingStar {
+  color: var(--foreground);
+}
+
+.reassurance strong {
+  font-weight: 600;
+}
+
+.country {
+  margin-left: var(--space-sm);
 }
 
 .services {
@@ -89,8 +106,8 @@
   }
 
   .avatar {
-    width: 5.5rem;
-    height: 5.5rem;
+    width: 6.5rem;
+    height: 6.5rem;
   }
 
   .services {

@@ -10,6 +10,11 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const PROVISIONAL_REVIEWS_PRESENTATION = {
+  rating: "4,9",
+  countLabel: "128 avis",
+} as const;
+
 export default async function Page({
   params,
 }: {
@@ -21,7 +26,7 @@ export default async function Page({
   const { data: profile, error } = await supabase
     .from("profiles")
     .select(
-      "provider_id, full_name, profession, city, description, avatar_url, published"
+      "provider_id, full_name, profession, country, description, avatar_url, published"
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -77,19 +82,22 @@ export default async function Page({
             <p className={styles.profession}>{profile.profession}</p>
           )}
 
-          {profile.city && (
-            <p className={styles.city}>{profile.city}</p>
-          )}
-
           {profile.description && (
             <p className={styles.description}>{profile.description}</p>
           )}
+
+          <p className={styles.reassurance}>
+            <span className={styles.ratingStar}>★</span>
+            <strong>{PROVISIONAL_REVIEWS_PRESENTATION.rating}</strong>
+            <span>· {PROVISIONAL_REVIEWS_PRESENTATION.countLabel}</span>
+            <span className={styles.country}>{profile.country || "France"}</span>
+          </p>
         </div>
       </section>
 
       <section className={styles.services}>
         <div className={styles.sectionHeading}>
-          <h2>Prestations</h2>
+          <h2>Sélectionner une prestation</h2>
         </div>
 
         {(products ?? []).length === 0 ? (
