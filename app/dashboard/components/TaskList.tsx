@@ -16,6 +16,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import DrimpayOnboarding from "./DrimpayOnboarding";
 import GoogleMeetOnboarding from "./GoogleMeetOnboarding";
+import GoogleReviewsOnboarding from "./GoogleReviewsOnboarding";
 import { tasks } from "./tasks";
 import styles from "./dashboard.module.css";
 
@@ -27,6 +28,7 @@ export default function TaskList() {
   const [photoDone, setPhotoDone] = useState(false);
   const [paymentReady, setPaymentReady] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
+  const [googleReviewsReady, setGoogleReviewsReady] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoStatus, setPhotoStatus] = useState("");
 
@@ -103,11 +105,19 @@ export default function TaskList() {
       return googleReady;
     }
 
+    if (label === "Afficher mes avis Google") {
+      return googleReviewsReady;
+    }
+
     return defaultValue;
   }
 
   const handleGoogleCompletion = useCallback((connected: boolean) => {
     setGoogleReady(connected);
+  }, []);
+
+  const handleGoogleReviewsCompletion = useCallback((enabled: boolean) => {
+    setGoogleReviewsReady(enabled);
   }, []);
 
   async function uploadPhoto(file: File) {
@@ -292,6 +302,15 @@ export default function TaskList() {
               <GoogleMeetOnboarding
                 key={task.label}
                 onCompletionChange={handleGoogleCompletion}
+              />
+            );
+          }
+
+          if (task.label === "Afficher mes avis Google") {
+            return (
+              <GoogleReviewsOnboarding
+                key={task.label}
+                onCompletionChange={handleGoogleReviewsCompletion}
               />
             );
           }

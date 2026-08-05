@@ -55,6 +55,13 @@
   line-height: 1.5;
 }
 
+.googleReviewsSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--muted-foreground);
+}
+
 .reassurance strong,
 .ratingStar {
   color: var(--foreground);
@@ -64,8 +71,13 @@
   font-weight: 600;
 }
 
+.googleAttribution {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
 .country {
-  margin-left: var(--space-sm);
+  margin-left: var(--space-xs);
 }
 
 .services {

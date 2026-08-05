@@ -10,11 +10,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const PROVISIONAL_REVIEWS_PRESENTATION = {
-  rating: "4,9",
-  countLabel: "128 avis",
-} as const;
-
 export default async function Page({
   params,
 }: {
@@ -64,6 +59,27 @@ export default async function Page({
     .eq("active", true)
     .order("created_at", { ascending: false });
 
+  const { data: googleBusinessProfile } = await supabase
+    .from("google_business_profiles")
+    .select("google_maps_url, google_rating, google_reviews_count")
+    .eq("provider_id", profile.provider_id)
+    .eq("google_reviews_enabled", true)
+    .maybeSingle();
+
+  const googleRating = Number(googleBusinessProfile?.google_rating);
+  const googleReviewsCount = Number(
+    googleBusinessProfile?.google_reviews_count
+  );
+  const showGoogleReviews =
+    Boolean(googleBusinessProfile?.google_maps_url) &&
+    googleBusinessProfile?.google_rating !== null &&
+    googleBusinessProfile?.google_rating !== undefined &&
+    googleBusinessProfile?.google_reviews_count !== null &&
+    googleBusinessProfile?.google_reviews_count !== undefined &&
+    Number.isFinite(googleRating) &&
+    Number.isInteger(googleReviewsCount) &&
+    googleReviewsCount >= 0;
+
   return (
     <PublicFlowShell>
       <section className={styles.hero}>
@@ -86,12 +102,26 @@ export default async function Page({
             <p className={styles.description}>{profile.description}</p>
           )}
 
-          <p className={styles.reassurance}>
-            <span className={styles.ratingStar}>★</span>
-            <strong>{PROVISIONAL_REVIEWS_PRESENTATION.rating}</strong>
-            <span>· {PROVISIONAL_REVIEWS_PRESENTATION.countLabel}</span>
-            <span className={styles.country}>{profile.country || "France"}</span>
-          </p>
+          {showGoogleReviews ? (
+            <p className={styles.reassurance}>
+              <span className={styles.googleReviewsSummary}>
+                <span className={styles.ratingStar}>★</span>
+                <strong>
+                  {googleRating.toLocaleString("fr-FR", {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  })}
+                </strong>
+                <span>
+                  · {googleReviewsCount.toLocaleString("fr-FR")} avis
+                </span>
+                <span className={styles.googleAttribution}>Google</span>
+              </span>
+              {profile.country ? (
+                <span className={styles.country}>· {profile.country}</span>
+              ) : null}
+            </p>
+          ) : null}
         </div>
       </section>
 

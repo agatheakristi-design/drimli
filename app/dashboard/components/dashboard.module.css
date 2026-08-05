@@ -701,6 +701,50 @@
   font-size: 12px;
 }
 
+.googleReviewsForm {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.googleReviewsHelp {
+  margin: calc(var(--space-xs) * -1) 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.googleReviewsActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.googleReviewsPreview {
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.googleReviewsPreview strong {
+  color: var(--foreground);
+  font-size: 0.9375rem;
+}
+
+.googleReviewsPreview a {
+  width: fit-content;
+  color: var(--foreground);
+  text-underline-offset: 3px;
+}
+
+.googleReviewsPreview .inlinePrimaryButton {
+  width: fit-content;
+  margin-top: var(--space-xs);
+}
+
 .inlineEditorActions {
   display: flex;
   gap: 8px;
@@ -849,6 +893,11 @@
   .professionalPanelFooter .inlineEditorActions {
     display: grid;
     grid-template-columns: 1fr 1fr;
+  }
+
+  .googleReviewsActions .inlinePrimaryButton,
+  .googleReviewsPreview .inlinePrimaryButton {
+    width: 100%;
   }
 
 }

@@ -36,8 +36,9 @@ export const tasks = [
     done: false,
   },
   {
-    label: "Avis Google",
-    description: "Affichez les avis de votre fiche Google.",
+    label: "Afficher mes avis Google",
+    description:
+      "Ajoutez votre fiche Google pour afficher votre note et vos avis sur votre page DRIMLI.",
     href: null,
     done: false,
   },
