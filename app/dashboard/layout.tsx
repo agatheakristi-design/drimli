@@ -1,10 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import DashboardGate from "@/app/components/DashboardGate";
 import Sidebar from "./components/Sidebar";
+import ProfessionalDetailsPanel from "./components/ProfessionalDetailsPanel";
 import styles from "./components/dashboard.module.css";
 
 export default function DashboardLayout({
@@ -14,6 +15,15 @@ export default function DashboardLayout({
 }) {
   const [fullName, setFullName] = useState("Professionnel");
   const [email, setEmail] = useState("");
+  const [professionalDetailsOpen, setProfessionalDetailsOpen] = useState(false);
+
+  const openProfessionalDetails = useCallback(() => {
+    setProfessionalDetailsOpen(true);
+  }, []);
+
+  const closeProfessionalDetails = useCallback(() => {
+    setProfessionalDetailsOpen(false);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,11 +58,21 @@ export default function DashboardLayout({
   return (
     <DashboardGate>
       <div className={styles.layout}>
-        <Sidebar fullName={fullName} email={email} />
+        <Sidebar
+          fullName={fullName}
+          email={email}
+          onEditProfessionalDetails={openProfessionalDetails}
+        />
 
         <main className={styles.main}>
           {children}
         </main>
+
+        <ProfessionalDetailsPanel
+          open={professionalDetailsOpen}
+          onClose={closeProfessionalDetails}
+          onSaved={setFullName}
+        />
       </div>
     </DashboardGate>
   );

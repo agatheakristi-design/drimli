@@ -1,11 +1,5 @@
 export const tasks = [
   {
-    label: "Informations professionnelles",
-    description: "Identité, activité, adresse et informations légales.",
-    href: null,
-    done: false,
-  },
-  {
     label: "Premier service créé",
     description: "Votre première offre est publiée.",
     href: "/dashboard/services",

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Check, ChevronRight, Plus } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import styles from "./dashboard.module.css";
 
@@ -27,19 +27,26 @@ const EMPTY_DETAILS: Details = {
   vat_number: "",
 };
 
-export default function ProfessionalDetailsTask({
-  onCompletionChange,
+export default function ProfessionalDetailsPanel({
+  open,
+  onClose,
+  onSaved,
 }: {
-  onCompletionChange: (complete: boolean) => void;
+  open: boolean;
+  onClose: () => void;
+  onSaved: (fullName: string) => void;
 }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [details, setDetails] = useState(EMPTY_DETAILS);
   const [draft, setDraft] = useState(EMPTY_DETAILS);
-  const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
 
-  const complete = Boolean(details.first_name && details.last_name);
+  const closePanel = useCallback(() => {
+    setDraft(details);
+    setStatus("");
+    onClose();
+  }, [details, onClose]);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,14 +80,26 @@ export default function ProfessionalDetailsTask({
       setUserId(user.id);
       setDetails(loaded);
       setDraft(loaded);
-      onCompletionChange(Boolean(loaded.first_name && loaded.last_name));
     }
 
     loadDetails();
     return () => {
       cancelled = true;
     };
-  }, [onCompletionChange]);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closePanel();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [closePanel, open]);
 
   async function save() {
     if (!userId) return;
@@ -117,39 +136,45 @@ export default function ProfessionalDetailsTask({
 
     setDetails(normalized);
     setDraft(normalized);
-    onCompletionChange(true);
+    onSaved(`${firstName} ${lastName}`);
     setStatus("");
-    setOpen(false);
+    onClose();
   }
+
+  if (!open) return null;
 
   return (
     <div
-      className={`${styles.taskRow} ${styles.taskRowExpanded} ${
-        complete ? styles.taskRowDone : ""
-      } ${open ? styles.taskRowExpandedOpen : ""}`}
+      className={styles.professionalPanelBackdrop}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) closePanel();
+      }}
     >
-      <button
-        type="button"
-        className={styles.taskRowHeader}
-        onClick={() => {
-          setDraft(details);
-          setStatus("");
-          setOpen((current) => !current);
-        }}
-        aria-expanded={open}
+      <section
+        className={styles.professionalPanel}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="professional-details-title"
       >
-        <span className={styles.taskIcon}>
-          {complete ? <Check size={16} /> : <Plus size={16} />}
-        </span>
-        <span className={styles.taskCopy}>
-          <strong>Informations professionnelles</strong>
-          <span>Identité, activité, adresse et informations légales.</span>
-        </span>
-        <ChevronRight className={styles.taskArrow} size={18} />
-      </button>
+        <header className={styles.professionalPanelHeader}>
+          <div>
+            <h2 id="professional-details-title">
+              Informations professionnelles
+            </h2>
+            <p>Identité, activité, adresse et informations légales.</p>
+          </div>
+          <button
+            type="button"
+            className={styles.professionalPanelClose}
+            onClick={closePanel}
+            aria-label="Fermer le panneau"
+            autoFocus
+          >
+            <X aria-hidden="true" size={20} />
+          </button>
+        </header>
 
-      {open ? (
-        <div className={styles.inlineEditor}>
+        <div className={styles.professionalPanelBody}>
           <div className={styles.inlineFields}>
             {(
               [
@@ -179,29 +204,30 @@ export default function ProfessionalDetailsTask({
               </label>
             ))}
           </div>
-          <div className={styles.inlineEditorFooter}>
-            <span className={styles.inlineEditorStatus}>{status}</span>
-            <div className={styles.inlineEditorActions}>
-              <button
-                type="button"
-                className={styles.inlineSecondaryButton}
-                onClick={() => setOpen(false)}
-                disabled={saving}
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                className={styles.inlinePrimaryButton}
-                onClick={save}
-                disabled={saving}
-              >
-                {saving ? "Enregistrement…" : "Enregistrer"}
-              </button>
-            </div>
-          </div>
         </div>
-      ) : null}
+
+        <footer className={styles.professionalPanelFooter}>
+          <span className={styles.inlineEditorStatus}>{status}</span>
+          <div className={styles.inlineEditorActions}>
+            <button
+              type="button"
+              className={styles.inlineSecondaryButton}
+              onClick={closePanel}
+              disabled={saving}
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              className={styles.inlinePrimaryButton}
+              onClick={save}
+              disabled={saving}
+            >
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </button>
+          </div>
+        </footer>
+      </section>
     </div>
   );
 }

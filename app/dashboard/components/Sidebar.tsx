@@ -12,6 +12,7 @@ import styles from "./dashboard.module.css";
 type SidebarProps = {
   fullName: string;
   email: string;
+  onEditProfessionalDetails: () => void;
 };
 
 const navigation = [
@@ -38,7 +39,11 @@ function getInitials(fullName: string) {
   return initials || "DR";
 }
 
-export default function Sidebar({ fullName, email }: SidebarProps) {
+export default function Sidebar({
+  fullName,
+  email,
+  onEditProfessionalDetails,
+}: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -70,7 +75,12 @@ export default function Sidebar({ fullName, email }: SidebarProps) {
       </nav>
 
       <div className={styles.account}>
-        <div className={styles.accountRow}>
+        <button
+          type="button"
+          className={styles.accountButton}
+          onClick={onEditProfessionalDetails}
+          aria-label="Modifier mes informations professionnelles"
+        >
           <div className={styles.accountAvatar}>
             {getInitials(fullName)}
           </div>
@@ -79,7 +89,7 @@ export default function Sidebar({ fullName, email }: SidebarProps) {
             <strong>{fullName}</strong>
             <span>{email}</span>
           </div>
-        </div>
+        </button>
 
         <div className={styles.signOut}>
           <LogoutButton />
