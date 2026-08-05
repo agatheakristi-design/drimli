@@ -55,10 +55,9 @@ export async function POST(request: Request) {
     const invalid = error instanceof GooglePlacesError && error.code === "invalid_url";
     const notFound = error instanceof GooglePlacesError && error.code === "not_found";
     const status = invalid ? 400 : notFound ? 404 : 502;
-    const message = invalid
-      ? "Collez un lien public Google Maps valide."
-      : notFound
-        ? "Cette fiche Google Maps est introuvable."
+    const message =
+      invalid || notFound
+        ? "Ce lien Google Maps n’a pas pu être reconnu. Ouvrez votre fiche dans Google Maps, cliquez sur Partager, puis copiez le lien proposé."
         : "Impossible d’activer cette fiche pour le moment.";
     return NextResponse.json({ error: message }, { status });
   }

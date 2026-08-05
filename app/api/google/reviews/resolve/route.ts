@@ -11,11 +11,15 @@ const supabaseAdmin = createClient(
 );
 
 function publicError(error: unknown) {
-  if (error instanceof GooglePlacesError && error.code === "invalid_url") {
-    return { message: "Collez un lien public Google Maps valide.", status: 400 };
-  }
-  if (error instanceof GooglePlacesError && error.code === "not_found") {
-    return { message: "Cette fiche Google Maps est introuvable.", status: 404 };
+  if (
+    error instanceof GooglePlacesError &&
+    (error.code === "invalid_url" || error.code === "not_found")
+  ) {
+    return {
+      message:
+        "Ce lien Google Maps n’a pas pu être reconnu. Ouvrez votre fiche dans Google Maps, cliquez sur Partager, puis copiez le lien proposé.",
+      status: error.code === "invalid_url" ? 400 : 404,
+    };
   }
   return { message: "Impossible de vérifier cette fiche pour le moment.", status: 502 };
 }

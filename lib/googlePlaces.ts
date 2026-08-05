@@ -1,5 +1,27 @@
-const SHORT_GOOGLE_MAPS_HOSTS = new Set(["maps.app.goo.gl", "goo.gl"]);
+const GOOGLE_DOMAINS = new Set([
+  "google.com",
+  "google.be",
+  "google.ca",
+  "google.ch",
+  "google.co.uk",
+  "google.de",
+  "google.es",
+  "google.fr",
+  "google.it",
+  "google.lu",
+  "google.nl",
+  "google.pt",
+  "google.sn",
+]);
 const MAX_REDIRECTS = 5;
+const MAX_GOOGLE_PAGE_BYTES = 3_000_000;
+
+type GoogleUrlFormat = "short_maps" | "maps_page" | "travel_hotel";
+
+type ParsedGoogleUrl = {
+  url: URL;
+  format: GoogleUrlFormat;
+};
 
 export type GoogleBusinessPlace = {
   placeId: string;
@@ -18,12 +40,11 @@ export class GooglePlacesError extends Error {
 }
 
 function isGoogleDomain(hostname: string) {
-  return new Set(["google.com", "www.google.com", "maps.google.com"]).has(
-    hostname
-  );
+  const baseDomain = hostname.replace(/^(?:www|maps)\./, "");
+  return GOOGLE_DOMAINS.has(baseDomain);
 }
 
-function parseAllowedMapsUrl(value: string) {
+function parseAllowedMapsUrl(value: string): ParsedGoogleUrl {
   if (value.length > 2048) throw new GooglePlacesError("invalid_url");
 
   let url: URL;
@@ -38,59 +59,103 @@ function parseAllowedMapsUrl(value: string) {
   const shortLink =
     hostname === "maps.app.goo.gl" ||
     (hostname === "goo.gl" && url.pathname.startsWith("/maps"));
+  const relevantQuery = [
+    "cid",
+    "place_id",
+    "query_place_id",
+    "q",
+    "query",
+  ].some((parameter) => url.searchParams.has(parameter));
   const googleMapsPage =
     isGoogleDomain(hostname) &&
-    (url.pathname.startsWith("/maps") ||
+    (hostname.startsWith("maps.") ||
+      url.pathname.startsWith("/maps") ||
+      url.pathname.startsWith("/place/") ||
       url.pathname.startsWith("/local") ||
-      url.searchParams.has("cid") ||
-      url.searchParams.has("query_place_id"));
+      relevantQuery);
+  const googleTravelHotel =
+    isGoogleDomain(hostname) && url.pathname.startsWith("/travel/hotels/");
 
   if (
     url.protocol !== "https:" ||
     url.username ||
     url.password ||
     url.port ||
-    (!shortLink && !googleMapsPage)
+    (!shortLink && !googleMapsPage && !googleTravelHotel)
   ) {
     throw new GooglePlacesError("invalid_url");
   }
 
-  return url;
+  return {
+    url,
+    format: shortLink
+      ? "short_maps"
+      : googleTravelHotel
+        ? "travel_hotel"
+        : "maps_page",
+  };
 }
 
-async function expandShortGoogleMapsUrl(initialUrl: URL) {
-  let currentUrl = initialUrl;
+async function readTextLimited(response: Response) {
+  const reader = response.body?.getReader();
+  if (!reader) return "";
+
+  const decoder = new TextDecoder();
+  let received = 0;
+  let text = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) return text + decoder.decode();
+    received += value.byteLength;
+    if (received > MAX_GOOGLE_PAGE_BYTES) {
+      await reader.cancel();
+      throw new GooglePlacesError("not_found");
+    }
+    text += decoder.decode(value, { stream: true });
+    if (/ChIJ[A-Za-z0-9_-]+/.test(text)) {
+      await reader.cancel();
+      return text;
+    }
+  }
+}
+
+async function resolveGoogleSource(initial: ParsedGoogleUrl) {
+  let current = initial;
 
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
-    parseAllowedMapsUrl(currentUrl.toString());
-
-    if (!SHORT_GOOGLE_MAPS_HOSTS.has(currentUrl.hostname.toLowerCase())) {
-      return currentUrl;
+    if (current.format === "maps_page") {
+      return { url: current.url, html: null };
     }
 
     let response: Response;
     try {
-      response = await fetch(currentUrl, {
+      response = await fetch(current.url, {
         method: "GET",
         redirect: "manual",
         cache: "no-store",
         signal: AbortSignal.timeout(6000),
-        headers: { "User-Agent": "DRIMLI Google Business verifier" },
+        headers: { "User-Agent": "curl/8.7.1" },
       });
     } catch {
       throw new GooglePlacesError("unavailable");
     }
 
-    if (response.status < 300 || response.status >= 400) {
-      throw new GooglePlacesError("not_found");
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      if (!location) throw new GooglePlacesError("not_found");
+
+      current = parseAllowedMapsUrl(
+        new URL(location, current.url).toString()
+      );
+      continue;
     }
 
-    const location = response.headers.get("location");
-    if (!location) throw new GooglePlacesError("not_found");
+    if (response.ok && current.format === "travel_hotel") {
+      return { url: current.url, html: await readTextLimited(response) };
+    }
 
-    currentUrl = parseAllowedMapsUrl(
-      new URL(location, currentUrl).toString()
-    );
+    throw new GooglePlacesError("not_found");
   }
 
   throw new GooglePlacesError("not_found");
@@ -116,13 +181,20 @@ function extractPlaceId(url: URL) {
   return validPlaceId(queryMatch?.[1] ?? null);
 }
 
+function extractPlaceIdFromGooglePage(html: string | null) {
+  if (!html) return null;
+  return validPlaceId(html.match(/ChIJ[A-Za-z0-9_-]+/)?.[0] ?? null);
+}
+
 function extractTextQuery(url: URL) {
   const query = url.searchParams.get("query") || url.searchParams.get("q");
   if (query && !/^place_id:/i.test(query) && !/^-?\d+(\.\d+)?,-?\d/.test(query)) {
     return query.trim().slice(0, 240);
   }
 
-  const match = decodeURIComponent(url.pathname).match(/\/maps\/place\/([^/]+)/);
+  const match = decodeURIComponent(url.pathname).match(
+    /\/(?:maps\/)?place\/([^/]+)/
+  );
   return match?.[1]?.replace(/\+/g, " ").trim().slice(0, 240) || null;
 }
 
@@ -203,13 +275,12 @@ async function fetchPlaceDetails(placeId: string): Promise<GoogleBusinessPlace> 
 
 export async function resolveGoogleBusiness(input: string) {
   const submittedUrl = parseAllowedMapsUrl(input);
-  const expandedUrl = SHORT_GOOGLE_MAPS_HOSTS.has(submittedUrl.hostname.toLowerCase())
-    ? await expandShortGoogleMapsUrl(submittedUrl)
-    : submittedUrl;
+  const source = await resolveGoogleSource(submittedUrl);
   const placeId =
-    extractPlaceId(expandedUrl) ||
+    extractPlaceId(source.url) ||
+    extractPlaceIdFromGooglePage(source.html) ||
     (await (async () => {
-      const textQuery = extractTextQuery(expandedUrl);
+      const textQuery = extractTextQuery(source.url);
       if (!textQuery) throw new GooglePlacesError("not_found");
       return searchPlaceId(textQuery);
     })());
