@@ -138,7 +138,7 @@ export default function PublishPage() {
     width: "100%",
     padding: 10,
     borderRadius: 10,
-    border: "1px solid #ddd",
+    border: "1px solid var(--border)",
   };
 
   return (
@@ -158,7 +158,7 @@ export default function PublishPage() {
       <section
         style={{
           marginTop: 16,
-          border: "1px solid #eee",
+          border: "1px solid var(--border)",
           borderRadius: 14,
           padding: 16,
           display: "grid",
@@ -220,8 +220,8 @@ export default function PublishPage() {
             padding: "14px 18px",
             borderRadius: 12,
             border: "none",
-            backgroundColor: "#2563eb",
-            color: "#fff",
+            backgroundColor: "var(--primary)",
+            color: "var(--primary-foreground)",
             fontWeight: 900,
             fontSize: 16,
           }}

@@ -97,9 +97,12 @@ export default function ServicesPage() {
         setIsOnboarding(onboarding);
         setShowForm(onboarding ? true : false);
         setLoading(false);
-      } catch (e: any) {
+      } catch (error: unknown) {
         if (!cancelled) {
-          setStatus("❌ Erreur inattendue : " + (e?.message || "unknown"));
+          setStatus(
+            "❌ Erreur inattendue : " +
+              (error instanceof Error ? error.message : "unknown")
+          );
           setLoading(false);
         }
       }
@@ -321,7 +324,7 @@ export default function ServicesPage() {
               style={{
                 marginTop: 24,
                 padding: 32,
-                border: "2px dashed #e5e7eb",
+                border: "2px dashed var(--border)",
                 borderRadius: 16,
                 textAlign: "center",
               }}
@@ -348,7 +351,7 @@ export default function ServicesPage() {
 
           {showFormArea && (
             <>
-              <section style={{ marginTop: 20, border: "1px solid #eee", borderRadius: 14, padding: 16 }}>
+              <section style={{ marginTop: 20, border: "1px solid var(--border)", borderRadius: 14, padding: 16 }}>
                 <div style={{ display: "grid", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
                     <strong>Nom du service *</strong>
@@ -431,7 +434,7 @@ export default function ServicesPage() {
                       <div
                         key={p.id}
                         style={{
-                          border: "1px solid #eee",
+                          border: "1px solid var(--border)",
                           borderRadius: 14,
                           padding: 16,
                           display: "flex",

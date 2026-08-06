@@ -73,9 +73,7 @@
   border: 1px solid var(--border);
   border-radius: 28px;
   background: color-mix(in srgb, var(--card) 88%, transparent);
-  box-shadow:
-    0 24px 70px rgb(0 0 0 / 5.5%),
-    0 2px 8px rgb(0 0 0 / 2.5%);
+  box-shadow: var(--shadow-md);
   backdrop-filter: blur(18px);
   opacity: 0;
   transform: translateY(12px);
@@ -126,7 +124,7 @@
 .control:focus {
   background: var(--card);
   border-color: var(--border);
-  box-shadow: 0 0 0 4px rgb(17 17 17 / 3.5%);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .control::placeholder {
@@ -181,7 +179,7 @@
 
 .submitButton:hover {
   transform: translateY(-1px);
-  box-shadow: 0 16px 34px rgb(0 0 0 / 16%);
+  box-shadow: var(--shadow-md);
 }
 
 .note {

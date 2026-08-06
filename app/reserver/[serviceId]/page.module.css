@@ -1,6 +1,6 @@
 .page {
   min-height: 100svh;
-  background: var(--background);
+  background: transparent;
   color: var(--foreground);
 }
 
@@ -53,7 +53,7 @@
   width: calc(var(--space-2xl) * 2);
   height: calc(var(--space-2xl) * 2);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .avatar {
@@ -196,7 +196,7 @@
 }
 
 .slot:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 

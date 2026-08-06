@@ -89,9 +89,9 @@ export default function PublicPageLink() {
         alignItems: "center",
         flexWrap: "wrap",
         padding: 12,
-        border: "1px solid #eee",
+        border: "1px solid var(--border)",
         borderRadius: 14,
-        background: "white",
+        background: "var(--card)",
         marginBottom: 16,
       }}
     >
@@ -106,7 +106,7 @@ export default function PublicPageLink() {
             style={{
               padding: "8px 12px",
               borderRadius: 10,
-              border: "1px solid #ddd",
+              border: "1px solid var(--border)",
               textDecoration: "none",
             }}
           >
@@ -118,8 +118,8 @@ export default function PublicPageLink() {
             style={{
               padding: "8px 12px",
               borderRadius: 10,
-              border: "1px solid #ddd",
-              background: "white",
+              border: "1px solid var(--border)",
+              background: "var(--card)",
               cursor: "pointer",
             }}
           >

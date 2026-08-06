@@ -39,7 +39,7 @@
 .trigger:focus-visible {
   position: relative;
   z-index: 1;
-  outline: 3px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  outline: 3px solid var(--focus-ring);
   outline-offset: -3px;
 }
 

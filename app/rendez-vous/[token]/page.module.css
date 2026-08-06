@@ -5,7 +5,7 @@
   align-content: center;
   gap: var(--space-xl);
   padding: var(--space-xl) var(--space-lg);
-  background: var(--muted);
+  background: transparent;
 }
 
 .brand {
@@ -34,7 +34,7 @@
   width: 3.5rem;
   height: 3.5rem;
   flex: 0 0 auto;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .avatar {
@@ -102,7 +102,7 @@
 }
 
 .joinButton:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
 

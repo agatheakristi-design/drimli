@@ -5,9 +5,7 @@
   --home-solutions-popover-width: 470px;
   min-height: 100svh;
   color: var(--foreground);
-  background:
-    radial-gradient(90% 42% at 50% -8%, rgb(225 230 236 / 95%) 0%, rgb(238 241 244 / 55%) 22%, rgb(248 249 250 / 20%) 38%, transparent 58%),
-    var(--background);
+  background: transparent;
 }
 
 .page {
@@ -20,19 +18,7 @@
 }
 
 .page::before {
-  position: absolute;
-  z-index: 0;
-  top: -8%;
-  left: 38%;
-  width: min(64vw, 760px);
-  height: 250px;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at 46% 48%, rgb(255 255 255 / 98%) 0%, rgb(234 237 241 / 22%) 30%, rgb(211 216 223 / 9%) 48%, transparent 74%);
-  filter: blur(54px);
-  opacity: .84;
-  content: "";
-  pointer-events: none;
-  transform: translateX(-50%) rotate(-5deg);
+  content: none;
 }
 
 .topbar {
@@ -126,9 +112,9 @@
 
 .signup:hover,
 .signup:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--primary) 18%, transparent);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
-  background: color-mix(in srgb, var(--primary) 92%, black);
+  background: var(--primary-hover);
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
@@ -416,7 +402,7 @@
 
 .authButton:hover:not(:disabled),
 .authButton:focus-visible:not(:disabled) {
-  outline: 3px solid color-mix(in srgb, var(--primary) 18%, transparent);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
   border-color: var(--border);
   box-shadow: var(--shadow-md);
@@ -465,13 +451,13 @@
 .mobileToggle:focus-visible,
 .entry:focus-visible,
 .pricingFooter:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--primary) 18%, transparent);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
 .freeStatement {
   margin: 17px auto 0;
-  color: var(--muted-foreground);
+  color: var(--subtle-foreground);
   font-size: 11px;
   letter-spacing: -.006em;
   line-height: 1.5;
@@ -491,7 +477,7 @@
   gap: var(--space-xs);
   align-items: center;
   justify-content: center;
-  color: var(--muted-foreground);
+  color: var(--subtle-foreground);
   font-size: 9px;
   opacity: 0;
   animation: fade-in 500ms ease 480ms forwards;

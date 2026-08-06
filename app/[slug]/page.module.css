@@ -11,7 +11,7 @@
   height: 10rem;
   flex: 0 0 auto;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   object-fit: cover;
   box-shadow: var(--shadow-sm);
 }

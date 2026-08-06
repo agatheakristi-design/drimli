@@ -6,12 +6,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  background: radial-gradient(
-    circle at 50% 46%,
-    var(--card) 0%,
-    color-mix(in srgb, var(--card) 92%, var(--muted)) 54%,
-    var(--muted) 100%
-  );
+  background: transparent;
 }
 
 .copy {
@@ -107,7 +102,7 @@
 }
 
 .action:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 

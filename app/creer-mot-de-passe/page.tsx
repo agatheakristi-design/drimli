@@ -83,7 +83,7 @@ export default function CreerMotDePassePage() {
           placeholder="Nouveau mot de passe (min 8 caractères)"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          style={{ padding: 12, borderRadius: 8, border: "1px solid #ddd" }}
+          style={{ padding: 12, borderRadius: 8, border: "1px solid var(--border)" }}
         />
 
         <input
@@ -91,7 +91,7 @@ export default function CreerMotDePassePage() {
           placeholder="Confirmer le mot de passe"
           value={password2}
           onChange={(e) => setPassword2(e.target.value)}
-          style={{ padding: 12, borderRadius: 8, border: "1px solid #ddd" }}
+          style={{ padding: 12, borderRadius: 8, border: "1px solid var(--border)" }}
         />
 
         <button
