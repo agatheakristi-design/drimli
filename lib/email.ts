@@ -25,25 +25,8 @@ export type AppointmentEmailPayload = {
   serviceTitle: string;
   startDateTimeIso: string;
   endDateTimeIso: string;
-  videoProvider?: string | null;
-  videoJoinUrl?: string | null;
+  appointmentJoinUrl: string;
 };
-
-export function isGoogleMeetUrl(
-  value: string | null | undefined
-): value is string {
-  if (!value) return false;
-
-  try {
-    const url = new URL(value);
-    return (
-      value.startsWith("https://meet.google.com/") &&
-      url.origin === "https://meet.google.com"
-    );
-  } catch {
-    return false;
-  }
-}
 
 export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayload) {
   const subject = `Votre rendez-vous avec ${p.providerName} est confirmé`;
@@ -51,15 +34,6 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
   const patientLine = p.patientName?.trim()
     ? `Bonjour ${p.patientName.trim()},`
     : `Bonjour,`;
-
-  const meetUrl =
-    p.videoProvider === "google_meet" && isGoogleMeetUrl(p.videoJoinUrl)
-      ? p.videoJoinUrl
-      : null;
-
-  if (!meetUrl) {
-    throw new Error("A valid Google Meet URL is required for confirmation email.");
-  }
 
   const dateLabel = new Date(p.startDateTimeIso).toLocaleDateString("fr-FR", {
     timeZone: "Europe/Paris",
@@ -91,7 +65,7 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
     `Horaire : ${startLabel} – ${endLabel}`,
     "",
     "Rejoindre la visio :",
-    meetUrl,
+    p.appointmentJoinUrl,
     "",
     "—",
     "Drimli",
@@ -111,7 +85,7 @@ const html = `
     <p>Cliquez sur le bouton ci-dessous pour rejoindre votre visioconférence Google Meet.</p>
 
     <p style="margin:16px 0;">
-      <a href="${escapeHtml(meetUrl)}"
+      <a href="${escapeHtml(p.appointmentJoinUrl)}"
          target="_blank"
          rel="noreferrer"
          style="display:inline-block;padding:12px 16px;background:#111;color:#fff;text-decoration:none;border-radius:12px;font-weight:700;">

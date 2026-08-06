@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
+import { buildAppointmentPortalUrl } from "@/lib/video/appointmentPortal";
 
 export const runtime = "nodejs";
 
@@ -35,17 +36,6 @@ function formatIcsDate(value: string) {
     .replace(/\.\d{3}Z$/, "Z");
 }
 
-function safeMeetUrl(value: string | null | undefined) {
-  if (!value) return null;
-
-  try {
-    const url = new URL(value);
-    return url.origin === "https://meet.google.com" ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
 function unavailable(status = 404) {
   return NextResponse.json(
     { error: "Le calendrier n’est pas encore disponible." },
@@ -69,7 +59,7 @@ export async function GET(request: Request) {
     const { data: appointment, error: appointmentError } = await supabaseAdmin
       .from("appointments")
       .select(
-        "id, provider_id, product_id, status, start_datetime, end_datetime, video_join_url"
+        "id, provider_id, product_id, status, start_datetime, end_datetime, join_token"
       )
       .eq("id", appointmentId)
       .maybeSingle();
@@ -79,7 +69,8 @@ export async function GET(request: Request) {
       !appointment ||
       appointment.status !== "confirmed" ||
       !appointment.start_datetime ||
-      !appointment.end_datetime
+      !appointment.end_datetime ||
+      !appointment.join_token
     ) {
       return unavailable();
     }
@@ -99,13 +90,11 @@ export async function GET(request: Request) {
 
     const serviceTitle = String(product?.title || "Rendez-vous").trim();
     const providerName = String(provider?.full_name || "votre professionnel").trim();
-    const meetUrl = safeMeetUrl(appointment.video_join_url);
+    const portalUrl = buildAppointmentPortalUrl(appointment.join_token);
     const description = [
       `${serviceTitle} avec ${providerName}.`,
-      meetUrl ? `Lien Google Meet : ${meetUrl}` : null,
-    ]
-      .filter((line): line is string => Boolean(line))
-      .join("\n");
+      `Rejoindre la visioconférence : ${portalUrl}`,
+    ].join("\n");
 
     const calendar = [
       "BEGIN:VCALENDAR",
@@ -120,7 +109,7 @@ export async function GET(request: Request) {
       `DTEND:${formatIcsDate(appointment.end_datetime)}`,
       `SUMMARY:${escapeIcsText(serviceTitle)}`,
       `DESCRIPTION:${escapeIcsText(description)}`,
-      ...(meetUrl ? [`URL:${meetUrl}`] : []),
+      `URL:${portalUrl}`,
       "STATUS:CONFIRMED",
       "END:VEVENT",
       "END:VCALENDAR",

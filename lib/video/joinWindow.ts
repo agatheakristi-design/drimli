@@ -1,25 +1,39 @@
 /**
  * Join window rule:
- * - Allowed starting 5 minutes before the appointment
- * - Allowed until 10 minutes after the appointment ends
+ * - Allowed starting 10 minutes before the appointment
+ * - Allowed until 30 minutes after the appointment ends, inclusive
  */
-export function isJoinWindowOpen(params: {
+export type JoinWindowState = "early" | "open" | "ended";
+
+export function getJoinWindowState(params: {
   startsAt: Date;
   endsAt: Date;
   now?: Date;
-  notBeforeMinutes?: number; // default 5
-  notAfterMinutes?: number;  // default 10
-}) {
+  notBeforeMinutes?: number;
+  notAfterMinutes?: number;
+}): JoinWindowState {
   const {
     startsAt,
     endsAt,
     now = new Date(),
-    notBeforeMinutes = 5,
-    notAfterMinutes = 10,
+    notBeforeMinutes = 10,
+    notAfterMinutes = 30,
   } = params;
 
   const notBefore = new Date(startsAt.getTime() - notBeforeMinutes * 60_000);
   const notAfter = new Date(endsAt.getTime() + notAfterMinutes * 60_000);
 
-  return now >= notBefore && now <= notAfter;
+  if (now < notBefore) return "early";
+  if (now <= notAfter) return "open";
+  return "ended";
+}
+
+export function isJoinWindowOpen(params: {
+  startsAt: Date;
+  endsAt: Date;
+  now?: Date;
+  notBeforeMinutes?: number;
+  notAfterMinutes?: number;
+}) {
+  return getJoinWindowState(params) === "open";
 }

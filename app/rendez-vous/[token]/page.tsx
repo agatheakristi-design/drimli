@@ -1,178 +1,241 @@
-"use client";
+import { createClient } from "@supabase/supabase-js";
+import type { ReactNode } from "react";
+import Logo from "@/app/components/ui/Logo";
+import {
+  getJoinWindowState,
+  type JoinWindowState,
+} from "@/lib/video/joinWindow";
+import { isGoogleMeetUrl } from "@/lib/video/meetUrl";
+import PortalRefresh from "./PortalRefresh";
+import styles from "./page.module.css";
 
-import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import Container from "@/app/components/ui/Container";
-import type { VideoProvider } from "@/lib/video/types";
-import Card from "@/app/components/ui/Card";
-import Button from "@/app/components/ui/Button";
+export const dynamic = "force-dynamic";
 
-type AppointmentRow = {
-  id: string;
-  join_token: string | null;
-  status: string | null;
-  start_datetime: string | null;
-  end_datetime: string | null;
-  provider_id: string | null;
-  video_provider: VideoProvider;
-  video_join_url: string | null;
-  video_room_id: string | null;
+type PageProps = {
+  params: Promise<{ token: string }> | { token: string };
 };
 
-type ProfileRow = {
-  provider_id: string;
-  full_name: string | null;
+type PortalDetails = {
+  professionalName: string;
+  avatarUrl: string | null;
+  serviceTitle: string;
+  startsAt: Date;
+  endsAt: Date;
+  state: JoinWindowState;
 };
 
-function formatDateTimeParis(iso: string | null) {
-  if (!iso) return "—";
-  const d = new Date(iso);
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { persistSession: false } }
+);
+
+function formatDate(date: Date) {
   return new Intl.DateTimeFormat("fr-FR", {
     timeZone: "Europe/Paris",
     weekday: "long",
-    day: "2-digit",
+    day: "numeric",
     month: "long",
     year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
+  }).format(date);
 }
 
-export default function RendezVousTokenPage() {
-  const router = useRouter();
-  const params = useParams();
+function formatTime(date: Date) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    timeZone: "Europe/Paris",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
 
-  const token = useMemo(() => {
-    const raw = (params as any)?.token;
-    return typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : "";
-  }, [params]);
+function PortalLayout({ children }: { children: ReactNode }) {
+  return (
+    <main className={styles.page}>
+      <div className={styles.brand} aria-label="Drimli">
+        <Logo />
+      </div>
+      <section className={styles.card}>{children}</section>
+    </main>
+  );
+}
 
-  const [loading, setLoading] = useState(true);
-  const [errorText, setErrorText] = useState("");
-  const [appointment, setAppointment] = useState<AppointmentRow | null>(null);
-  const [proName, setProName] = useState<string | null>(null);
+function ErrorState({ children }: { children: ReactNode }) {
+  return (
+    <PortalLayout>
+      <div className={styles.messageOnly}>
+        <h1>{children}</h1>
+      </div>
+    </PortalLayout>
+  );
+}
 
-  useEffect(() => {
-    let cancelled = false;
+async function loadPortal(token: string): Promise<
+  | { kind: "invalid" }
+  | { kind: "unavailable" }
+  | { kind: "preparing" }
+  | { kind: "ready"; details: PortalDetails }
+> {
+  if (!token || token.length > 200) return { kind: "invalid" };
 
-    (async () => {
-      setLoading(true);
-      setErrorText("");
-      setAppointment(null);
-      setProName(null);
+  const { data: appointment, error } = await supabaseAdmin
+    .from("appointments")
+    .select(
+      "status, start_datetime, end_datetime, provider_id, product_id, video_provider, video_join_url"
+    )
+    .eq("join_token", token)
+    .maybeSingle();
 
-      if (!token) {
-        setErrorText("Lien invalide.");
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("appointments")
-        .select("id, join_token, status, start_datetime, end_datetime, provider_id, video_provider, video_join_url, video_room_id")
-        .eq("join_token", token)
-        .maybeSingle<AppointmentRow>();
-
-      if (cancelled) return;
-
-      if (error) {
-        setErrorText("Erreur chargement : " + error.message);
-        setLoading(false);
-        return;
-      }
-
-      if (!data) {
-        setErrorText("Rendez-vous introuvable (lien expiré ou incorrect).");
-        setLoading(false);
-        return;
-      }
-
-      setAppointment(data);
-
-      if (data.provider_id) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("provider_id", data.provider_id)
-          .maybeSingle<ProfileRow>();
-
-        if (!cancelled) setProName(profile?.full_name ?? null);
-      }
-
-      if (!cancelled) setLoading(false);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
-
-  if (loading) {
-    return (
-      <Container>
-        <Card>
-          <p>Chargement…</p>
-        </Card>
-      </Container>
-    );
+  if (error || !appointment) return { kind: "invalid" };
+  if (appointment.status !== "confirmed") return { kind: "unavailable" };
+  if (
+    !appointment.start_datetime ||
+    !appointment.end_datetime ||
+    !appointment.provider_id ||
+    !appointment.product_id
+  ) {
+    return { kind: "unavailable" };
+  }
+  if (
+    appointment.video_provider !== "google_meet" ||
+    !isGoogleMeetUrl(appointment.video_join_url)
+  ) {
+    return { kind: "preparing" };
   }
 
-  if (errorText) {
-    return (
-      <Container>
-        <Card>
-          <div className="space-y-3">
-            <h1 className="text-2xl font-black">Drimcall</h1>
-            <p>{errorText}</p>
-            <Button variant="secondary" onClick={() => router.push("/")}>
-              Retour
-            </Button>
-          </div>
-        </Card>
-      </Container>
-    );
+  const [{ data: profile }, { data: product }] = await Promise.all([
+    supabaseAdmin
+      .from("profiles")
+      .select("full_name, avatar_url")
+      .eq("provider_id", appointment.provider_id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("products")
+      .select("title")
+      .eq("id", appointment.product_id)
+      .maybeSingle(),
+  ]);
+
+  const startsAt = new Date(appointment.start_datetime);
+  const endsAt = new Date(appointment.end_datetime);
+  if (
+    !Number.isFinite(startsAt.getTime()) ||
+    !Number.isFinite(endsAt.getTime()) ||
+    startsAt >= endsAt
+  ) {
+    return { kind: "unavailable" };
   }
+
+  return {
+    kind: "ready",
+    details: {
+      professionalName: profile?.full_name?.trim() || "Votre professionnel",
+      avatarUrl: profile?.avatar_url?.trim() || null,
+      serviceTitle: product?.title?.trim() || "Rendez-vous",
+      startsAt,
+      endsAt,
+      state: getJoinWindowState({ startsAt, endsAt }),
+    },
+  };
+}
+
+export default async function RendezVousTokenPage({ params }: PageProps) {
+  const { token } = await Promise.resolve(params);
+  const portal = await loadPortal(token);
+
+  if (portal.kind === "invalid") {
+    return <ErrorState>Ce lien de rendez-vous est invalide ou a expiré.</ErrorState>;
+  }
+  if (portal.kind === "unavailable") {
+    return <ErrorState>Ce rendez-vous n’est pas disponible.</ErrorState>;
+  }
+  if (portal.kind === "preparing") {
+    return <ErrorState>La visioconférence est en cours de préparation.</ErrorState>;
+  }
+
+  const { details } = portal;
+  const opensAt = details.startsAt.getTime() - 10 * 60_000;
+  const closesAt = details.endsAt.getTime() + 30 * 60_000;
 
   return (
-    <Container>
-      <Card>
-        <div className="space-y-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-black">Drimcall</h1>
-            {proName ? (
-              <p className="text-muted-foreground">Votre rendez-vous avec {proName}</p>
-            ) : (
-              <p className="text-muted-foreground">Votre rendez-vous</p>
-            )}
-            <p className="text-sm text-muted-foreground">
-              {formatDateTimeParis(appointment?.start_datetime ?? null)}
-            </p>
+    <PortalLayout>
+      <PortalRefresh
+        state={details.state}
+        opensAt={opensAt}
+        closesAt={closesAt}
+      />
+
+      <header className={styles.header}>
+        {details.avatarUrl ? (
+          <img
+            className={styles.avatar}
+            src={details.avatarUrl}
+            alt=""
+          />
+        ) : (
+          <div className={styles.avatarFallback} aria-hidden="true">
+            {details.professionalName.charAt(0).toUpperCase()}
           </div>
+        )}
 
-          <Button
-            onClick={() => {
-              if (!appointment?.id) return;
-              router.push(`/appointments/${appointment.id}/join`);
-            }}
-          >
-            Rejoindre la consultation
-          </Button>
-
-          <p className="text-xs text-muted-foreground">
-            Le professionnel vous rejoint dès qu’il est disponible.
-          </p>
-
-          <Button
-            variant="secondary"
-            onClick={() => {
-              navigator.clipboard.writeText(window.location.href).catch(() => {});
-            }}
-          >
-            Copier le lien
-          </Button>
+        <div>
+          <span className={styles.eyebrow}>Rendez-vous avec</span>
+          <strong>{details.professionalName}</strong>
         </div>
-      </Card>
-    </Container>
+      </header>
+
+      <div className={styles.content}>
+        {details.state === "early" ? (
+          <>
+            <h1>Votre visioconférence n’est pas encore disponible</h1>
+            <p>
+              Vous pourrez la rejoindre 10 minutes avant le début du
+              rendez-vous.
+            </p>
+          </>
+        ) : null}
+
+        {details.state === "open" ? (
+          <>
+            <h1>Votre visioconférence est prête</h1>
+            <a
+              className={styles.joinButton}
+              href={`/api/rendez-vous/${encodeURIComponent(token)}/join`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Rejoindre la visioconférence
+            </a>
+          </>
+        ) : null}
+
+        {details.state === "ended" ? (
+          <>
+            <h1>Cette visioconférence n’est plus disponible</h1>
+            <p>Le créneau d’accès est terminé.</p>
+            <p>
+              Si vous pensez qu’il s’agit d’une erreur, contactez votre
+              professionnel.
+            </p>
+          </>
+        ) : null}
+      </div>
+
+      <dl className={styles.details}>
+        <div>
+          <dt>Prestation</dt>
+          <dd>{details.serviceTitle}</dd>
+        </div>
+        <div>
+          <dt>Date</dt>
+          <dd>{formatDate(details.startsAt)}</dd>
+        </div>
+        <div>
+          <dt>Horaire</dt>
+          <dd>
+            {formatTime(details.startsAt)} – {formatTime(details.endsAt)}
+          </dd>
+        </div>
+      </dl>
+    </PortalLayout>
   );
 }

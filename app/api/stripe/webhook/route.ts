@@ -1,14 +1,16 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import {
-  isGoogleMeetUrl,
-  sendAppointmentConfirmationEmail,
-} from "@/lib/email";
+import { sendAppointmentConfirmationEmail } from "@/lib/email";
 import {
   createGoogleMeetAppointment,
   GoogleMeetError,
 } from "@/lib/googleCalendar";
+import {
+  buildAppointmentPortalUrl,
+  generateAppointmentJoinToken,
+} from "@/lib/video/appointmentPortal";
+import { isGoogleMeetUrl } from "@/lib/video/meetUrl";
 
 export const runtime = "nodejs";
 
@@ -80,6 +82,39 @@ function pickAppointmentId(metadata: Record<string, string> | null | undefined):
   if (typeof metadata.appointmentId === "string") return metadata.appointmentId;
   if (typeof metadata.appointment_id === "string") return metadata.appointment_id;
   return null;
+}
+
+async function ensureAppointmentJoinToken(
+  appointmentId: string,
+  existingToken: string | null | undefined
+) {
+  const existing = existingToken?.trim();
+  if (existing) return existing;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const token = generateAppointmentJoinToken();
+    const { data, error } = await supabaseAdmin
+      .from("appointments")
+      .update({ join_token: token })
+      .eq("id", appointmentId)
+      .is("join_token", null)
+      .select("join_token")
+      .maybeSingle<{ join_token: string | null }>();
+
+    if (data?.join_token) return data.join_token;
+    if (error && error.code !== "23505") throw error;
+
+    const { data: concurrent, error: concurrentError } = await supabaseAdmin
+      .from("appointments")
+      .select("join_token")
+      .eq("id", appointmentId)
+      .maybeSingle<{ join_token: string | null }>();
+
+    if (concurrentError) throw concurrentError;
+    if (concurrent?.join_token) return concurrent.join_token;
+  }
+
+  throw new Error("Appointment join token could not be allocated.");
 }
 
 function monthKeyFromIso(iso: string): string {
@@ -284,7 +319,7 @@ export async function POST(req: Request) {
     // 1) Charger appointment
     const { data: appt, error: apptErr } = await supabaseAdmin
       .from("appointments")
-      .select("id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, confirmation_email_sent_at, video_provider, video_join_url, video_room_id")
+      .select("id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, confirmation_email_sent_at, video_provider, video_join_url, video_room_id, join_token")
       .eq("id", appointmentId)
       .maybeSingle();
 
@@ -298,6 +333,7 @@ export async function POST(req: Request) {
         appt.video_provider === "google_meet" &&
         isGoogleMeetUrl(appt.video_join_url)
       ) {
+        await ensureAppointmentJoinToken(appt.id, appt.join_token);
         return NextResponse.json({ received: true, idempotent: true });
       }
 
@@ -428,7 +464,7 @@ export async function POST(req: Request) {
       await supabaseAdmin
         .from("appointments")
         .select(
-          "id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, confirmation_email_sent_at, video_provider, video_join_url, video_room_id"
+          "id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, confirmation_email_sent_at, video_provider, video_join_url, video_room_id, join_token"
         )
         .eq("id", appt.id)
         .maybeSingle();
@@ -464,6 +500,24 @@ export async function POST(req: Request) {
       });
       return NextResponse.json(
         { error: "Meeting link unavailable" },
+        { status: 500 }
+      );
+    }
+
+    let joinToken: string;
+    try {
+      joinToken = await ensureAppointmentJoinToken(
+        reloadedAppointment.id,
+        reloadedAppointment.join_token
+      );
+    } catch {
+      console.error("[APPOINTMENT_PORTAL_ERROR]", {
+        appointmentId: appt.id,
+        providerId: appt.provider_id,
+        stage: "join_token_allocation",
+      });
+      return NextResponse.json(
+        { error: "Appointment portal unavailable" },
         { status: 500 }
       );
     }
@@ -519,8 +573,7 @@ export async function POST(req: Request) {
           endDateTimeIso: new Date(
             reloadedAppointment.end_datetime
           ).toISOString(),
-          videoProvider: reloadedAppointment.video_provider,
-          videoJoinUrl: reloadedAppointment.video_join_url,
+          appointmentJoinUrl: buildAppointmentPortalUrl(joinToken),
         });
 
         const { error: sentAtError } = await supabaseAdmin
