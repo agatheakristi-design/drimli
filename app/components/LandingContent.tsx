@@ -1,236 +1,368 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import Logo from "@/app/components/ui/Logo";
+import { useEffect, useRef, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import styles from "./home/home.module.css";
 
 type Language = "en" | "fr";
+type MenuName = "solutions" | "product" | "pricing";
 
-const translations = {
+const copy = {
   en: {
-    titleFirst: "Your business.",
-    titleSecond: "Everywhere.",
-    book: "Book",
-    pay: "Pay",
-    meet: "Meet",
+    pageTitle: "Drimli — Create your account",
+    solutions: "Solutions",
+    product: "Product",
+    pricing: "Pricing",
+    login: "Log in",
+    signup: "Sign up",
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
+    solutionsHeading: "For independent professionals",
+    solutionsItems: [
+      ["Coaches", "Sell and manage sessions without administrative friction."],
+      ["Consultants", "Turn expertise into bookable, paid remote consultations."],
+      ["Therapists", "Manage appointments, payments and video consultations in one place."],
+      ["Psychologists", "Offer a seamless experience before, during and after each session."],
+      ["Nutritionists", "Manage bookings, follow-ups and remote consultations."],
+      ["Trainers", "Schedule, sell and deliver training sessions online."],
+      ["Lawyers", "Offer secure remote consultations and get paid in advance."],
+      ["Architects", "Organise project consultations and client meetings online."],
+    ],
+    solutionsFooter: "...and anyone who wants to grow their business remotely",
+    productItems: [
+      ["Calendar", "Clients book online. Your calendar stays automatically up to date."],
+      ["Video", "Unlimited HD video consultations, built in."],
+      ["Payments", "Secure remote payments before every consultation."],
+      ["Automatic invoicing", "Compliant e-invoices generated and sent automatically."],
+      ["Google review generation", "Automatically invite clients to leave Google reviews."],
+    ],
+    productFooter: "Everything you need to sell remote sessions",
+    free: "Free.",
+    pricingPromise: "We only succeed when you do.",
+    pricingLines: ["No subscription.", "No monthly fee.", "No setup cost."],
+    pricingFooter: "Start today",
+    hero: "Your business. Worldwide.",
+    promise: "Everything you need to sell remote sessions",
     google: "Continue with Google",
     apple: "Continue with Apple",
     email: "Continue with email",
-    free: "Free. No subscription.",
-    signIn: "Sign in",
-    comingSoon: "Coming soon",
-    tagline:
-      "Drimli is the all-in-one platform to manage your appointments, payments and video meetings.",
+    freeStatement: "Free. No subscription. We only succeed when you do.",
     privacy: "Privacy",
     terms: "Terms",
+    comingSoon: "Coming soon",
+    googleError: "Unable to continue with Google.",
   },
   fr: {
-    titleFirst: "Ton business.",
-    titleSecond: "Partout.",
-    book: "Réserver",
-    pay: "Payer",
-    meet: "Échanger",
+    pageTitle: "Drimli — Créer votre compte",
+    solutions: "Solutions",
+    product: "Produit",
+    pricing: "Tarifs",
+    login: "Se connecter",
+    signup: "Créer un compte",
+    openMenu: "Ouvrir le menu",
+    closeMenu: "Fermer le menu",
+    solutionsHeading: "Pour les professionnels indépendants",
+    solutionsItems: [
+      ["Coachs", "Vendez et gérez vos séances sans friction administrative."],
+      ["Consultants", "Transformez votre expertise en consultations réservables et payées."],
+      ["Thérapeutes", "Gérez rendez-vous, paiements et visio au même endroit."],
+      ["Psychologues", "Offrez une expérience fluide avant, pendant et après chaque séance."],
+      ["Nutritionnistes", "Gérez réservations, suivis et consultations à distance."],
+      ["Formateurs", "Planifiez, vendez et animez vos formations en ligne."],
+      ["Avocats", "Proposez des consultations sécurisées et payées à l’avance."],
+      ["Architectes", "Organisez vos consultations de projet et rendez-vous clients."],
+    ],
+    solutionsFooter:
+      "...et plus largement tous les professionnels qui développent leur activité à distance",
+    productItems: [
+      ["Calendrier", "Vos clients réservent en ligne. Votre agenda se met à jour automatiquement."],
+      ["Visio illimitée", "Consultations vidéo HD intégrées, sans limite."],
+      ["Paiement à distance", "Encaissez en toute sécurité avant chaque consultation."],
+      ["Facturation électronique automatique", "Factures conformes générées et envoyées automatiquement."],
+      ["Générateur automatique d’avis Google", "Invitez automatiquement vos clients et multipliez vos avis."],
+    ],
+    productFooter: "Tout ce qu’il faut pour vendre vos consultations à distance",
+    free: "Gratuit.",
+    pricingPromise: "Nous ne réussissons que lorsque vous réussissez.",
+    pricingLines: ["Sans abonnement.", "Sans frais mensuels.", "Sans frais d’installation."],
+    pricingFooter: "Commencer aujourd’hui",
+    hero: "Ton business. Partout.",
+    promise: "Tout ce dont vous avez besoin pour vendre vos consultations à distance.",
     google: "Continuer avec Google",
     apple: "Continuer avec Apple",
     email: "Continuer avec l’e-mail",
-    free: "Gratuit. Sans abonnement.",
-    signIn: "Se connecter",
-    comingSoon: "Bientôt disponible",
-    tagline:
-      "Drimli, la plateforme gratuite qui réunit réservation, paiement et visio pour développer son business en ligne.",
+    freeStatement: "Gratuit. Sans abonnement. Nous ne réussissons que lorsque vous réussissez.",
     privacy: "Confidentialité",
     terms: "Conditions",
+    comingSoon: "Bientôt disponible",
+    googleError: "Impossible de continuer avec Google.",
   },
-} satisfies Record<Language, Record<string, string>>;
+} satisfies Record<Language, Record<string, string | string[] | string[][]>>;
+
+function GoogleIcon() {
+  return (
+    <svg className={styles.googleIcon} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M21.6 12.23c0-.71-.06-1.4-.18-2.06H12v3.9h5.38a4.6 4.6 0 0 1-2 3.02v2.53h3.24c1.9-1.75 2.98-4.33 2.98-7.39Z" fill="#4285F4" />
+      <path d="M12 22c2.7 0 4.98-.9 6.64-2.38l-3.24-2.53c-.9.6-2.05.96-3.4.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.6A10 10 0 0 0 12 22Z" fill="#34A853" />
+      <path d="M6.39 13.92A6.02 6.02 0 0 1 6.08 12c0-.67.11-1.32.31-1.92v-2.6H3.04A10 10 0 0 0 2 12c0 1.61.39 3.13 1.04 4.52l3.35-2.6Z" fill="#FBBC05" />
+      <path d="M12 5.95c1.47 0 2.78.5 3.82 1.49l2.86-2.87A9.59 9.59 0 0 0 12 2a10 10 0 0 0-8.96 5.48l3.35 2.6C7.18 7.71 9.39 5.95 12 5.95Z" fill="#EA4335" />
+    </svg>
+  );
+}
+
+function AppleIcon() {
+  return (
+    <svg className={styles.appleIcon} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M16.74 12.53c.02-2.08 1.7-3.08 1.78-3.13-.97-1.42-2.49-1.61-3.03-1.63-1.29-.13-2.52.76-3.17.76-.65 0-1.65-.74-2.71-.72-1.4.02-2.69.81-3.41 2.06-1.46 2.53-.37 6.27 1.05 8.32.7 1.01 1.53 2.14 2.62 2.1 1.05-.04 1.45-.68 2.72-.68 1.27 0 1.63.68 2.74.66 1.13-.02 1.85-1.03 2.54-2.04.8-1.17 1.13-2.3 1.15-2.36-.03-.01-2.2-.84-2.28-3.34Zm-2.1-6.12c.58-.7.97-1.67.86-2.64-.84.03-1.85.56-2.45 1.26-.54.62-1.01 1.61-.88 2.55.93.07 1.89-.47 2.47-1.17Z" />
+    </svg>
+  );
+}
 
 export default function LandingContent() {
   const [language, setLanguage] = useState<Language>("en");
-  const [status, setStatus] = useState("");
+  const [openMenu, setOpenMenu] = useState<MenuName | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [authStatus, setAuthStatus] = useState("");
+  const headerRef = useRef<HTMLElement>(null);
+  const t = copy[language];
 
-  const t = translations[language];
+  useEffect(() => {
+    const saved = window.localStorage.getItem("drimliLanguage");
+    if (saved !== "fr") return;
+    const frame = window.requestAnimationFrame(() => setLanguage("fr"));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
-  function showComingSoon() {
-    setStatus(t.comingSoon);
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.title = t.pageTitle as string;
+    window.localStorage.setItem("drimliLanguage", language);
+  }, [language, t.pageTitle]);
+
+  useEffect(() => {
+    function closeAll(event: MouseEvent) {
+      if (headerRef.current?.contains(event.target as Node)) return;
+      setOpenMenu(null);
+      setMobileOpen(false);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      const activeTrigger = headerRef.current?.querySelector<HTMLButtonElement>(
+        '[aria-expanded="true"]'
+      );
+      setOpenMenu(null);
+      setMobileOpen(false);
+      activeTrigger?.focus();
+    }
+
+    document.addEventListener("mousedown", closeAll);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeAll);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
+  function chooseLanguage(value: Language) {
+    setLanguage(value);
+    setAuthStatus("");
   }
 
+  function toggleMenu(menu: MenuName) {
+    setOpenMenu((current) => (current === menu ? null : menu));
+  }
+
+  async function continueWithGoogle() {
+    setAuthStatus("");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) setAuthStatus(t.googleError as string);
+  }
+
+  const solutionsItems = t.solutionsItems as string[][];
+  const productItems = t.productItems as string[][];
+  const pricingLines = t.pricingLines as string[];
+
   return (
-    <main className="min-h-[100svh] bg-white text-[#101010]">
-      <div className="grid min-h-[100svh] grid-rows-[auto_1fr_auto] px-[34px] pb-[22px] pt-7 max-sm:px-[18px] max-sm:pb-[18px] max-sm:pt-[22px]">
-        <header className="flex min-h-9 items-center justify-between">
-          <Logo className="text-[23px] leading-none tracking-[-0.02em]" />
+    <main className={styles.home}>
+      <div className={styles.page}>
+        <header ref={headerRef} className={styles.topbar} data-mobile-open={mobileOpen}>
+          <Link href="/" className={styles.brand} aria-label="Drimli home">
+            drimli.
+          </Link>
 
-          <div className="flex items-center gap-4">
+          <nav id="home-primary-navigation" className={styles.nav} aria-label="Primary navigation">
             <div
-              className="inline-flex items-center gap-1 rounded-full border border-black/[0.015] bg-[#f4f4f6] p-[3px]"
-              aria-label="Language"
+              className={styles.navItem}
+              onMouseEnter={() => setOpenMenu("solutions")}
+              onMouseLeave={() => setOpenMenu(null)}
             >
-              {(["en", "fr"] as const).map((value) => {
-                const active = language === value;
-
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => {
-                      setLanguage(value);
-                      setStatus("");
-                    }}
-                    aria-pressed={active}
-                    className={[
-                      "min-h-[29px] rounded-full px-[10px] text-[10px] font-semibold transition",
-                      active
-                        ? "bg-white text-[#111] shadow-[0_1px_5px_rgba(0,0,0,0.08)]"
-                        : "text-[#929298] hover:text-[#111]",
-                    ].join(" ")}
-                  >
-                    {value.toUpperCase()}
-                  </button>
-                );
-              })}
+              <button
+                type="button"
+                className={styles.navTrigger}
+                aria-haspopup="menu"
+                aria-expanded={openMenu === "solutions"}
+                aria-controls="home-solutions-menu"
+                onClick={() => toggleMenu("solutions")}
+              >
+                {t.solutions as string}
+              </button>
+              <div
+                id="home-solutions-menu"
+                role="menu"
+                aria-label={t.solutions as string}
+                className={`${styles.popover} ${styles.solutionsPopover}`}
+                data-open={openMenu === "solutions"}
+              >
+                <div className={styles.popoverHeading}>{t.solutionsHeading as string}</div>
+                <div className={styles.entries}>
+                  {solutionsItems.map(([title, description]) => (
+                    <button type="button" role="menuitem" className={styles.entry} key={title}>
+                      <strong>{title}</strong>
+                      <small>{description}</small>
+                    </button>
+                  ))}
+                </div>
+                <div className={styles.solutionsFooter}>
+                  <span>{t.solutionsFooter as string}</span>
+                  <span aria-hidden="true">→</span>
+                </div>
+              </div>
             </div>
 
-            <Link
-              href="/login"
-              className="text-[13px] font-medium text-[#8b8b90] transition hover:text-[#111]"
+            <div
+              className={styles.navItem}
+              onMouseEnter={() => setOpenMenu("product")}
+              onMouseLeave={() => setOpenMenu(null)}
             >
-              {t.signIn}
-            </Link>
-          </div>
+              <button
+                type="button"
+                className={styles.navTrigger}
+                aria-haspopup="menu"
+                aria-expanded={openMenu === "product"}
+                aria-controls="home-product-menu"
+                onClick={() => toggleMenu("product")}
+              >
+                {t.product as string}
+              </button>
+              <div
+                id="home-product-menu"
+                role="menu"
+                aria-label={t.product as string}
+                className={`${styles.popover} ${styles.productPopover}`}
+                data-open={openMenu === "product"}
+              >
+                <div className={styles.entries}>
+                  {productItems.map(([title, description]) => (
+                    <button type="button" role="menuitem" className={styles.entry} key={title}>
+                      <strong>{title}</strong>
+                      <small>{description}</small>
+                    </button>
+                  ))}
+                </div>
+                <div className={styles.popoverFooter}>
+                  <span>{t.productFooter as string}</span>
+                  <span aria-hidden="true">→</span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={styles.navItem}
+              onMouseEnter={() => setOpenMenu("pricing")}
+              onMouseLeave={() => setOpenMenu(null)}
+            >
+              <button
+                type="button"
+                className={styles.navTrigger}
+                aria-haspopup="menu"
+                aria-expanded={openMenu === "pricing"}
+                aria-controls="home-pricing-menu"
+                onClick={() => toggleMenu("pricing")}
+              >
+                {t.pricing as string}
+              </button>
+              <div
+                id="home-pricing-menu"
+                role="menu"
+                aria-label={t.pricing as string}
+                className={`${styles.popover} ${styles.pricingPopover}`}
+                data-open={openMenu === "pricing"}
+              >
+                <div className={styles.pricingMessage}>
+                  <strong>{t.free as string}</strong>
+                  <p>{t.pricingPromise as string}</p>
+                  <div className={styles.pricingLines}>
+                    {pricingLines.map((line) => <span key={line}>{line}</span>)}
+                  </div>
+                </div>
+                <Link href="/signup" className={styles.pricingFooter} role="menuitem">
+                  <span>{t.pricingFooter as string}</span>
+                  <span aria-hidden="true">→</span>
+                </Link>
+              </div>
+            </div>
+
+            <div className={styles.languageSwitch} aria-label="Language">
+              <button type="button" aria-pressed={language === "en"} data-active={language === "en"} onClick={() => chooseLanguage("en")}>EN</button>
+              <span aria-hidden="true">|</span>
+              <button type="button" aria-pressed={language === "fr"} data-active={language === "fr"} onClick={() => chooseLanguage("fr")}>FR</button>
+            </div>
+            <Link href="/login" className={styles.login}>{t.login as string}</Link>
+            <Link href="/signup" className={styles.signup}>{t.signup as string}</Link>
+          </nav>
+
+          <button
+            type="button"
+            className={styles.mobileToggle}
+            aria-expanded={mobileOpen}
+            aria-controls="home-primary-navigation"
+            aria-label={(mobileOpen ? t.closeMenu : t.openMenu) as string}
+            onClick={() => {
+              setMobileOpen((value) => !value);
+              setOpenMenu(null);
+            }}
+          >
+            <span />
+            <span />
+          </button>
         </header>
 
-        <section className="grid place-items-center py-[68px] max-sm:py-[54px]">
-          <div className="w-full max-w-[900px] text-center">
-            <h1 className="drimli-rise m-0 text-[clamp(58px,7.6vw,92px)] font-semibold leading-[0.93] tracking-[-0.04em] max-sm:text-[clamp(44px,13vw,64px)] max-sm:leading-[0.94]">
-              <span className="block">{t.titleFirst}</span>
-              <span className="block">{t.titleSecond}</span>
-            </h1>
-
-            <p className="drimli-rise-delay mt-8 inline-flex items-center justify-center gap-[13px] whitespace-nowrap text-[clamp(19px,2vw,23px)] font-semibold leading-none tracking-[-0.035em] max-sm:mt-[25px] max-sm:text-[clamp(18px,5.4vw,21px)]">
-              <span>{t.book}</span>
-              <span className="translate-y-[-0.02em] text-[0.72em] font-medium text-[#555]">
-                •
-              </span>
-              <span>{t.pay}</span>
-              <span className="translate-y-[-0.02em] text-[0.72em] font-medium text-[#555]">
-                •
-              </span>
-              <span>{t.meet}</span>
-            </p>
-
-            <div className="drimli-actions mx-auto mt-11 grid w-full max-w-[372px] gap-[10px] max-sm:mt-[38px]">
+        <section className={styles.hero} aria-labelledby="home-title">
+          <div className={styles.heroContent}>
+            <h1 id="home-title">{t.hero as string}</h1>
+            <p className={styles.promise}>{t.promise as string}</p>
+            <div className={styles.actions}>
+              <button type="button" className={styles.authButton} onClick={continueWithGoogle}>
+                <GoogleIcon />
+                <span>{t.google as string}</span>
+              </button>
               <button
                 type="button"
-                onClick={showComingSoon}
-                className="flex min-h-[58px] w-full items-center justify-center gap-[10px] rounded-[17px] border-0 bg-[#111] px-5 text-[13px] font-semibold text-white shadow-[0_12px_28px_rgba(0,0,0,0.115)] transition hover:-translate-y-px hover:bg-black hover:shadow-[0_16px_34px_rgba(0,0,0,0.15)] active:translate-y-0 active:scale-[0.994]"
+                className={styles.authButton}
+                disabled
+                aria-label={`${t.apple as string} — ${t.comingSoon as string}`}
               >
-                <svg
-                  className="h-[18px] w-[18px] shrink-0"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill="#4285F4"
-                    d="M21.6 12.23c0-.71-.06-1.4-.18-2.06H12v3.9h5.38a4.6 4.6 0 0 1-2 3.02v2.53h3.24c1.9-1.75 2.98-4.33 2.98-7.39Z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 22c2.7 0 4.98-.9 6.64-2.38l-3.24-2.53c-.9.6-2.05.96-3.4.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.6A10 10 0 0 0 12 22Z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M6.39 13.92A6.02 6.02 0 0 1 6.08 12c0-.67.11-1.32.31-1.92v-2.6H3.04A10 10 0 0 0 2 12c0 1.61.39 3.13 1.04 4.52l3.35-2.6Z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.95c1.47 0 2.78.5 3.82 1.49l2.86-2.87A9.59 9.59 0 0 0 12 2a10 10 0 0 0-8.96 5.48l3.35 2.6C7.18 7.71 9.39 5.95 12 5.95Z"
-                  />
-                </svg>
-
-                <span>{t.google}</span>
+                <AppleIcon />
+                <span>{t.apple as string}</span>
               </button>
-
-              <button
-                type="button"
-                onClick={showComingSoon}
-                className="flex min-h-[50px] w-full items-center justify-center gap-[9px] rounded-[18px] border border-[#ececef] bg-white px-5 text-[13px] font-semibold text-[#66666c] shadow-[0_1px_3px_rgba(0,0,0,0.025)] transition hover:-translate-y-px hover:border-[#e1e1e5] hover:bg-[#f8f8f9] hover:text-[#111] active:translate-y-0 active:scale-[0.994]"
-              >
-                <svg
-                  className="h-[18px] w-[18px]"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path d="M17.05 12.54c-.03-3.12 2.55-4.64 2.67-4.71a5.72 5.72 0 0 0-4.5-2.43c-1.89-.2-3.72 1.13-4.68 1.13-.98 0-2.46-1.11-4.05-1.08a5.95 5.95 0 0 0-5 3.05c-2.18 3.77-.55 9.31 1.53 12.36 1.04 1.49 2.25 3.15 3.84 3.09 1.55-.06 2.13-.99 4-.99 1.84 0 2.39.99 4.01.95 1.67-.03 2.72-1.49 3.72-2.99a12.3 12.3 0 0 0 1.7-3.47 5.36 5.36 0 0 1-3.24-4.91ZM13.98 3.4A5.45 5.45 0 0 0 15.23-.5a5.55 5.55 0 0 0-3.59 1.85 5.2 5.2 0 0 0-1.28 3.75 4.59 4.59 0 0 0 3.62-1.7Z" />
-                </svg>
-
-                <span>{t.apple}</span>
-              </button>
-
-              <Link
-                href="/signup"
-                className="flex min-h-[50px] w-full items-center justify-center rounded-[18px] border border-[#ececef] bg-white px-5 text-[13px] font-semibold text-[#66666c] shadow-[0_1px_3px_rgba(0,0,0,0.025)] transition hover:-translate-y-px hover:border-[#e1e1e5] hover:bg-[#f8f8f9] hover:text-[#111] active:translate-y-0 active:scale-[0.994]"
-              >
-                {t.email}
-              </Link>
+              <Link href="/signup" className={styles.emailLink}>{t.email as string}</Link>
             </div>
-
-            <div className="mt-[17px] min-h-[16px] text-[10px] tracking-[0.01em] text-[#9c9ca2]">
-              {status || t.free}
-            </div>
+            <p className={styles.freeStatement}>{t.freeStatement as string}</p>
+            <p className={styles.status} role="status" aria-live="polite">{authStatus}</p>
           </div>
         </section>
 
-        <footer className="flex flex-col items-center pt-2 text-center">
-          <p className="mb-[18px] max-w-[820px] text-[16px] font-medium leading-[1.5] tracking-[-0.024em] text-[#4b4b52] max-sm:text-[14px]">
-            {t.tagline}
-          </p>
-
-          <div className="text-[9px] text-[#b3b3b8]">
-            <span>{t.privacy}</span>
-            <span className="px-2">·</span>
-            <span>{t.terms}</span>
-          </div>
+        <footer className={styles.footer}>
+          <span>{t.privacy as string}</span>
+          <span aria-hidden="true">·</span>
+          <span>{t.terms as string}</span>
         </footer>
       </div>
-
-      <style jsx>{`
-        .drimli-rise {
-          opacity: 0;
-          transform: translateY(16px);
-          animation: rise-in 760ms cubic-bezier(0.22, 1, 0.36, 1) 120ms
-            forwards;
-        }
-
-        .drimli-rise-delay {
-          opacity: 0;
-          transform: translateY(10px);
-          animation: rise-in 680ms cubic-bezier(0.22, 1, 0.36, 1) 250ms
-            forwards;
-        }
-
-        .drimli-actions {
-          opacity: 0;
-          transform: translateY(10px);
-          animation: rise-in 680ms cubic-bezier(0.22, 1, 0.36, 1) 360ms
-            forwards;
-        }
-
-        @keyframes rise-in {
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .drimli-rise,
-          .drimli-rise-delay,
-          .drimli-actions {
-            animation-duration: 0.01ms;
-            animation-delay: 0ms;
-          }
-        }
-      `}</style>
     </main>
   );
 }
