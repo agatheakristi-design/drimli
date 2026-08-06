@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  isSlotStartAllowed,
+  providerTimeZone,
+  zonedDateTimeToIso,
+} from "@/lib/booking/slotCutoff";
 
 export const runtime = "nodejs";
 
 type DayKey = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
 type AvailabilityRange = { start: string; end: string };
 type Availability = Partial<Record<DayKey, AvailabilityRange | null>> & {
+  timezone?: string;
   week?: Partial<Record<DayKey, AvailabilityRange[]>>;
 };
 type IntervalRow = { start_datetime: string | null; end_datetime: string | null };
@@ -38,79 +44,18 @@ function addOneDay(date: string) {
   return value.toISOString().slice(0, 10);
 }
 
-function parisOffsetMs(instantMs: number) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Paris",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(instantMs));
-  const values = Object.fromEntries(
-    parts
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value])
-  );
-  const parisAsUtc = Date.UTC(
-    Number(values.year),
-    Number(values.month) - 1,
-    Number(values.day),
-    Number(values.hour),
-    Number(values.minute),
-    Number(values.second)
-  );
-
-  return parisAsUtc - instantMs;
-}
-
-export function parisDateTimeToIso(date: string, time: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
-    throw new Error("Invalid Europe/Paris date or time");
-  }
-
-  const wallTimeAsUtc = Date.parse(`${date}T${time}:00Z`);
-  let instant = wallTimeAsUtc - parisOffsetMs(wallTimeAsUtc);
-  instant = wallTimeAsUtc - parisOffsetMs(instant);
-
-  const result = new Date(instant);
-  const resultParts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Paris",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(result);
-  const resultValues = Object.fromEntries(
-    resultParts
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value])
-  );
-  const formattedDate = `${resultValues.year}-${resultValues.month}-${resultValues.day}`;
-  const formattedTime = `${resultValues.hour}:${resultValues.minute}`;
-
-  if (formattedDate !== date || formattedTime !== time) {
-    throw new Error("Invalid Europe/Paris wall-clock time");
-  }
-
-  return result.toISOString();
-}
-
 export function generateSlots(params: {
   date: string;
   openingTime: string;
   closingTime: string;
   durationMinutes: number;
+  timeZone: string;
 }) {
   const openingMs = Date.parse(
-    parisDateTimeToIso(params.date, params.openingTime)
+    zonedDateTimeToIso(params.date, params.openingTime, params.timeZone)
   );
   const closingMs = Date.parse(
-    parisDateTimeToIso(params.date, params.closingTime)
+    zonedDateTimeToIso(params.date, params.closingTime, params.timeZone)
   );
   const durationMs = params.durationMinutes * 60 * 1000;
   const slots: { start: string; end: string }[] = [];
@@ -151,18 +96,6 @@ export async function GET(req: Request) {
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       return NextResponse.json({ error: "Invalid date format (expected YYYY-MM-DD)" }, { status: 400 });
-    }
-
-    // Guard dates passées (Europe/Paris)
-    const todayParis = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Europe/Paris",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date());
-
-    if (dateStr < todayParis) {
-      return NextResponse.json({ error: "Date passée interdite." }, { status: 400 });
     }
 
     // Supabase admin (bypass RLS)
@@ -209,6 +142,20 @@ export async function GET(req: Request) {
     if (profErr) return NextResponse.json({ error: profErr.message }, { status: 500 });
     if (!profile?.availability) return NextResponse.json([], { status: 200 });
 
+    const timeZone = providerTimeZone(profile.availability);
+    const nowMs = Date.now();
+
+    if (
+      !isSlotStartAllowed({
+        date: dateStr,
+        startMs: Number.POSITIVE_INFINITY,
+        nowMs,
+        timeZone,
+      })
+    ) {
+      return NextResponse.json([], { status: 200 });
+    }
+
     // Jour de semaine stable (midi UTC)
     const dayDate = new Date(dateStr + "T12:00:00Z");
     const dayKey = (Object.keys(DAY_INDEX) as DayKey[]).find((k) => DAY_INDEX[k] === dayDate.getUTCDay());
@@ -231,12 +178,20 @@ export async function GET(req: Request) {
         openingTime: range.start,
         closingTime: range.end,
         durationMinutes,
+        timeZone,
+      })
+    ).filter((slot) =>
+      isSlotStartAllowed({
+        date: dateStr,
+        startMs: Date.parse(slot.start),
+        nowMs,
+        timeZone,
       })
     );
 
     // Fenêtre journée
-    const startWindow = parisDateTimeToIso(dateStr, "00:00");
-    const endWindow = parisDateTimeToIso(addOneDay(dateStr), "00:00");
+    const startWindow = zonedDateTimeToIso(dateStr, "00:00", timeZone);
+    const endWindow = zonedDateTimeToIso(addOneDay(dateStr), "00:00", timeZone);
 
     // 4) RDV déjà pris (pending + confirmed)
     const { data: appts, error: apptErr } = await admin

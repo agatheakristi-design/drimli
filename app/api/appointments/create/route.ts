@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  dateInTimeZone,
+  isSlotStartAllowed,
+  providerTimeZone,
+} from "@/lib/booking/slotCutoff";
 
 function isUuid(v: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -116,6 +121,33 @@ export async function POST(req: Request) {
         { error: "Appointment duration does not match the service." },
         { status: 400 }
       );
+    }
+
+    const { data: profile, error: profileError } = await admin
+      .from("profiles")
+      .select("availability")
+      .eq("provider_id", providerId)
+      .maybeSingle<{ availability: unknown }>();
+
+    if (profileError) {
+      return NextResponse.json(
+        { error: "Unable to verify slot availability." },
+        { status: 500 }
+      );
+    }
+
+    const timeZone = providerTimeZone(profile?.availability);
+    const nowMs = Date.now();
+
+    if (
+      !isSlotStartAllowed({
+        date: dateInTimeZone(new Date(startMs), timeZone),
+        startMs,
+        nowMs,
+        timeZone,
+      })
+    ) {
+      return slotNoLongerAvailable();
     }
 
     const [appointmentsResult, blocksResult] = await Promise.all([
