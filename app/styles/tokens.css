@@ -17,9 +17,9 @@
   /* Colors — backgrounds */
   --background: #ffffff;
   --app-background:
-    radial-gradient(ellipse 62% 42% at 4% 0%, rgb(210 241 229 / 24%), transparent 72%),
-    radial-gradient(ellipse 58% 40% at 50% 0%, rgb(218 231 252 / 25%), transparent 72%),
-    radial-gradient(ellipse 62% 42% at 96% 0%, rgb(247 221 232 / 22%), transparent 72%),
+    radial-gradient(ellipse 62% 42% at 4% 0%, rgb(210 241 229 / 44%), transparent 72%),
+    radial-gradient(ellipse 58% 40% at 50% 0%, rgb(218 231 252 / 45%), transparent 72%),
+    radial-gradient(ellipse 62% 42% at 96% 0%, rgb(247 221 232 / 42%), transparent 72%),
     var(--background);
 
   /* Colors — text */
