@@ -28,12 +28,12 @@ export async function GET(request: Request, context: Context) {
   const { data: appointment, error } = await supabaseAdmin
     .from("appointments")
     .select(
-      "status, start_datetime, end_datetime, video_provider, video_join_url"
+      "status, start_datetime, end_datetime, video_provider, video_join_url, video_room_status"
     )
     .eq("join_token", token)
     .maybeSingle();
 
-  const meetUrl = appointment
+  const meetUrl = appointment?.video_room_status === "open"
     ? getAuthorizedClientMeetUrl({
         status: appointment.status,
         startsAt: appointment.start_datetime,

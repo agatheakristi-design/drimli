@@ -30,6 +30,7 @@ type AppointmentRow = {
   status: string | null;
   video_provider: string | null;
   video_join_url: string | null;
+  video_room_status: "closed" | "open" | "locked";
 };
 
 type ProductRow = {
@@ -118,7 +119,7 @@ export default function Calendar() {
         supabase
           .from("appointments")
           .select(
-            "id, product_id, client_name, client_email, start_datetime, end_datetime, status, video_provider, video_join_url"
+            "id, product_id, client_name, client_email, start_datetime, end_datetime, status, video_provider, video_join_url, video_room_status"
           )
           .eq("provider_id", providerId)
           .eq("status", "confirmed")
@@ -178,6 +179,7 @@ export default function Calendar() {
           status: "confirmed" as const,
           videoProvider: appointment.video_provider,
           videoJoinUrl: appointment.video_join_url,
+          videoRoomStatus: appointment.video_room_status,
         }))
       );
     }

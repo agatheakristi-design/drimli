@@ -22,6 +22,7 @@ export type CalendarAppointment = {
   status: "confirmed";
   videoProvider: string | null;
   videoJoinUrl: string | null;
+  videoRoomStatus: "closed" | "open" | "locked";
 };
 
 export type CalendarPanelMode = "settings" | "appointment";

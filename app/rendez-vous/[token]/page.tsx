@@ -6,6 +6,7 @@ import {
   type JoinWindowState,
 } from "@/lib/video/joinWindow";
 import { isGoogleMeetUrl } from "@/lib/video/meetUrl";
+import type { VideoRoomStatus } from "@/lib/video/types";
 import PortalRefresh from "./PortalRefresh";
 import styles from "./page.module.css";
 
@@ -22,6 +23,7 @@ type PortalDetails = {
   startsAt: Date;
   endsAt: Date;
   state: JoinWindowState;
+  roomStatus: VideoRoomStatus;
 };
 
 const supabaseAdmin = createClient(
@@ -80,7 +82,7 @@ async function loadPortal(token: string): Promise<
   const { data: appointment, error } = await supabaseAdmin
     .from("appointments")
     .select(
-      "status, start_datetime, end_datetime, provider_id, product_id, video_provider, video_join_url"
+      "status, start_datetime, end_datetime, provider_id, product_id, video_provider, video_join_url, video_room_status"
     )
     .eq("join_token", token)
     .maybeSingle();
@@ -134,6 +136,7 @@ async function loadPortal(token: string): Promise<
       startsAt,
       endsAt,
       state: getJoinWindowState({ startsAt, endsAt }),
+      roomStatus: appointment.video_room_status as VideoRoomStatus,
     },
   };
 }
@@ -162,6 +165,7 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
         state={details.state}
         opensAt={opensAt}
         closesAt={closesAt}
+        roomStatus={details.roomStatus}
       />
 
       <header className={styles.header}>
@@ -184,7 +188,7 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
       </header>
 
       <div className={styles.content}>
-        {details.state === "early" ? (
+        {details.roomStatus !== "locked" && details.state === "early" ? (
           <>
             <h1>Votre visioconférence n’est pas encore disponible</h1>
             <p>
@@ -194,9 +198,20 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
           </>
         ) : null}
 
-        {details.state === "open" ? (
+        {details.state === "open" && details.roomStatus === "closed" ? (
           <>
-            <h1>Votre visioconférence est prête</h1>
+            <h1>Votre rendez-vous va bientôt commencer</h1>
+            <p>
+              Le professionnel prépare la séance. Vous pourrez rejoindre la
+              visioconférence dès qu’il ouvrira la salle.
+            </p>
+            <span className={styles.waitingStatus}>En attente</span>
+          </>
+        ) : null}
+
+        {details.state === "open" && details.roomStatus === "open" ? (
+          <>
+            <h1>Le professionnel est prêt</h1>
             <a
               className={styles.joinButton}
               href={`/api/rendez-vous/${encodeURIComponent(token)}/join`}
@@ -208,7 +223,13 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
           </>
         ) : null}
 
-        {details.state === "ended" ? (
+        {details.roomStatus === "locked" ? (
+          <>
+            <h1>L’accès à cette visioconférence est fermé</h1>
+          </>
+        ) : null}
+
+        {details.roomStatus !== "locked" && details.state === "ended" ? (
           <>
             <h1>Cette visioconférence n’est plus disponible</h1>
             <p>Le créneau d’accès est terminé.</p>

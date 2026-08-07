@@ -73,7 +73,10 @@ export default function CalendarPanel({
 
       <div className={styles.calendarPanelBody}>
         {mode === "appointment" && appointment ? (
-          <AppointmentDetails appointment={appointment} />
+          <AppointmentDetails
+            appointment={appointment}
+            onAppointmentChanged={onCalendarChanged}
+          />
         ) : (
           <Settings
             onCalendarChanged={onCalendarChanged}
