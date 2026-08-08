@@ -4,6 +4,7 @@ import PublicFlowShell from "@/app/components/public/PublicFlowShell";
 import ExpandableServiceList, {
   type PublicService,
 } from "@/app/components/public/ExpandableServiceList";
+import PublicPageViewTracker from "@/app/components/public/PublicPageViewTracker";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -82,6 +83,8 @@ export default async function Page({
 
   return (
     <PublicFlowShell>
+      <PublicPageViewTracker slug={slug} />
+
       <section className={styles.hero}>
         {profile.avatar_url && (
           <img
