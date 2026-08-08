@@ -43,6 +43,12 @@ export const tasks = [
     done: false,
   },
   {
+    label: "Booster mes avis Google",
+    description: "60 jours offerts, puis 9 € par mois.",
+    href: null,
+    done: false,
+  },
+  {
     label: "Facturation automatique",
     description: "Générez automatiquement vos factures.",
     href: "/dashboard/factures",

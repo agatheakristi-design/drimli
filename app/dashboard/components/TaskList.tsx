@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabaseClient";
 import DrimpayOnboarding from "./DrimpayOnboarding";
 import GoogleMeetOnboarding from "./GoogleMeetOnboarding";
 import GoogleReviewsOnboarding from "./GoogleReviewsOnboarding";
+import GoogleReviewsBoosterOnboarding from "./GoogleReviewsBoosterOnboarding";
 import { tasks } from "./tasks";
 import styles from "./dashboard.module.css";
 
@@ -29,6 +30,8 @@ export default function TaskList() {
   const [paymentReady, setPaymentReady] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const [googleReviewsReady, setGoogleReviewsReady] = useState(false);
+  const [googleReviewsBoosterReady, setGoogleReviewsBoosterReady] =
+    useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoStatus, setPhotoStatus] = useState("");
 
@@ -109,6 +112,10 @@ export default function TaskList() {
       return googleReviewsReady;
     }
 
+    if (label === "Booster mes avis Google") {
+      return googleReviewsBoosterReady;
+    }
+
     return defaultValue;
   }
 
@@ -119,6 +126,13 @@ export default function TaskList() {
   const handleGoogleReviewsCompletion = useCallback((enabled: boolean) => {
     setGoogleReviewsReady(enabled);
   }, []);
+
+  const handleGoogleReviewsBoosterCompletion = useCallback(
+    (enabled: boolean) => {
+      setGoogleReviewsBoosterReady(enabled);
+    },
+    []
+  );
 
   async function uploadPhoto(file: File) {
     if (!userId) {
@@ -311,6 +325,16 @@ export default function TaskList() {
               <GoogleReviewsOnboarding
                 key={task.label}
                 onCompletionChange={handleGoogleReviewsCompletion}
+              />
+            );
+          }
+
+          if (task.label === "Booster mes avis Google") {
+            return (
+              <GoogleReviewsBoosterOnboarding
+                key={task.label}
+                googleProfileReady={googleReviewsReady}
+                onCompletionChange={handleGoogleReviewsBoosterCompletion}
               />
             );
           }
