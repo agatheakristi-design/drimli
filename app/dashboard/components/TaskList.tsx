@@ -30,6 +30,7 @@ export default function TaskList() {
   const [paymentReady, setPaymentReady] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const [googleReviewsReady, setGoogleReviewsReady] = useState(false);
+  const [googleReviewsOpen, setGoogleReviewsOpen] = useState(false);
   const [googleReviewsBoosterReady, setGoogleReviewsBoosterReady] =
     useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -324,6 +325,8 @@ export default function TaskList() {
             return (
               <GoogleReviewsOnboarding
                 key={task.label}
+                open={googleReviewsOpen}
+                onOpenChange={setGoogleReviewsOpen}
                 onCompletionChange={handleGoogleReviewsCompletion}
               />
             );
@@ -334,6 +337,7 @@ export default function TaskList() {
               <GoogleReviewsBoosterOnboarding
                 key={task.label}
                 googleProfileReady={googleReviewsReady}
+                onOpenGoogleReviews={() => setGoogleReviewsOpen(true)}
                 onCompletionChange={handleGoogleReviewsBoosterCompletion}
               />
             );

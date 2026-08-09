@@ -765,6 +765,26 @@
   gap: var(--space-sm);
 }
 
+.googleBoosterDependency {
+  display: grid;
+  gap: var(--space-sm);
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.googleBoosterDependency p {
+  margin: 0;
+}
+
+.googleBoosterTrialLabel {
+  flex-shrink: 0;
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+}
+
 .googleBoosterSectionHeading > strong,
 .googleBoosterSubscriptionState > strong,
 .googleBusinessSelected strong,
@@ -828,6 +848,7 @@
 }
 
 .googleBusinessSelected > div,
+.googleBusinessResult > div,
 .googleBoosterSubscriptionState {
   display: grid;
   gap: var(--space-xs);

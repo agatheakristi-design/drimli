@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Check, ChevronRight, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import styles from "./dashboard.module.css";
@@ -8,6 +8,7 @@ import styles from "./dashboard.module.css";
 type GoogleBusiness = {
   placeId: string;
   businessName: string;
+  address: string | null;
   mapsUrl: string;
   rating: number | null;
   reviewsCount: number | null;
@@ -16,23 +17,59 @@ type GoogleBusiness = {
 type StoredGoogleBusiness = {
   google_place_id: string;
   google_business_name: string;
+  google_business_address: string | null;
   google_maps_url: string;
   google_rating: number | null;
   google_reviews_count: number | null;
   google_reviews_enabled: boolean;
 };
 
+function storedBusiness(profile: StoredGoogleBusiness): GoogleBusiness {
+  return {
+    placeId: profile.google_place_id,
+    businessName: profile.google_business_name,
+    address: profile.google_business_address,
+    mapsUrl: profile.google_maps_url,
+    rating: profile.google_rating,
+    reviewsCount: profile.google_reviews_count,
+  };
+}
+
+function BusinessSummary({ business }: { business: GoogleBusiness }) {
+  return (
+    <div>
+      <strong>{business.businessName}</strong>
+      {business.address ? <span>{business.address}</span> : null}
+      <span>
+        {business.rating === null
+          ? "Note indisponible"
+          : `${business.rating.toLocaleString("fr-FR", {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })} / 5`}
+        {business.reviewsCount === null
+          ? ""
+          : ` · ${business.reviewsCount.toLocaleString("fr-FR")} avis`}
+      </span>
+    </div>
+  );
+}
+
 export default function GoogleReviewsOnboarding({
+  open,
+  onOpenChange,
   onCompletionChange,
 }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onCompletionChange: (enabled: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [mapsUrl, setMapsUrl] = useState("");
-  const [preview, setPreview] = useState<GoogleBusiness | null>(null);
-  const [enabled, setEnabled] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  const [profile, setProfile] = useState<GoogleBusiness | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<GoogleBusiness[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selecting, setSelecting] = useState<string | null>(null);
   const [status, setStatus] = useState("");
 
   useEffect(() => {
@@ -45,7 +82,7 @@ export default function GoogleReviewsOnboarding({
       const { data, error } = await supabase
         .from("google_business_profiles")
         .select(
-          "google_place_id, google_business_name, google_maps_url, google_rating, google_reviews_count, google_reviews_enabled"
+          "google_place_id, google_business_name, google_business_address, google_maps_url, google_rating, google_reviews_count, google_reviews_enabled"
         )
         .eq("provider_id", auth.user.id)
         .maybeSingle<StoredGoogleBusiness>();
@@ -56,101 +93,99 @@ export default function GoogleReviewsOnboarding({
         return;
       }
 
-      const isEnabled = Boolean(data?.google_reviews_enabled);
-      setEnabled(isEnabled);
-      setMapsUrl(data?.google_maps_url ?? "");
-      onCompletionChange(isEnabled);
+      const enabled = Boolean(data?.google_reviews_enabled);
+      setProfile(data && enabled ? storedBusiness(data) : null);
+      onCompletionChange(enabled);
     }
 
-    loadStoredProfile();
+    void loadStoredProfile();
     return () => {
       cancelled = true;
     };
   }, [onCompletionChange]);
 
-  async function getAccessToken() {
+  async function accessToken() {
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token ?? null;
   }
 
-  async function verifyBusiness() {
-    setChecking(true);
+  async function search(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSearching(true);
     setStatus("");
-    setPreview(null);
-
+    setResults([]);
     try {
-      const token = await getAccessToken();
+      const token = await accessToken();
       if (!token) {
         setStatus("Vous devez être connecté.");
         return;
       }
-
-      const response = await fetch("/api/google/reviews/resolve", {
+      const response = await fetch("/api/google/reviews/search", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ mapsUrl }),
+        body: JSON.stringify({ query }),
       });
-      const result = (await response.json().catch(() => null)) as
-        | (GoogleBusiness & { error?: never })
-        | { error?: string }
-        | null;
-
-      if (!response.ok || !result || !("placeId" in result)) {
-        setStatus(result?.error || "Impossible de vérifier cette fiche.");
+      const result = (await response.json().catch(() => null)) as {
+        places?: GoogleBusiness[];
+        error?: string;
+      } | null;
+      if (!response.ok || !result?.places) {
+        setStatus(result?.error || "Impossible de rechercher cette fiche.");
         return;
       }
-
-      setPreview(result);
+      setResults(result.places);
+      if (result.places.length === 0) {
+        setStatus("Aucune fiche Google n’a été trouvée.");
+      }
     } catch {
-      setStatus("Impossible de vérifier cette fiche pour le moment.");
+      setStatus("La recherche Google est indisponible pour le moment.");
     } finally {
-      setChecking(false);
+      setSearching(false);
     }
   }
 
-  async function confirmBusiness() {
-    setConfirming(true);
+  async function selectBusiness(place: GoogleBusiness) {
+    setSelecting(place.placeId);
     setStatus("");
-
     try {
-      const token = await getAccessToken();
+      const token = await accessToken();
       if (!token) {
         setStatus("Vous devez être connecté.");
         return;
       }
-
       const response = await fetch("/api/google/reviews/confirm", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        // The server resolves the original URL again and ignores preview values.
-        body: JSON.stringify({ mapsUrl }),
+        body: JSON.stringify({ placeId: place.placeId }),
       });
-      const result = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-
-      if (!response.ok) {
-        setStatus(result?.error || "Impossible d’activer cette fiche.");
+      const result = (await response.json().catch(() => null)) as
+        | (GoogleBusiness & { error?: never })
+        | { error?: string }
+        | null;
+      if (!response.ok || !result || !("placeId" in result)) {
+        setStatus(result?.error || "Impossible d’enregistrer cette fiche.");
         return;
       }
-
-      setEnabled(true);
-      setPreview(null);
+      setProfile(result);
+      setEditing(false);
+      setQuery("");
+      setResults([]);
       setStatus("Vos avis Google sont affichés sur votre page.");
       onCompletionChange(true);
     } catch {
-      setStatus("Impossible d’activer cette fiche pour le moment.");
+      setStatus("Impossible d’enregistrer cette fiche pour le moment.");
     } finally {
-      setConfirming(false);
+      setSelecting(null);
     }
   }
 
+  const enabled = profile !== null;
   const description = enabled
     ? "Vos avis Google sont affichés sur votre page."
     : "Ajoutez votre fiche Google pour afficher votre note et vos avis sur votre page DRIMLI.";
@@ -164,7 +199,7 @@ export default function GoogleReviewsOnboarding({
       <button
         type="button"
         className={styles.taskRowHeader}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => onOpenChange(!open)}
         aria-expanded={open}
       >
         <span className={styles.taskIcon}>
@@ -179,67 +214,80 @@ export default function GoogleReviewsOnboarding({
 
       {open ? (
         <div className={styles.inlineEditor}>
-          <div className={styles.googleReviewsForm}>
-            <label className={styles.inlineField} htmlFor="google-maps-url">
-              <span>Lien de votre fiche Google Maps</span>
-              <input
-                id="google-maps-url"
-                className={styles.inlineInput}
-                type="url"
-                inputMode="url"
-                value={mapsUrl}
-                onChange={(event) => {
-                  setMapsUrl(event.target.value);
-                  setPreview(null);
-                  setStatus("");
-                }}
-                placeholder="https://maps.app.goo.gl/…"
-                autoComplete="url"
-              />
-            </label>
-            <p className={styles.googleReviewsHelp}>
-              Ouvrez votre fiche dans Google Maps, cliquez sur Partager, puis
-              collez le lien ici.
-            </p>
-
-            <div className={styles.googleReviewsActions}>
-              <button
-                type="button"
-                className={styles.inlinePrimaryButton}
-                onClick={verifyBusiness}
-                disabled={checking || confirming || !mapsUrl.trim()}
-              >
-                {checking ? "Vérification…" : "Vérifier ma fiche"}
-              </button>
+          <div className={styles.googleBoosterFlow}>
+            <div className={styles.googleBoosterSectionHeading}>
+              <strong>Trouvez votre fiche Google</strong>
+              <p className={styles.googleReviewsHelp}>
+                Saisissez le nom ou l&apos;adresse de votre établissement.
+                DRIMLI retrouve votre fiche Google.
+              </p>
             </div>
 
-            {preview ? (
-              <div className={styles.googleReviewsPreview} aria-live="polite">
-                <strong>{preview.businessName}</strong>
-                <span>
-                  {preview.rating === null
-                    ? "Note indisponible"
-                    : `${preview.rating.toLocaleString("fr-FR", {
-                        minimumFractionDigits: 1,
-                        maximumFractionDigits: 1,
-                      })} / 5`}
-                </span>
-                <span>
-                  {preview.reviewsCount === null
-                    ? "Nombre d’avis indisponible"
-                    : `${preview.reviewsCount.toLocaleString("fr-FR")} avis`}
-                </span>
-                <a href={preview.mapsUrl} target="_blank" rel="noopener noreferrer">
-                  Voir la fiche Google Maps
-                </a>
+            {profile && !editing ? (
+              <div className={styles.googleBusinessSelected}>
+                <BusinessSummary business={profile} />
                 <button
                   type="button"
-                  className={styles.inlinePrimaryButton}
-                  onClick={confirmBusiness}
-                  disabled={confirming}
+                  className={styles.googleBoosterTextLink}
+                  onClick={() => {
+                    setEditing(true);
+                    setStatus("");
+                  }}
                 >
-                  {confirming ? "Activation…" : "Afficher sur ma page"}
+                  Modifier
                 </button>
+              </div>
+            ) : (
+              <form className={styles.googleBusinessSearch} onSubmit={search}>
+                <label className={styles.inlineField} htmlFor="google-business-query">
+                  <span>Nom ou adresse de votre établissement</span>
+                  <input
+                    id="google-business-query"
+                    className={styles.inlineInput}
+                    type="search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    autoComplete="organization"
+                  />
+                </label>
+                <div className={styles.googleReviewsActions}>
+                  <button
+                    type="submit"
+                    className={styles.inlinePrimaryButton}
+                    disabled={searching || query.trim().length < 2}
+                  >
+                    {searching ? "Recherche…" : "Rechercher"}
+                  </button>
+                  {profile ? (
+                    <button
+                      type="button"
+                      className={styles.inlineSecondaryButton}
+                      onClick={() => {
+                        setEditing(false);
+                        setQuery("");
+                        setResults([]);
+                      }}
+                    >
+                      Annuler
+                    </button>
+                  ) : null}
+                </div>
+              </form>
+            )}
+
+            {results.length > 0 ? (
+              <div className={styles.googleBusinessResults} aria-live="polite">
+                {results.map((place) => (
+                  <button
+                    type="button"
+                    key={place.placeId}
+                    className={styles.googleBusinessResult}
+                    onClick={() => void selectBusiness(place)}
+                    disabled={selecting !== null}
+                  >
+                    <BusinessSummary business={place} />
+                  </button>
+                ))}
               </div>
             ) : null}
 

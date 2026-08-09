@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check, ChevronRight, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import styles from "./dashboard.module.css";
@@ -22,24 +22,6 @@ type SubscriptionRow = {
   cancel_at_period_end: boolean;
 };
 
-type GoogleBusiness = {
-  placeId: string;
-  businessName: string;
-  address: string | null;
-  mapsUrl: string;
-  rating: number | null;
-  reviewsCount: number | null;
-};
-
-type StoredGoogleBusiness = {
-  google_place_id: string;
-  google_business_name: string;
-  google_business_address: string | null;
-  google_maps_url: string;
-  google_rating: number | null;
-  google_reviews_count: number | null;
-};
-
 const ENABLED_STATUSES = new Set<SubscriptionStatus>([
   "trialing",
   "active",
@@ -57,93 +39,56 @@ function formatDate(value: string | null) {
   }).format(date);
 }
 
-function storedBusiness(profile: StoredGoogleBusiness): GoogleBusiness {
-  return {
-    placeId: profile.google_place_id,
-    businessName: profile.google_business_name,
-    address: profile.google_business_address,
-    mapsUrl: profile.google_maps_url,
-    rating: profile.google_rating,
-    reviewsCount: profile.google_reviews_count,
-  };
-}
-
 function taskDescription(subscription: SubscriptionRow | null) {
   if (subscription?.cancel_at_period_end) return "Résiliation programmée.";
   if (subscription?.status === "trialing") return "60 jours offerts actifs.";
   if (subscription?.status === "active") return "Abonnement actif — 9 € par mois.";
   if (subscription?.status === "past_due") return "Paiement à régulariser.";
   if (subscription?.status === "incomplete") return "Activation à terminer.";
-  return "60 jours offerts, puis 9 € par mois.";
+  return "Générez des avis clients après chaque session";
 }
 
 export default function GoogleReviewsBoosterOnboarding({
+  googleProfileReady,
+  onOpenGoogleReviews,
   onCompletionChange,
 }: {
   googleProfileReady: boolean;
+  onOpenGoogleReviews: () => void;
   onCompletionChange: (enabled: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [profile, setProfile] = useState<GoogleBusiness | null>(null);
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<GoogleBusiness[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searching, setSearching] = useState(false);
-  const [selecting, setSelecting] = useState<string | null>(null);
   const [startingCheckout, setStartingCheckout] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [status, setStatus] = useState("");
 
-  const loadData = useCallback(async () => {
-    const [{ data: auth }, { data: sessionData }] = await Promise.all([
-      supabase.auth.getUser(),
-      supabase.auth.getSession(),
-    ]);
-    const accessToken = sessionData.session?.access_token;
-    if (!auth.user || !accessToken) {
+  const loadSubscription = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (!accessToken) {
       setLoading(false);
       return;
     }
 
-    const [profileResult, subscriptionResponse] = await Promise.all([
-      supabase
-        .from("google_business_profiles")
-        .select(
-          "google_place_id, google_business_name, google_business_address, google_maps_url, google_rating, google_reviews_count"
-        )
-        .eq("provider_id", auth.user.id)
-        .maybeSingle<StoredGoogleBusiness>(),
-      fetch("/api/stripe/subscriptions/status", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        cache: "no-store",
-      }),
-    ]);
-
-    const subscriptionResult = (await subscriptionResponse
-      .json()
-      .catch(() => null)) as {
+    const response = await fetch("/api/stripe/subscriptions/status", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+    const result = (await response.json().catch(() => null)) as {
       subscription?: SubscriptionRow | null;
     } | null;
 
-    if (
-      profileResult.error ||
-      !subscriptionResponse.ok ||
-      !subscriptionResult ||
-      !("subscription" in subscriptionResult)
-    ) {
-      setStatus("Impossible de charger les informations pour le moment.");
+    if (!response.ok || !result || !("subscription" in result)) {
+      setStatus("Impossible de charger l’état de l’abonnement.");
     } else {
-      setProfile(
-        profileResult.data ? storedBusiness(profileResult.data) : null
-      );
-      setSubscription(subscriptionResult.subscription ?? null);
+      setSubscription(result.subscription ?? null);
       onCompletionChange(
         Boolean(
-          subscriptionResult.subscription?.status &&
-            ENABLED_STATUSES.has(subscriptionResult.subscription.status)
+          result.subscription?.status &&
+            ENABLED_STATUSES.has(result.subscription.status)
         )
       );
     }
@@ -151,87 +96,12 @@ export default function GoogleReviewsBoosterOnboarding({
   }, [onCompletionChange]);
 
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    void loadSubscription();
+  }, [loadSubscription]);
 
   async function accessToken() {
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token ?? null;
-  }
-
-  async function search(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSearching(true);
-    setStatus("");
-    setResults([]);
-    try {
-      const token = await accessToken();
-      if (!token) {
-        setStatus("Vous devez être connecté.");
-        return;
-      }
-      const response = await fetch("/api/google/reviews/search", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query }),
-      });
-      const result = (await response.json().catch(() => null)) as {
-        places?: GoogleBusiness[];
-        error?: string;
-      } | null;
-      if (!response.ok || !result?.places) {
-        setStatus(result?.error || "Impossible de rechercher cette fiche.");
-        return;
-      }
-      setResults(result.places);
-      if (result.places.length === 0) {
-        setStatus("Aucune fiche Google n’a été trouvée.");
-      }
-    } catch {
-      setStatus("La recherche Google est indisponible pour le moment.");
-    } finally {
-      setSearching(false);
-    }
-  }
-
-  async function selectBusiness(place: GoogleBusiness) {
-    setSelecting(place.placeId);
-    setStatus("");
-    try {
-      const token = await accessToken();
-      if (!token) {
-        setStatus("Vous devez être connecté.");
-        return;
-      }
-      const response = await fetch("/api/google/reviews/confirm", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ placeId: place.placeId }),
-      });
-      const result = (await response.json().catch(() => null)) as
-        | (GoogleBusiness & { error?: never })
-        | { error?: string }
-        | null;
-      if (!response.ok || !result || !("placeId" in result)) {
-        setStatus(result?.error || "Impossible d’enregistrer cette fiche.");
-        return;
-      }
-      setProfile(result);
-      setResults([]);
-      setQuery("");
-      setEditingProfile(false);
-      setStatus("Fiche Google enregistrée.");
-    } catch {
-      setStatus("Impossible d’enregistrer cette fiche pour le moment.");
-    } finally {
-      setSelecting(null);
-    }
   }
 
   async function authenticatedPost(path: string) {
@@ -304,7 +174,7 @@ export default function GoogleReviewsBoosterOnboarding({
   async function cancelSubscription() {
     if (
       !window.confirm(
-        "Supprimer Booster mes avis Google à la fin de la période en cours ? Votre fiche Google restera enregistrée."
+        "Supprimer Booster mes avis Google à la fin de la période en cours ?"
       )
     ) {
       return;
@@ -323,8 +193,8 @@ export default function GoogleReviewsBoosterOnboarding({
         setStatus(result?.error || "Résiliation indisponible.");
         return;
       }
-      await loadData();
-      setStatus("Résiliation programmée. Votre fiche Google est conservée.");
+      await loadSubscription();
+      setStatus("Résiliation programmée.");
     } catch {
       setStatus("Résiliation indisponible pour le moment.");
     } finally {
@@ -336,7 +206,7 @@ export default function GoogleReviewsBoosterOnboarding({
     subscription?.status && ENABLED_STATUSES.has(subscription.status)
   );
   const showCheckout =
-    profile &&
+    googleProfileReady &&
     (!subscription?.status ||
       subscription.status === "canceled" ||
       subscription.status === "incomplete_expired" ||
@@ -364,125 +234,37 @@ export default function GoogleReviewsBoosterOnboarding({
           <strong>Booster mes avis Google</strong>
           <span>{taskDescription(subscription)}</span>
         </span>
+        {!open ? (
+          <strong className={styles.googleBoosterTrialLabel}>
+            60 jours offerts
+          </strong>
+        ) : null}
         <ChevronRight className={styles.taskArrow} size={18} />
       </button>
 
       {open ? (
         <div className={styles.inlineEditor}>
           <div className={styles.googleBoosterFlow}>
-            <section className={styles.googleBoosterSection}>
-              <div className={styles.googleBoosterSectionHeading}>
-                <strong>Trouvez votre fiche Google</strong>
-                <p className={styles.googleReviewsHelp}>
-                  Saisissez le nom ou l&apos;adresse de votre établissement.
-                  DRIMLI retrouve automatiquement votre fiche Google.
-                </p>
+            {!googleProfileReady ? (
+              <div className={styles.googleBoosterDependency}>
+                <p>Vous devez afficher vos avis Google pour booster vos avis.</p>
+                <button
+                  type="button"
+                  className={styles.googleBoosterTextLink}
+                  onClick={onOpenGoogleReviews}
+                >
+                  Afficher mes avis Google
+                </button>
               </div>
-
-              {profile && !editingProfile ? (
-                <div className={styles.googleBusinessSelected}>
-                  <div>
-                    <strong>{profile.businessName}</strong>
-                    {profile.address ? <span>{profile.address}</span> : null}
-                    <span>
-                      {profile.rating === null
-                        ? "Note indisponible"
-                        : `${profile.rating.toLocaleString("fr-FR", {
-                            minimumFractionDigits: 1,
-                            maximumFractionDigits: 1,
-                          })} / 5`}
-                      {profile.reviewsCount === null
-                        ? ""
-                        : ` · ${profile.reviewsCount.toLocaleString("fr-FR")} avis`}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className={styles.googleBoosterTextLink}
-                    onClick={() => {
-                      setEditingProfile(true);
-                      setStatus("");
-                    }}
-                  >
-                    Modifier
-                  </button>
-                </div>
-              ) : (
-                <form className={styles.googleBusinessSearch} onSubmit={search}>
-                  <label className={styles.inlineField} htmlFor="google-business-query">
-                    <span>Nom ou adresse de votre établissement</span>
-                    <input
-                      id="google-business-query"
-                      className={styles.inlineInput}
-                      type="search"
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      autoComplete="organization"
-                    />
-                  </label>
-                  <div className={styles.googleReviewsActions}>
-                    <button
-                      type="submit"
-                      className={styles.inlinePrimaryButton}
-                      disabled={searching || query.trim().length < 2}
-                    >
-                      {searching ? "Recherche…" : "Rechercher"}
-                    </button>
-                    {profile ? (
-                      <button
-                        type="button"
-                        className={styles.inlineSecondaryButton}
-                        onClick={() => {
-                          setEditingProfile(false);
-                          setResults([]);
-                          setQuery("");
-                        }}
-                      >
-                        Annuler
-                      </button>
-                    ) : null}
-                  </div>
-                </form>
-              )}
-
-              {results.length > 0 ? (
-                <div className={styles.googleBusinessResults} aria-live="polite">
-                  {results.map((place) => (
-                    <button
-                      type="button"
-                      key={place.placeId}
-                      className={styles.googleBusinessResult}
-                      onClick={() => void selectBusiness(place)}
-                      disabled={selecting !== null}
-                    >
-                      <strong>{place.businessName}</strong>
-                      {place.address ? <span>{place.address}</span> : null}
-                      <span>
-                        {place.rating === null
-                          ? "Note indisponible"
-                          : `${place.rating.toLocaleString("fr-FR", {
-                              minimumFractionDigits: 1,
-                              maximumFractionDigits: 1,
-                            })} / 5`}
-                        {place.reviewsCount === null
-                          ? ""
-                          : ` · ${place.reviewsCount.toLocaleString("fr-FR")} avis`}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </section>
-
-            {profile ? (
+            ) : (
               <section className={styles.googleBoosterSection}>
                 {showCheckout ? (
                   <>
                     <div className={styles.googleBoosterSectionHeading}>
-                      <strong>Lancez vos 60 jours offerts</strong>
+                      <strong>Chaque séance. Un nouvel avis.</strong>
                       <p className={styles.googleReviewsHelp}>
-                        0 € aujourd’hui. Puis 9 €/mois. Annulable à tout moment
-                        en un clic.
+                        Lancez vos 60 jours offerts. 0 € aujourd’hui. Dans 2
+                        mois 9 €/mois. Annulable à tout moment en un clic.
                       </p>
                     </div>
                     <button
@@ -553,7 +335,7 @@ export default function GoogleReviewsBoosterOnboarding({
                   </button>
                 ) : null}
               </section>
-            ) : null}
+            )}
 
             {status ? (
               <p className={styles.inlineEditorStatus} role="status">
