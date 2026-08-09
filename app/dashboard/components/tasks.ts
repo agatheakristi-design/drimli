@@ -6,9 +6,9 @@ export const tasks = [
     done: true,
   },
   {
-    label: "Ajouter un service",
+    label: "Ajouter des services",
     description: "Proposez davantage de prestations.",
-    href: "/dashboard/services",
+    href: null,
     done: false,
   },
   {

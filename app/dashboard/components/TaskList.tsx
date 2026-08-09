@@ -18,6 +18,7 @@ import DrimpayOnboarding from "./DrimpayOnboarding";
 import GoogleMeetOnboarding from "./GoogleMeetOnboarding";
 import GoogleReviewsOnboarding from "./GoogleReviewsOnboarding";
 import GoogleReviewsBoosterOnboarding from "./GoogleReviewsBoosterOnboarding";
+import ServicesManager from "./ServicesManager";
 import { tasks } from "./tasks";
 import styles from "./dashboard.module.css";
 
@@ -38,7 +39,9 @@ export default function TaskList() {
 
   const [description, setDescription] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
-  const [openTask, setOpenTask] = useState<"description" | "payments" | null>(null);
+  const [openTask, setOpenTask] = useState<
+    "services" | "description" | "payments" | null
+  >(null);
   const [savingDescription, setSavingDescription] = useState(false);
   const [descriptionStatus, setDescriptionStatus] = useState("");
 
@@ -357,6 +360,36 @@ export default function TaskList() {
                   <strong>{task.label}</strong>
                   <span>{task.description}</span>
                 </span>
+              </div>
+            );
+          }
+
+          if (task.label === "Ajouter des services") {
+            const servicesOpen = openTask === "services";
+
+            return (
+              <div
+                key={task.label}
+                className={`${className} ${styles.taskRowExpanded} ${
+                  servicesOpen ? styles.taskRowExpandedOpen : ""
+                }`}
+              >
+                <button
+                  type="button"
+                  className={styles.taskRowHeader}
+                  aria-expanded={servicesOpen}
+                  onClick={() =>
+                    setOpenTask(servicesOpen ? null : "services")
+                  }
+                >
+                  {content}
+                </button>
+
+                {servicesOpen && (
+                  <div className={styles.inlineEditor}>
+                    <ServicesManager embedded />
+                  </div>
+                )}
               </div>
             );
           }
