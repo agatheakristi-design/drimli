@@ -745,6 +745,120 @@
   margin-top: var(--space-xs);
 }
 
+.googleBoosterFlow {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.googleBoosterSection {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.googleBoosterSection + .googleBoosterSection {
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border);
+}
+
+.googleBoosterSectionHeading {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.googleBoosterSectionHeading > strong,
+.googleBoosterSubscriptionState > strong,
+.googleBusinessSelected strong,
+.googleBusinessResult strong {
+  color: var(--foreground);
+  font-size: 0.9375rem;
+}
+
+.googleBusinessSearch {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.googleBusinessResults {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.googleBusinessResult {
+  display: grid;
+  gap: var(--space-xs);
+  width: 100%;
+  padding: var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+}
+
+.googleBusinessResult:hover {
+  border-color: var(--primary);
+  background: var(--muted);
+}
+
+.googleBusinessResult:focus-visible,
+.googleBoosterTextLink:focus-visible,
+.googleBoosterRemoveLink:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.googleBusinessResult:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.googleBusinessSelected {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--muted);
+}
+
+.googleBusinessSelected > div,
+.googleBoosterSubscriptionState {
+  display: grid;
+  gap: var(--space-xs);
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.googleBoosterTextLink,
+.googleBoosterRemoveLink {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.googleBoosterTextLink:hover,
+.googleBoosterRemoveLink:hover {
+  color: var(--foreground);
+}
+
+.googleBoosterRemoveLink {
+  margin-top: var(--space-xs);
+}
+
 .inlineEditorActions {
   display: flex;
   gap: 8px;

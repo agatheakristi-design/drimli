@@ -22,6 +22,16 @@ export async function POST(request: Request) {
     const user = await authenticatedProvider(request);
     if (!user) return response("Non autorisé.", 401);
 
+    const { data: googleProfile, error: googleProfileError } =
+      await subscriptionsSupabaseAdmin
+        .from("google_business_profiles")
+        .select("provider_id")
+        .eq("provider_id", user.id)
+        .maybeSingle<{ provider_id: string }>();
+
+    if (googleProfileError) return response("Activation indisponible.", 503);
+    if (!googleProfile) return response("Sélectionnez d’abord votre fiche Google.", 409);
+
     let { data: row, error: rowError } = await subscriptionsSupabaseAdmin
       .from("professional_subscriptions")
       .select("*")

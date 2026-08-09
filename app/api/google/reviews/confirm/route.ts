@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
+  fetchGoogleBusinessPlace,
   GooglePlacesError,
   resolveGoogleBusiness,
 } from "@/lib/googlePlaces";
@@ -21,13 +22,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Non autorisé." }, { status: 401 });
     }
 
-    const body = (await request.json().catch(() => null)) as { mapsUrl?: unknown } | null;
-    if (typeof body?.mapsUrl !== "string") {
-      return NextResponse.json({ error: "Lien Google Maps requis." }, { status: 400 });
+    const body = (await request.json().catch(() => null)) as {
+      mapsUrl?: unknown;
+      placeId?: unknown;
+    } | null;
+    if (
+      typeof body?.mapsUrl !== "string" &&
+      typeof body?.placeId !== "string"
+    ) {
+      return NextResponse.json({ error: "Fiche Google requise." }, { status: 400 });
     }
 
     // All display values are fetched again server-side; client values are never trusted.
-    const place = await resolveGoogleBusiness(body.mapsUrl);
+    const place =
+      typeof body.placeId === "string"
+        ? await fetchGoogleBusinessPlace(body.placeId)
+        : await resolveGoogleBusiness(body.mapsUrl as string);
     const now = new Date().toISOString();
     const { error: saveError } = await supabaseAdmin
       .from("google_business_profiles")
@@ -36,6 +46,7 @@ export async function POST(request: Request) {
           provider_id: data.user.id,
           google_place_id: place.placeId,
           google_business_name: place.businessName,
+          google_business_address: place.address,
           google_maps_url: place.mapsUrl,
           google_rating: place.rating,
           google_reviews_count: place.reviewsCount,

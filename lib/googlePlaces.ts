@@ -26,6 +26,7 @@ type ParsedGoogleUrl = {
 export type GoogleBusinessPlace = {
   placeId: string;
   businessName: string;
+  address: string | null;
   mapsUrl: string;
   rating: number | null;
   reviewsCount: number | null;
@@ -228,17 +229,22 @@ async function searchPlaceId(textQuery: string) {
   return placeId;
 }
 
-async function fetchPlaceDetails(placeId: string): Promise<GoogleBusinessPlace> {
+export async function fetchGoogleBusinessPlace(
+  placeId: string
+): Promise<GoogleBusinessPlace> {
+  const normalizedPlaceId = validPlaceId(placeId);
+  if (!normalizedPlaceId) throw new GooglePlacesError("not_found");
+
   let response: Response;
   try {
     response = await fetch(
-      `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
+      `https://places.googleapis.com/v1/places/${encodeURIComponent(normalizedPlaceId)}`,
       {
         cache: "no-store",
         headers: {
           "X-Goog-Api-Key": getApiKey(),
           "X-Goog-FieldMask":
-            "id,displayName,googleMapsUri,rating,userRatingCount",
+            "id,displayName,formattedAddress,googleMapsUri,rating,userRatingCount",
         },
       }
     );
@@ -252,6 +258,7 @@ async function fetchPlaceDetails(placeId: string): Promise<GoogleBusinessPlace> 
   const place = (await response.json()) as {
     id?: string;
     displayName?: { text?: string };
+    formattedAddress?: string;
     googleMapsUri?: string;
     rating?: number;
     userRatingCount?: number;
@@ -266,11 +273,70 @@ async function fetchPlaceDetails(placeId: string): Promise<GoogleBusinessPlace> 
   return {
     placeId: place.id!,
     businessName,
+    address: place.formattedAddress?.trim() || null,
     mapsUrl,
     rating: typeof place.rating === "number" ? place.rating : null,
     reviewsCount:
       typeof place.userRatingCount === "number" ? place.userRatingCount : null,
   };
+}
+
+export async function searchGoogleBusinesses(
+  query: string
+): Promise<GoogleBusinessPlace[]> {
+  const textQuery = query.trim().slice(0, 240);
+  if (textQuery.length < 2) throw new GooglePlacesError("not_found");
+
+  let response: Response;
+  try {
+    response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": getApiKey(),
+        "X-Goog-FieldMask":
+          "places.id,places.displayName,places.formattedAddress,places.googleMapsUri,places.rating,places.userRatingCount",
+      },
+      body: JSON.stringify({
+        textQuery,
+        languageCode: "fr",
+        maxResultCount: 5,
+      }),
+    });
+  } catch {
+    throw new GooglePlacesError("unavailable");
+  }
+
+  if (!response.ok) throw new GooglePlacesError("unavailable");
+  const result = (await response.json()) as {
+    places?: Array<{
+      id?: string;
+      displayName?: { text?: string };
+      formattedAddress?: string;
+      googleMapsUri?: string;
+      rating?: number;
+      userRatingCount?: number;
+    }>;
+  };
+
+  return (result.places ?? []).flatMap((place) => {
+    const placeId = validPlaceId(place.id ?? null);
+    const businessName = place.displayName?.text?.trim();
+    const mapsUrl = place.googleMapsUri?.trim();
+    if (!placeId || !businessName || !mapsUrl) return [];
+    return [{
+      placeId,
+      businessName,
+      address: place.formattedAddress?.trim() || null,
+      mapsUrl,
+      rating: typeof place.rating === "number" ? place.rating : null,
+      reviewsCount:
+        typeof place.userRatingCount === "number"
+          ? place.userRatingCount
+          : null,
+    }];
+  });
 }
 
 export async function resolveGoogleBusiness(input: string) {
@@ -285,5 +351,5 @@ export async function resolveGoogleBusiness(input: string) {
       return searchPlaceId(textQuery);
     })());
 
-  return fetchPlaceDetails(placeId);
+  return fetchGoogleBusinessPlace(placeId);
 }
