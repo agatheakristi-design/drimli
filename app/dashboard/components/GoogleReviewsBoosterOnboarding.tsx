@@ -98,13 +98,17 @@ export default function GoogleReviewsBoosterOnboarding({
   const [status, setStatus] = useState("");
 
   const loadData = useCallback(async () => {
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) {
+    const [{ data: auth }, { data: sessionData }] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase.auth.getSession(),
+    ]);
+    const accessToken = sessionData.session?.access_token;
+    if (!auth.user || !accessToken) {
       setLoading(false);
       return;
     }
 
-    const [profileResult, subscriptionResult] = await Promise.all([
+    const [profileResult, subscriptionResponse] = await Promise.all([
       supabase
         .from("google_business_profiles")
         .select(
@@ -112,27 +116,34 @@ export default function GoogleReviewsBoosterOnboarding({
         )
         .eq("provider_id", auth.user.id)
         .maybeSingle<StoredGoogleBusiness>(),
-      supabase
-        .from("professional_subscriptions")
-        .select(
-          "status, trial_ends_at, current_period_end, cancel_at_period_end"
-        )
-        .eq("provider_id", auth.user.id)
-        .eq("product_key", "google_reviews_booster")
-        .maybeSingle<SubscriptionRow>(),
+      fetch("/api/stripe/subscriptions/status", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      }),
     ]);
 
-    if (profileResult.error || subscriptionResult.error) {
+    const subscriptionResult = (await subscriptionResponse
+      .json()
+      .catch(() => null)) as {
+      subscription?: SubscriptionRow | null;
+    } | null;
+
+    if (
+      profileResult.error ||
+      !subscriptionResponse.ok ||
+      !subscriptionResult ||
+      !("subscription" in subscriptionResult)
+    ) {
       setStatus("Impossible de charger les informations pour le moment.");
     } else {
       setProfile(
         profileResult.data ? storedBusiness(profileResult.data) : null
       );
-      setSubscription(subscriptionResult.data ?? null);
+      setSubscription(subscriptionResult.subscription ?? null);
       onCompletionChange(
         Boolean(
-          subscriptionResult.data?.status &&
-            ENABLED_STATUSES.has(subscriptionResult.data.status)
+          subscriptionResult.subscription?.status &&
+            ENABLED_STATUSES.has(subscriptionResult.subscription.status)
         )
       );
     }
