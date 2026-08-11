@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   copyPublicUrl,
   usePublicUrl,
@@ -19,7 +18,6 @@ export default function PublicLinkCard({
   published,
   loading,
 }: PublicLinkCardProps) {
-  const router = useRouter();
   const publicUrl = usePublicUrl(slug);
   const [copyStatus, setCopyStatus] = useState("");
 
@@ -35,7 +33,6 @@ export default function PublicLinkCard({
     }
   }
 
-  const needsPublication = !loading && (!slug || !published);
   const urlLoading = Boolean(!loading && slug && published && !publicUrl);
   const pending = loading || urlLoading;
 
@@ -65,9 +62,7 @@ export default function PublicLinkCard({
           <code>
             {pending
               ? "Chargement…"
-              : !slug
-                ? "Configurez votre lien public"
-                : "Publiez votre page pour rendre le lien accessible"}
+              : "Votre page publique sera disponible à la fin de l’onboarding"}
           </code>
         )}
       </div>
@@ -75,20 +70,10 @@ export default function PublicLinkCard({
       <button
         type="button"
         className={styles.copyButton}
-        disabled={pending}
-        onClick={() => {
-          if (needsPublication) {
-            router.push("/dashboard/publish");
-          } else {
-            copy();
-          }
-        }}
+        disabled={pending || !published || !publicUrl}
+        onClick={copy}
       >
-        {pending
-          ? "Chargement…"
-          : needsPublication
-            ? "Gérer la publication"
-            : "Copier le lien"}
+        {pending ? "Chargement…" : "Copier le lien"}
       </button>
     </div>
   );
