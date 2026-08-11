@@ -186,9 +186,8 @@ export default function GoogleReviewsOnboarding({
   }
 
   const enabled = profile !== null;
-  const description = enabled
-    ? "Vos avis Google sont affichés sur votre page."
-    : "Ajoutez votre fiche Google pour afficher votre note et vos avis sur votre page DRIMLI.";
+  const description =
+    "Afficher votre note et générez des avis clients après chaque session";
 
   return (
     <div
@@ -206,7 +205,7 @@ export default function GoogleReviewsOnboarding({
           {enabled ? <Check size={16} /> : <Plus size={16} />}
         </span>
         <span className={styles.taskCopy}>
-          <strong>Afficher mes avis Google</strong>
+          <strong>Booster mes avis Google</strong>
           <span>{description}</span>
         </span>
         <ChevronRight className={styles.taskArrow} size={18} />

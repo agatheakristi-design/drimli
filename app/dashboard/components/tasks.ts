@@ -36,15 +36,9 @@ export const tasks = [
     done: false,
   },
   {
-    label: "Afficher mes avis Google",
-    description:
-      "Ajoutez votre fiche Google pour afficher votre note et vos avis sur votre page DRIMLI.",
-    href: null,
-    done: false,
-  },
-  {
     label: "Booster mes avis Google",
-    description: "60 jours offerts, puis 9 € par mois.",
+    description:
+      "Afficher votre note et générez des avis clients après chaque session",
     href: null,
     done: false,
   },

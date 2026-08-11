@@ -17,7 +17,6 @@ import { supabase } from "@/lib/supabaseClient";
 import DrimpayOnboarding from "./DrimpayOnboarding";
 import GoogleMeetOnboarding from "./GoogleMeetOnboarding";
 import GoogleReviewsOnboarding from "./GoogleReviewsOnboarding";
-import GoogleReviewsBoosterOnboarding from "./GoogleReviewsBoosterOnboarding";
 import ServicesManager from "./ServicesManager";
 import { tasks } from "./tasks";
 import styles from "./dashboard.module.css";
@@ -32,8 +31,6 @@ export default function TaskList() {
   const [googleReady, setGoogleReady] = useState(false);
   const [googleReviewsReady, setGoogleReviewsReady] = useState(false);
   const [googleReviewsOpen, setGoogleReviewsOpen] = useState(false);
-  const [googleReviewsBoosterReady, setGoogleReviewsBoosterReady] =
-    useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoStatus, setPhotoStatus] = useState("");
 
@@ -112,12 +109,8 @@ export default function TaskList() {
       return googleReady;
     }
 
-    if (label === "Afficher mes avis Google") {
-      return googleReviewsReady;
-    }
-
     if (label === "Booster mes avis Google") {
-      return googleReviewsBoosterReady;
+      return googleReviewsReady;
     }
 
     return defaultValue;
@@ -130,13 +123,6 @@ export default function TaskList() {
   const handleGoogleReviewsCompletion = useCallback((enabled: boolean) => {
     setGoogleReviewsReady(enabled);
   }, []);
-
-  const handleGoogleReviewsBoosterCompletion = useCallback(
-    (enabled: boolean) => {
-      setGoogleReviewsBoosterReady(enabled);
-    },
-    []
-  );
 
   async function uploadPhoto(file: File) {
     if (!userId) {
@@ -324,24 +310,13 @@ export default function TaskList() {
             );
           }
 
-          if (task.label === "Afficher mes avis Google") {
+          if (task.label === "Booster mes avis Google") {
             return (
               <GoogleReviewsOnboarding
                 key={task.label}
                 open={googleReviewsOpen}
                 onOpenChange={setGoogleReviewsOpen}
                 onCompletionChange={handleGoogleReviewsCompletion}
-              />
-            );
-          }
-
-          if (task.label === "Booster mes avis Google") {
-            return (
-              <GoogleReviewsBoosterOnboarding
-                key={task.label}
-                googleProfileReady={googleReviewsReady}
-                onOpenGoogleReviews={() => setGoogleReviewsOpen(true)}
-                onCompletionChange={handleGoogleReviewsBoosterCompletion}
               />
             );
           }
