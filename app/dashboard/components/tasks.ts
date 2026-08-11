@@ -38,7 +38,7 @@ export const tasks = [
   {
     label: "Booster mes avis Google",
     description:
-      "Afficher votre note et générez des avis clients après chaque session",
+      "Affichez votre note et générez des avis clients",
     href: null,
     done: false,
   },

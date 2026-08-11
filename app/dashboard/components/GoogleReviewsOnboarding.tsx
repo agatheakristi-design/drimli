@@ -187,7 +187,7 @@ export default function GoogleReviewsOnboarding({
 
   const enabled = profile !== null;
   const description =
-    "Afficher votre note et générez des avis clients après chaque session";
+    "Affichez votre note et générez des avis clients";
 
   return (
     <div
