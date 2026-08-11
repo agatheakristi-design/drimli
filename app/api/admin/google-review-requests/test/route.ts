@@ -4,7 +4,10 @@ import { sendGoogleReviewRequestForAppointment } from "@/lib/googleReviewRequest
 
 export const runtime = "nodejs";
 
-const ADMIN_USER_ID = "ac4e5a5f-c81c-4999-abc5-3eeecd9a85aa";
+const AUTHORIZED_TEST_USER_IDS = new Set([
+  "ac4e5a5f-c81c-4999-abc5-3eeecd9a85aa",
+  "d1c64bc9-9786-4b5c-b8a8-bab3d890dc7d",
+]);
 const TEST_APPOINTMENT_ID = "e4fa9123-20b4-4286-bfa1-6123f0d7adab";
 
 const supabaseAdmin = createClient(
@@ -22,7 +25,7 @@ async function isAuthorizedAdministrator(request: Request) {
   if (!token) return false;
 
   const { data, error } = await supabaseAdmin.auth.getUser(token);
-  return !error && data.user?.id === ADMIN_USER_ID;
+  return !error && Boolean(data.user?.id) && AUTHORIZED_TEST_USER_IDS.has(data.user!.id);
 }
 
 export async function GET(request: Request) {
