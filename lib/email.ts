@@ -28,6 +28,14 @@ export type AppointmentEmailPayload = {
   appointmentJoinUrl: string;
 };
 
+export type GoogleReviewRequestEmailPayload = {
+  appointmentId: string;
+  to: string;
+  providerName: string;
+  reviewUrl: string;
+  idempotencyKey?: string;
+};
+
 export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayload) {
   const subject = `Votre rendez-vous avec ${p.providerName} est confirmé`;
 
@@ -114,6 +122,66 @@ const html = `
 
   return data;
 }
+
+export async function sendGoogleReviewRequestEmail(
+  p: GoogleReviewRequestEmailPayload
+) {
+  const subject = "Merci pour notre échange";
+  const text = [
+    "Bonjour,",
+    "",
+    "Merci pour notre échange aujourd’hui.",
+    "",
+    "Si vous souhaitez partager votre expérience, vous pouvez laisser un avis sur ma fiche Google en cliquant sur le bouton ci-dessous.",
+    "",
+    "Chaque avis compte et m’aide à développer mon activité.",
+    "",
+    "Laisser un avis Google",
+    p.reviewUrl,
+    "",
+    "À bientôt,",
+    p.providerName,
+    "",
+    "Cet email vous est envoyé automatiquement après votre rendez-vous afin de vous permettre de partager votre expérience si vous le souhaitez.",
+  ].join("\n");
+  const html = `
+  <div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;line-height:1.6;color:#111;">
+    <p>Bonjour,</p>
+    <p>Merci pour notre échange aujourd’hui.</p>
+    <p>Si vous souhaitez partager votre expérience, vous pouvez laisser un avis sur ma fiche Google en cliquant sur le bouton ci-dessous.</p>
+    <p>Chaque avis compte et m’aide à développer mon activité.</p>
+    <p style="margin:20px 0;">
+      <a href="${escapeHtml(p.reviewUrl)}"
+         target="_blank"
+         rel="noreferrer"
+         style="display:inline-block;padding:12px 16px;background:#111;color:#fff;text-decoration:none;border-radius:12px;font-weight:700;">
+        Laisser un avis Google
+      </a>
+    </p>
+    <p>À bientôt,<br/>${escapeHtml(p.providerName)}</p>
+    <p style="margin-top:28px;font-size:12px;color:#666;">
+      Cet email vous est envoyé automatiquement après votre rendez-vous afin de vous permettre de partager votre expérience si vous le souhaitez.
+    </p>
+  </div>`;
+
+  const { data, error } = await resend.emails.send(
+    {
+      from: FROM,
+      to: p.to,
+      subject,
+      text,
+      html,
+    },
+    {
+      idempotencyKey:
+        p.idempotencyKey ?? `google-review-request/${p.appointmentId}`,
+    }
+  );
+
+  if (error) throw new Error(error.message || "Resend send failed");
+  return data;
+}
+
 export async function sendAccountantMonthlyZipEmail(p: {
   to: string;
   monthKey: string; // "YYYY-MM"

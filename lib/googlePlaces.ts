@@ -281,6 +281,45 @@ export async function fetchGoogleBusinessPlace(
   };
 }
 
+export async function fetchGoogleReviewUrl(placeId: string) {
+  const normalizedPlaceId = validPlaceId(placeId);
+  if (!normalizedPlaceId) throw new GooglePlacesError("not_found");
+
+  let response: Response;
+  try {
+    response = await fetch(
+      `https://places.googleapis.com/v1/places/${encodeURIComponent(normalizedPlaceId)}`,
+      {
+        cache: "no-store",
+        headers: {
+          "X-Goog-Api-Key": getApiKey(),
+          "X-Goog-FieldMask": "googleMapsLinks.writeAReviewUri",
+        },
+      }
+    );
+  } catch {
+    throw new GooglePlacesError("unavailable");
+  }
+
+  if (response.status === 404) throw new GooglePlacesError("not_found");
+  if (!response.ok) throw new GooglePlacesError("unavailable");
+
+  const place = (await response.json()) as {
+    googleMapsLinks?: { writeAReviewUri?: string };
+  };
+  const value = place.googleMapsLinks?.writeAReviewUri?.trim();
+
+  try {
+    const url = new URL(value ?? "");
+    if (url.protocol !== "https:" || !isGoogleDomain(url.hostname)) {
+      throw new Error("invalid review URL");
+    }
+    return url.toString();
+  } catch {
+    throw new GooglePlacesError("not_found");
+  }
+}
+
 export async function searchGoogleBusinesses(
   query: string
 ): Promise<GoogleBusinessPlace[]> {

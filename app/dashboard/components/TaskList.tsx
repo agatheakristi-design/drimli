@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabaseClient";
 import DrimpayOnboarding from "./DrimpayOnboarding";
 import GoogleMeetOnboarding from "./GoogleMeetOnboarding";
 import GoogleReviewsOnboarding from "./GoogleReviewsOnboarding";
+import GoogleReviewRequestAdminTest from "./GoogleReviewRequestAdminTest";
 import ServicesManager from "./ServicesManager";
 import { tasks } from "./tasks";
 import styles from "./dashboard.module.css";
@@ -509,6 +510,7 @@ export default function TaskList() {
           );
         })}
       </div>
+      <GoogleReviewRequestAdminTest />
     </section>
   );
 }
