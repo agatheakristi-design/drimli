@@ -1,142 +1,71 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ConnectComponentsProvider, ConnectAccountOnboarding } from "@stripe/react-connect-js";
-import {
-  loadConnectAndInitialize,
-  type StripeConnectInstance,
-} from "@stripe/connect-js";
+import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/app/components/ui/Button";
 
 export default function DrimpayOnboarding({
-  onDone,
+  paymentReady = false,
   onBack,
 }: {
-  onDone?: () => void;
+  paymentReady?: boolean;
   onBack?: () => void;
 }) {
-  const [connectInstance, setConnectInstance] =
-    useState<StripeConnectInstance | null>(null);
-  const [paymentReady, setPaymentReady] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [retryKey, setRetryKey] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
+  async function openStripeOnboarding() {
+    setLoading(true);
+    setError("");
 
-    (async () => {
-      try {
-        setError("");
-        setConnectInstance(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error("Session manquante. Reconnectez-vous puis réessayez.");
 
-        const { data } = await supabase.auth.getSession();
-        const token = data.session?.access_token;
-
-        if (!token) {
-          setError("Session manquante. Reconnecte-toi puis réessaie.");
-          return;
-        }
-
-        const r1 = await fetch("/api/auth/set-cookie", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ token }),
-        });
-
-        if (!r1.ok) {
-          const j = await r1.json().catch(() => null);
-          setError(j?.error || `Impossible de préparer la session (${r1.status}).`);
-          return;
-        }
-
-        const res = await fetch("/api/drimpay/account-session", { method: "POST" });
-        const json = await res.json().catch(() => null);
-
-        if (!res.ok) {
-          setError(json?.error || json?.details || `Erreur serveur (${res.status})`);
-          return;
-        }
-
-        if (json?.activated === false) {
-          setError("Vos paiements ne sont pas encore activés sur ce compte.");
-          return;
-        }
-
-        if (!json?.client_secret) {
-          setError(json?.error || "Impossible de démarrer l’onboarding des paiements.");
-          return;
-        }
-
-        setPaymentReady(Boolean(json.ready));
-
-        const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-        if (!publishableKey) {
-          setError("Clé Stripe manquante : NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
-          return;
-        }
-
-        const primaryColor =
-          typeof window !== "undefined"
-            ? getComputedStyle(document.documentElement).getPropertyValue("--primary").trim() || "#4F6F52"
-            : "#4F6F52";
-
-        const instance = await loadConnectAndInitialize({
-          publishableKey,
-          fetchClientSecret: async () => json.client_secret,
-          appearance: {
-            variables: {
-              colorPrimary: primaryColor,
-            },
-          },
-          locale: "fr-FR",
-        });
-
-        if (!cancelled) setConnectInstance(instance);
-      } catch (error: unknown) {
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Erreur inattendue pendant l’onboarding."
-        );
+      const activationResponse = await fetch("/api/drimpay/activate", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const activation = await activationResponse.json().catch(() => null);
+      if (!activationResponse.ok) {
+        throw new Error(activation?.details || activation?.error || "Impossible de préparer Stripe Connect.");
       }
-    })();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [retryKey]);
+      const linkResponse = await fetch("/api/drimpay/onboarding-link", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const link = await linkResponse.json().catch(() => null);
+      if (!linkResponse.ok || !link?.url) {
+        throw new Error(link?.error || "Impossible d’ouvrir la configuration Stripe.");
+      }
 
-  if (error) {
-    return (
-      <div className="space-y-3">
-        <p>❌ {error}</p>
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => onBack?.()}>
-            Revenir
-          </Button>
-          <Button onClick={() => setRetryKey((k) => k + 1)}>Réessayer</Button>
-        </div>
-      </div>
-    );
+      window.location.assign(link.url);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Impossible d’ouvrir Stripe Connect.");
+      setLoading(false);
+    }
   }
 
-  if (!connectInstance) return <p>Chargement des paiements…</p>;
-
   return (
-    <div className="mt-3">
-      <p className="mb-3">
+    <div className="space-y-3">
+      <p>
         {paymentReady
-          ? "Votre compte de paiement est activé."
-          : "Terminer la configuration des paiements pour activer les virements."}
+          ? "Votre compte Stripe est activé. Vous pouvez vérifier ou mettre à jour vos informations de paiement."
+          : "Configurez votre compte Stripe sécurisé pour recevoir les paiements de vos clients."}
       </p>
-      <ConnectComponentsProvider connectInstance={connectInstance}>
-        <ConnectAccountOnboarding
-          onExit={() => {
-            onDone?.();
-          }}
-        />
-      </ConnectComponentsProvider>
+
+      {error ? <p role="alert">❌ {error}</p> : null}
+
+      <div className="flex gap-2">
+        <Button variant="secondary" disabled={loading} onClick={() => onBack?.()}>
+          Fermer
+        </Button>
+        <Button disabled={loading} onClick={openStripeOnboarding}>
+          {loading ? "Ouverture de Stripe…" : "Configurer mes paiements"}
+        </Button>
+      </div>
     </div>
   );
 }

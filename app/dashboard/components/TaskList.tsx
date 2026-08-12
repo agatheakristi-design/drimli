@@ -484,7 +484,7 @@ export default function TaskList() {
                 {paymentsOpen && (
                   <div className={styles.inlineEditor}>
                     <DrimpayOnboarding
-                      onDone={() => setOpenTask(null)}
+                      paymentReady={paymentReady}
                       onBack={() => setOpenTask(null)}
                     />
                   </div>
