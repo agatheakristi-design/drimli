@@ -5,6 +5,7 @@ import {
   resolveStripeAccountId,
   stripeAccountState,
 } from "@/lib/stripeConnect";
+import { calculateDrimliFee } from "@/lib/billing";
 
 export const runtime = "nodejs";
 
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
     // 1) Load appointment
     const { data: appt, error: apptErr } = await supabaseAdmin
       .from("appointments")
-      .select("id, provider_id, product_id, start_datetime, end_datetime, status")
+      .select("id, provider_id, product_id, start_datetime, end_datetime, status, client_name, client_email, client_phone")
       .eq("id", appointmentId)
       .maybeSingle();
 
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
     // 2) Load product (price/title)
     const { data: product, error: productErr } = await supabaseAdmin
       .from("products")
-      .select("id, title, price_cents, active")
+      .select("id, title, description, duration_minutes, price_cents, active")
       .eq("id", appt.product_id)
       .maybeSingle();
 
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
     // 3) Load provider Stripe Connect account
     const { data: prof, error: profErr } = await supabaseAdmin
       .from("profiles")
-      .select("stripe_account_id, stripe_connect_account_id")
+      .select("stripe_account_id, stripe_connect_account_id, full_name, business_name, profession, email, phone, address, city, postal_code, country, siret, vat_number, vat_regime, vat_rate")
       .eq("provider_id", appt.provider_id)
       .maybeSingle();
 
@@ -116,9 +117,40 @@ export async function POST(req: Request) {
       return stripeAccountNotReady();
     }
 
-    // 4) Compute Drimli commission (MVP: 10%)
-    const feeCents = Math.round(amount * 0.10);
-    const feeVatRate = "0"; // MVP TVA commission = 0
+    const requiredInvoiceFields: Array<[string, unknown]> = [
+      ["nom complet", prof.full_name],
+      ["adresse", prof.address],
+      ["ville", prof.city],
+      ["pays", prof.country],
+      ["SIRET", prof.siret],
+      ["régime de TVA", prof.vat_regime],
+    ];
+    const missingInvoiceFields = requiredInvoiceFields
+      .filter(([, value]) => !String(value ?? "").trim())
+      .map(([label]) => label);
+
+    if (prof.vat_regime === "standard") {
+      if (!String(prof.vat_number ?? "").trim()) {
+        missingInvoiceFields.push("numéro de TVA intracommunautaire");
+      }
+      if (!Number.isFinite(Number(prof.vat_rate)) || Number(prof.vat_rate) <= 0) {
+        missingInvoiceFields.push("taux de TVA");
+      }
+    }
+
+    if (missingInvoiceFields.length > 0) {
+      return NextResponse.json(
+        {
+          code: "INVOICE_PROFILE_INCOMPLETE",
+          error: `Le professionnel doit compléter les informations suivantes avant de recevoir un paiement : ${missingInvoiceFields.join(", ")}.`,
+          missingFields: missingInvoiceFields,
+        },
+        { status: 409 }
+      );
+    }
+
+    // The 5% total commission includes Stripe processing fees.
+    const feeCents = calculateDrimliFee(amount);
 
 const appUrl = (
 
@@ -152,7 +184,7 @@ const appUrl = (
           provider_id: appt.provider_id,
           product_id: appt.product_id,
           drimli_fee_cents: String(feeCents),
-          drimli_fee_vat_rate: feeVatRate,
+          drimli_commission_rate: "0.05",
         },
       },
       success_url: `${appUrl}/paiement/succes?session_id={CHECKOUT_SESSION_ID}`,
@@ -162,9 +194,45 @@ const appUrl = (
         provider_id: appt.provider_id,
         product_id: appt.product_id,
         drimli_fee_cents: String(feeCents),
-        drimli_fee_vat_rate: feeVatRate,
+        drimli_commission_rate: "0.05",
       },
     });
+
+    const { error: snapshotError } = await supabaseAdmin
+      .from("billing_checkout_snapshots")
+      .insert({
+        stripe_checkout_session_id: session.id,
+        appointment_id: appt.id,
+        provider_id: appt.provider_id,
+        product_id: appt.product_id,
+        amount_total: amount,
+        currency: "EUR",
+        application_fee_amount: feeCents,
+        issuer_full_name: String(prof.full_name).trim(),
+        issuer_business_name: prof.business_name || null,
+        issuer_profession: prof.profession || null,
+        issuer_email: prof.email || null,
+        issuer_phone: prof.phone || null,
+        issuer_address: String(prof.address).trim(),
+        issuer_city: String(prof.city).trim(),
+        issuer_postal_code: prof.postal_code || null,
+        issuer_country: String(prof.country).trim().toUpperCase(),
+        issuer_siret: String(prof.siret).trim(),
+        issuer_vat_number: prof.vat_number || null,
+        vat_regime: prof.vat_regime,
+        vat_rate: prof.vat_regime === "franchise_base" ? 0 : Number(prof.vat_rate),
+        customer_name: appt.client_name,
+        customer_email: appt.client_email,
+        customer_phone: appt.client_phone || null,
+        service_title: product.title || "Prestation",
+        service_description: product.description || null,
+        service_duration_minutes: product.duration_minutes || null,
+      });
+
+    if (snapshotError) {
+      await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
+      throw snapshotError;
+    }
 
     return NextResponse.json({ url: session.url }, { status: 200 });
   } catch {

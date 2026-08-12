@@ -23,14 +23,26 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
   }
 
-  // Cherche la facture patient liée à cette session Stripe
-  const { data: row, error } = await supabaseAdmin
-    .from("patient_invoices")
-    .select("bucket, file_path")
+  const { data: currentInvoice } = await supabaseAdmin
+    .from("client_invoices")
+    .select("storage_bucket, file_path")
     .eq("stripe_checkout_session_id", sessionId)
     .maybeSingle();
 
-  if (error || !row) {
+  let row = currentInvoice
+    ? { bucket: currentInvoice.storage_bucket, file_path: currentInvoice.file_path }
+    : null;
+
+  if (!row) {
+    const legacy = await supabaseAdmin
+      .from("patient_invoices")
+      .select("bucket, file_path")
+      .eq("stripe_checkout_session_id", sessionId)
+      .maybeSingle();
+    row = legacy.data;
+  }
+
+  if (!row?.bucket || !row.file_path) {
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   }
 

@@ -10,10 +10,13 @@ type Details = {
   last_name: string;
   profession: string;
   address: string;
+  postal_code: string;
   city: string;
   country: string;
   siret: string;
   vat_number: string;
+  vat_regime: string;
+  vat_rate: string;
 };
 
 const EMPTY_DETAILS: Details = {
@@ -21,10 +24,13 @@ const EMPTY_DETAILS: Details = {
   last_name: "",
   profession: "",
   address: "",
+  postal_code: "",
   city: "",
   country: "",
   siret: "",
   vat_number: "",
+  vat_regime: "",
+  vat_rate: "",
 };
 
 export default function ProfessionalDetailsPanel({
@@ -59,7 +65,7 @@ export default function ProfessionalDetailsPanel({
       const { data } = await supabase
         .from("profiles")
         .select(
-          "first_name, last_name, profession, address, city, country, siret, vat_number"
+          "first_name, last_name, profession, address, postal_code, city, country, siret, vat_number, vat_regime, vat_rate"
         )
         .eq("provider_id", user.id)
         .maybeSingle();
@@ -71,10 +77,16 @@ export default function ProfessionalDetailsPanel({
         last_name: data?.last_name ?? "",
         profession: data?.profession ?? "",
         address: data?.address ?? "",
+        postal_code: data?.postal_code ?? "",
         city: data?.city ?? "",
         country: data?.country ?? "",
         siret: data?.siret ?? "",
         vat_number: data?.vat_number ?? "",
+        vat_regime: data?.vat_regime ?? "",
+        vat_rate:
+          data?.vat_rate === null || data?.vat_rate === undefined
+            ? ""
+            : String(Number(data.vat_rate) * 100),
       };
 
       setUserId(user.id);
@@ -118,10 +130,23 @@ export default function ProfessionalDetailsPanel({
     const normalized = Object.fromEntries(
       Object.entries(draft).map(([key, value]) => [key, value.trim()])
     ) as Details;
+    const vatRate = normalized.vat_rate
+      ? Number(normalized.vat_rate.replace(",", ".")) / 100
+      : null;
+    if (
+      normalized.vat_regime === "standard" &&
+      (!Number.isFinite(vatRate) || !vatRate || vatRate <= 0)
+    ) {
+      setSaving(false);
+      setStatus("Indiquez un taux de TVA valide.");
+      return;
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({
         ...normalized,
+        vat_rate: normalized.vat_regime === "franchise_base" ? 0 : vatRate,
         full_name: `${firstName} ${lastName}`,
         updated_at: new Date().toISOString(),
       })
@@ -182,6 +207,7 @@ export default function ProfessionalDetailsPanel({
                 ["last_name", "Nom"],
                 ["profession", "Métier"],
                 ["address", "Adresse"],
+                ["postal_code", "Code postal"],
                 ["city", "Ville"],
                 ["country", "Pays"],
                 ["siret", "SIRET"],
@@ -203,6 +229,33 @@ export default function ProfessionalDetailsPanel({
                 />
               </label>
             ))}
+            <label className={styles.inlineField}>
+              <span>Régime de TVA</span>
+              <select
+                className={styles.inlineInput}
+                value={draft.vat_regime}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, vat_regime: event.target.value }))
+                }
+              >
+                <option value="">À renseigner</option>
+                <option value="franchise_base">Franchise en base</option>
+                <option value="standard">TVA applicable</option>
+              </select>
+            </label>
+            {draft.vat_regime === "standard" && (
+              <label className={styles.inlineField}>
+                <span>Taux de TVA (%)</span>
+                <input
+                  className={styles.inlineInput}
+                  inputMode="decimal"
+                  value={draft.vat_rate}
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, vat_rate: event.target.value }))
+                  }
+                />
+              </label>
+            )}
           </div>
         </div>
 

@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendAppointmentConfirmationEmail } from "@/lib/email";
@@ -11,6 +12,7 @@ import {
   generateAppointmentJoinToken,
 } from "@/lib/video/appointmentPortal";
 import { isGoogleMeetUrl } from "@/lib/video/meetUrl";
+import { calculateTaxBreakdown } from "@/lib/billing";
 
 export const runtime = "nodejs";
 
@@ -127,7 +129,15 @@ function monthKeyFromIso(iso: string): string {
 async function generatePatientInvoicePdf(params: {
   invoiceNumber: string;
   providerName: string;
+  providerBusinessName?: string | null;
+  providerAddress: string;
+  providerPostalCode?: string | null;
+  providerCity: string;
+  providerCountry: string;
+  providerSiret: string;
+  providerVatNumber?: string | null;
   providerVatRate: number; // ex: 0.2
+  vatExemptionMention?: string | null;
   clientName: string;
   clientEmail?: string | null;
   serviceTitle: string;
@@ -186,7 +196,11 @@ async function generatePatientInvoicePdf(params: {
     <div class="row">
       <div>
         <div class="muted">Émetteur (Professionnel)</div>
-        <div><b>${escapeHtml(params.providerName)}</b></div>
+        <div><b>${escapeHtml(params.providerBusinessName || params.providerName)}</b></div>
+        <div>${escapeHtml(params.providerName)}</div>
+        <div class="muted">${escapeHtml(params.providerAddress)}, ${escapeHtml([params.providerPostalCode, params.providerCity].filter(Boolean).join(" "))}, ${escapeHtml(params.providerCountry)}</div>
+        <div class="muted">SIRET : ${escapeHtml(params.providerSiret)}</div>
+        ${params.providerVatNumber ? `<div class="muted">TVA : ${escapeHtml(params.providerVatNumber)}</div>` : ""}
       </div>
       <div>
         <div class="muted">Client</div>
@@ -226,6 +240,7 @@ async function generatePatientInvoicePdf(params: {
         </tr>
       </tbody>
     </table>
+    ${params.vatExemptionMention ? `<p class="muted">${escapeHtml(params.vatExemptionMention)}</p>` : ""}
   </div>
 
   <div class="footer">
@@ -261,6 +276,7 @@ function escapeHtml(s: string) {
 }
 
 export async function POST(req: Request) {
+  let claimedEventId: string | null = null;
   try {
     const sig = req.headers.get("stripe-signature");
     if (!sig) {
@@ -283,23 +299,46 @@ export async function POST(req: Request) {
       );
     }
 
-    // Idempotence webhook
-    const { data: alreadyEvent } = await supabaseAdmin
-      .from("stripe_webhook_events")
-      .select("id")
-      .eq("id", event.id)
-      .maybeSingle();
+    const { data: claimed, error: claimError } = await supabaseAdmin.rpc(
+      "claim_stripe_webhook_event",
+      { p_id: event.id, p_type: event.type }
+    );
+    if (claimError) throw claimError;
+    if (!claimed) {
+      const { data: existingEvent, error: existingEventError } = await supabaseAdmin
+        .from("stripe_webhook_events")
+        .select("processing_status")
+        .eq("id", event.id)
+        .maybeSingle<{ processing_status: string }>();
+      if (existingEventError) throw existingEventError;
+      if (existingEvent?.processing_status === "completed") {
+        return NextResponse.json({ received: true, idempotent: true });
+      }
+      return NextResponse.json(
+        { error: "Webhook event is already being processed" },
+        { status: 409 }
+      );
+    }
+    claimedEventId = event.id;
 
     if (event.type !== "checkout.session.completed") {
-      if (!alreadyEvent) {
-        await supabaseAdmin
-          .from("stripe_webhook_events")
-          .insert({ id: event.id, type: event.type });
-      }
+      const { error: completionError } = await supabaseAdmin.from("stripe_webhook_events").update({
+        processing_status: "completed",
+        processed_at: new Date().toISOString(),
+      }).eq("id", event.id);
+      if (completionError) throw completionError;
       return NextResponse.json({ received: true });
     }
 
     const session = event.data.object as Stripe.Checkout.Session;
+    if (session.payment_status !== "paid") {
+      const { error: pendingStatusError } = await supabaseAdmin.from("stripe_webhook_events").update({
+        processing_status: "failed",
+        last_error: `Unexpected payment status: ${session.payment_status}`,
+      }).eq("id", event.id);
+      if (pendingStatusError) throw pendingStatusError;
+      return NextResponse.json({ received: true, pending: true });
+    }
 
     // Email client collecté par Stripe Checkout
     const stripeClientEmail =
@@ -308,13 +347,31 @@ export async function POST(req: Request) {
     const appointmentId = pickAppointmentId(session.metadata);
     if (!appointmentId) {
       console.warn("checkout.session.completed without appointment id in metadata:", session.metadata);
-      return NextResponse.json({ received: true, warning: "Missing appointment id in metadata" });
+      throw new Error("Missing appointment id in metadata");
     }
 
     const paymentIntentId =
       typeof session.payment_intent === "string"
         ? session.payment_intent
         : session.payment_intent?.id ?? null;
+    if (!paymentIntentId || !session.amount_total || !session.currency) {
+      throw new Error("Paid Checkout Session is missing payment identifiers or amount");
+    }
+
+    const { data: billingSnapshot, error: snapshotError } = await supabaseAdmin
+      .from("billing_checkout_snapshots")
+      .select("*")
+      .eq("stripe_checkout_session_id", session.id)
+      .maybeSingle();
+    if (snapshotError || !billingSnapshot) throw new Error("Billing snapshot not found");
+    if (
+      billingSnapshot.amount_total !== session.amount_total ||
+      billingSnapshot.currency.toLowerCase() !== session.currency.toLowerCase()
+    ) throw new Error("Stripe payment does not match billing snapshot");
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    if (paymentIntent.application_fee_amount !== billingSnapshot.application_fee_amount) {
+      throw new Error("Stripe application fee does not match billing snapshot");
+    }
 
     // 1) Charger appointment
     const { data: appt, error: apptErr } = await supabaseAdmin
@@ -325,28 +382,7 @@ export async function POST(req: Request) {
 
     if (apptErr || !appt) {
       console.error("Appointment not found:", apptErr?.message);
-      return NextResponse.json({ received: true, warning: "Appointment not found" });
-    }
-
-    if (alreadyEvent && appt.confirmation_email_sent_at) {
-      if (
-        appt.video_provider === "google_meet" &&
-        isGoogleMeetUrl(appt.video_join_url)
-      ) {
-        await ensureAppointmentJoinToken(appt.id, appt.join_token);
-        return NextResponse.json({ received: true, idempotent: true });
-      }
-
-      console.error("[GOOGLE_MEET_ERROR]", {
-        appointmentId: appt.id,
-        providerId: appt.provider_id,
-        stage: "appointment_reload",
-        message: "Inconsistent state: email marked sent without a Google Meet URL.",
-      });
-      return NextResponse.json(
-        { error: "Inconsistent appointment confirmation state" },
-        { status: 500 }
-      );
+      throw new Error("Appointment not found");
     }
 
     // 1.5) Sync client_email from Stripe (si Drimli ne l'avait pas)
@@ -363,16 +399,125 @@ export async function POST(req: Request) {
     }
 
     // 2) Confirmer appointment
-    if (appt.status !== "confirmed") {
-      const { error: upErr } = await supabaseAdmin
-        .from("appointments")
-        .update({ status: "confirmed" })
-        .eq("id", appt.id);
+    const { error: upErr } = await supabaseAdmin
+      .from("appointments")
+      .update({ status: "confirmed", stripe_payment_intent_id: paymentIntentId })
+      .eq("id", appt.id);
 
-      if (upErr) {
-        console.error("Failed to update appointment status:", upErr.message);
-        return NextResponse.json({ received: true, warning: "Update failed" });
-      }
+    if (upErr) {
+      throw new Error(`Failed to record paid appointment: ${upErr.message}`);
+    }
+
+    const { error: paymentRecordError } = await supabaseAdmin.from("drimli_payments").upsert({
+      appointment_id: appt.id,
+      provider_id: appt.provider_id,
+      stripe_checkout_session_id: session.id,
+      stripe_payment_intent_id: paymentIntentId,
+      amount_paid: session.amount_total,
+      currency: session.currency.toUpperCase(),
+      application_fee_amount: billingSnapshot.application_fee_amount,
+      status: "paid",
+      paid_at: new Date(session.created * 1000).toISOString(),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "stripe_checkout_session_id" });
+    if (paymentRecordError) throw paymentRecordError;
+
+    const { data: existingClientInvoice } = await supabaseAdmin
+      .from("client_invoices")
+      .select("id")
+      .eq("stripe_checkout_session_id", session.id)
+      .maybeSingle();
+
+    if (!existingClientInvoice) {
+      const tax = calculateTaxBreakdown(
+        session.amount_total,
+        billingSnapshot.vat_regime,
+        Number(billingSnapshot.vat_rate)
+      );
+      const { data: invoiceNumber, error: numberError } = await supabaseAdmin.rpc(
+        "next_client_invoice_number",
+        { p_provider_id: appt.provider_id, p_invoice_year: new Date().getUTCFullYear(), p_series: "FAC" }
+      );
+      if (numberError || !invoiceNumber) throw new Error("Invoice number allocation failed");
+
+      const issuedAt = new Date().toISOString();
+      const pdf = await generatePatientInvoicePdf({
+        invoiceNumber,
+        providerName: billingSnapshot.issuer_full_name,
+        providerBusinessName: billingSnapshot.issuer_business_name,
+        providerAddress: billingSnapshot.issuer_address,
+        providerPostalCode: billingSnapshot.issuer_postal_code,
+        providerCity: billingSnapshot.issuer_city,
+        providerCountry: billingSnapshot.issuer_country,
+        providerSiret: billingSnapshot.issuer_siret,
+        providerVatNumber: billingSnapshot.issuer_vat_number,
+        providerVatRate: tax.vatRate,
+        vatExemptionMention: tax.vatExemptionMention,
+        clientName: billingSnapshot.customer_name,
+        clientEmail: billingSnapshot.customer_email,
+        serviceTitle: billingSnapshot.service_title,
+        serviceTtcCents: session.amount_total,
+        issuedAtIso: issuedAt,
+      });
+      const periodMonth = monthKeyFromIso(issuedAt);
+      const filePath = `providers/${appt.provider_id}/invoices/${periodMonth}/patient_invoice_${session.id}.pdf`;
+      const upload = await supabaseAdmin.storage.from("invoices").upload(filePath, pdf, {
+        contentType: "application/pdf",
+        upsert: true,
+      });
+      if (upload.error) throw upload.error;
+
+      const { error: invoiceError } = await supabaseAdmin.from("client_invoices").insert({
+        provider_id: appt.provider_id,
+        appointment_id: appt.id,
+        product_id: appt.product_id,
+        stripe_checkout_session_id: session.id,
+        stripe_payment_intent_id: paymentIntentId,
+        invoice_number: invoiceNumber,
+        status: "paid",
+        issued_at: issuedAt,
+        paid_at: issuedAt,
+        service_date: appt.start_datetime,
+        issuer_full_name: billingSnapshot.issuer_full_name,
+        issuer_business_name: billingSnapshot.issuer_business_name,
+        issuer_profession: billingSnapshot.issuer_profession,
+        issuer_email: billingSnapshot.issuer_email,
+        issuer_phone: billingSnapshot.issuer_phone,
+        issuer_address: billingSnapshot.issuer_address,
+        issuer_city: billingSnapshot.issuer_city,
+        issuer_postal_code: billingSnapshot.issuer_postal_code,
+        issuer_country: billingSnapshot.issuer_country,
+        issuer_siret: billingSnapshot.issuer_siret,
+        issuer_vat_number: billingSnapshot.issuer_vat_number,
+        customer_name: billingSnapshot.customer_name,
+        customer_email: billingSnapshot.customer_email,
+        customer_phone: billingSnapshot.customer_phone,
+        service_title: billingSnapshot.service_title,
+        service_description: billingSnapshot.service_description,
+        service_duration_minutes: billingSnapshot.service_duration_minutes,
+        unit_price_excluding_tax: tax.totalExcludingTax,
+        total_excluding_tax: tax.totalExcludingTax,
+        vat_rate: tax.vatRate,
+        vat_amount: tax.vatAmount,
+        total_including_tax: session.amount_total,
+        currency: session.currency.toUpperCase(),
+        vat_regime: billingSnapshot.vat_regime,
+        vat_exemption_mention: tax.vatExemptionMention,
+        storage_bucket: "invoices",
+        file_path: filePath,
+        generated_at: issuedAt,
+        content_hash: createHash("sha256").update(pdf).digest("hex"),
+      });
+      if (invoiceError) throw invoiceError;
+
+      await supabaseAdmin.from("patient_invoices").upsert({
+        provider_id: appt.provider_id,
+        appointment_id: appt.id,
+        stripe_checkout_session_id: session.id,
+        period_month: periodMonth,
+        bucket: "invoices",
+        file_path: filePath,
+      }, { onConflict: "stripe_checkout_session_id" });
     }
 
     // 2.5) Créer le rendez-vous Google Meet si le professionnel est connecté
@@ -454,10 +599,7 @@ export async function POST(req: Request) {
             }
           : {}),
       });
-      return NextResponse.json(
-        { error: "Meeting creation failed" },
-        { status: 500 }
-      );
+      throw new Error("Meeting creation failed after payment was recorded");
     }
 
     const { data: reloadedAppointment, error: reloadError } =
@@ -476,10 +618,7 @@ export async function POST(req: Request) {
         stage: "appointment_reload",
         message: "Confirmed appointment could not be reloaded.",
       });
-      return NextResponse.json(
-        { error: "Appointment reload failed" },
-        { status: 500 }
-      );
+      throw new Error("Appointment reload failed after payment was recorded");
     }
 
     const hasValidMeetUrl = isGoogleMeetUrl(
@@ -498,10 +637,7 @@ export async function POST(req: Request) {
           ? "Inconsistent state: email marked sent without a Google Meet URL."
           : "Google Meet URL is absent after appointment reload.",
       });
-      return NextResponse.json(
-        { error: "Meeting link unavailable" },
-        { status: 500 }
-      );
+      throw new Error("Meeting link unavailable after payment was recorded");
     }
 
     let joinToken: string;
@@ -516,10 +652,7 @@ export async function POST(req: Request) {
         providerId: appt.provider_id,
         stage: "join_token_allocation",
       });
-      return NextResponse.json(
-        { error: "Appointment portal unavailable" },
-        { status: 500 }
-      );
+      throw new Error("Appointment portal unavailable after payment was recorded");
     }
 
     // 3) Charger infos pro + service
@@ -549,9 +682,7 @@ export async function POST(req: Request) {
     if (!providerName) {
       console.error("❌ Missing provider full_name in profiles for provider_id:", appt.provider_id);
     }
-    const vatRate = 0;
     const serviceTitle = (prod?.title || "Prestation").toString();
-    const serviceTtcCents = Number(prod?.price_cents ?? 0) || 0;
 
     // 4) Email de confirmation — uniquement après persistance et relecture de Meet
     if (
@@ -595,129 +726,26 @@ export async function POST(req: Request) {
           stage: "email_send",
           message: safeMeetFailureMessage("email_send"),
         });
-        return NextResponse.json(
-          { error: "Confirmation email failed" },
-          { status: 500 }
-        );
+        throw new Error("Confirmation email failed after payment was recorded");
       }
     }
 
-    // 5) Facture COMMISSION (déjà en place chez toi) — on garde le code simple
-    // Récupérer la commission (application_fee_amount) si possible
-    let feeCents: number | null = null;
-    if (paymentIntentId) {
-      try {
-        const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
-        feeCents = pi.application_fee_amount ?? null;
-      } catch (error: unknown) {
-        console.error("Could not retrieve payment intent:", errorMessage(error));
-      }
-    }
-    if (!feeCents && session.metadata?.drimli_fee_cents) {
-      feeCents = Number(session.metadata.drimli_fee_cents);
-    }
-
-    if (feeCents && feeCents > 0) {
-      const year = new Date().getUTCFullYear();
-
-      const { data: seqRow } = await supabaseAdmin
-        .from("invoice_sequences")
-        .upsert({ year, last_number: 0 }, { onConflict: "year" })
-        .select("year,last_number")
-        .maybeSingle();
-
-      const nextNumber = (seqRow?.last_number ?? 0) + 1;
-
-      const { error: seqErr } = await supabaseAdmin
-        .from("invoice_sequences")
-        .update({ last_number: nextNumber })
-        .eq("year", year);
-
-      if (!seqErr) {
-        const invoiceNumber = `DR-${year}-${String(nextNumber).padStart(6, "0")}`;
-
-        await supabaseAdmin.from("invoices").insert({
-          provider_id: appt.provider_id,
-          appointment_id: appt.id,
-          type: "COMMISSION",
-          status: "ISSUED",
-          invoice_number: invoiceNumber,
-          currency: "eur",
-          total_ht: feeCents,
-          total_vat: 0,
-          total_ttc: feeCents,
-          stripe_payment_intent_id: paymentIntentId,
-          stripe_checkout_session_id: session.id,
-        });
-      }
-    }
-
-    // 6) Générer + archiver la facture PATIENT (PDF)
-    // On évite les doublons grâce à l’index unique session_id
-    const { data: existingPatientInvoice } = await supabaseAdmin
-      .from("patient_invoices")
-      .select("id")
-      .eq("stripe_checkout_session_id", session.id)
-      .maybeSingle();
-
-    if (!existingPatientInvoice) {
-      const periodMonth = appt.start_datetime ? monthKeyFromIso(appt.start_datetime) : monthKeyFromIso(new Date().toISOString());
-      const nowIso = new Date().toISOString();
-      const invoiceNumber = `C-${periodMonth}-${session.id.slice(-6).toUpperCase()}`;
-
-      const pdf = await generatePatientInvoicePdf({
-        invoiceNumber,
-        providerName,
-        providerVatRate: vatRate,
-        clientName: appt.client_name || "Client",
-        clientEmail: appt.client_email,
-        serviceTitle,
-        serviceTtcCents,
-        issuedAtIso: nowIso,
-      });
-
-      const filePath = `providers/${appt.provider_id}/invoices/${periodMonth}/patient_invoice_${session.id}.pdf`;
-
-      const upload = await supabaseAdmin.storage
-        .from("invoices")
-        .upload(filePath, pdf, {
-          contentType: "application/pdf",
-          upsert: true,
-        });
-
-      if (upload.error) {
-        console.error("PDF upload failed:", upload.error.message);
-      } else {
-        const { error: insErr } = await supabaseAdmin.from("patient_invoices").insert({
-          provider_id: appt.provider_id,
-          appointment_id: appt.id,
-          stripe_checkout_session_id: session.id,
-          period_month: periodMonth,
-          bucket: "invoices",
-          file_path: filePath,
-        });
-
-        if (insErr) {
-          console.error("patient_invoices insert failed:", insErr.message);
-        } else {
-          console.log("✅ Patient invoice archived:", filePath);
-        }
-      }
-    }
-
-    if (!alreadyEvent) {
-      const { error: eventStoreError } = await supabaseAdmin
-        .from("stripe_webhook_events")
-        .insert({ id: event.id, type: event.type });
-
-      if (eventStoreError) {
-        console.warn("Stripe webhook event completion marker was not stored.");
-      }
-    }
+    const { error: completionError } = await supabaseAdmin.from("stripe_webhook_events").update({
+      processing_status: "completed",
+      processed_at: new Date().toISOString(),
+      last_error: null,
+    }).eq("id", event.id);
+    if (completionError) throw completionError;
 
     return NextResponse.json({ received: true });
   } catch (error: unknown) {
     console.error("Webhook handler error:", errorMessage(error));
+    if (claimedEventId) {
+      await supabaseAdmin.from("stripe_webhook_events").update({
+        processing_status: "failed",
+        last_error: errorMessage(error).slice(0, 1_000),
+      }).eq("id", claimedEventId);
+    }
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
