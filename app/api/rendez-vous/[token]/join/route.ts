@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getAuthorizedClientMeetUrl } from "@/lib/video/meetUrl";
 
 type Context = {
-  params: Promise<{ token: string }> | { token: string };
+  params: Promise<{ token: string }>;
 };
 
 const supabaseAdmin = createClient(
@@ -22,7 +22,7 @@ function portalRedirect(request: Request, token: string) {
 }
 
 export async function GET(request: Request, context: Context) {
-  const { token } = await Promise.resolve(context.params);
+  const { token } = await context.params;
   if (!token || token.length > 200) return portalRedirect(request, "invalide");
 
   const { data: appointment, error } = await supabaseAdmin

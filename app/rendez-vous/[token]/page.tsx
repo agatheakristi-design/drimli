@@ -13,7 +13,7 @@ import styles from "./page.module.css";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  params: Promise<{ token: string }> | { token: string };
+  params: Promise<{ token: string }>;
 };
 
 type PortalDetails = {
@@ -142,7 +142,7 @@ async function loadPortal(token: string): Promise<
 }
 
 export default async function RendezVousTokenPage({ params }: PageProps) {
-  const { token } = await Promise.resolve(params);
+  const { token } = await params;
   const portal = await loadPortal(token);
 
   if (portal.kind === "invalid") {

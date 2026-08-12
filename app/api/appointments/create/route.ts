@@ -125,9 +125,9 @@ export async function POST(req: Request) {
 
     const { data: profile, error: profileError } = await admin
       .from("profiles")
-      .select("availability")
+      .select("availability, cancellation_policy")
       .eq("provider_id", providerId)
-      .maybeSingle<{ availability: unknown }>();
+      .maybeSingle<{ availability: unknown; cancellation_policy: string | null }>();
 
     if (profileError) {
       return NextResponse.json(
@@ -137,6 +137,13 @@ export async function POST(req: Request) {
     }
 
     const timeZone = providerTimeZone(profile?.availability);
+    const cancellationPolicy = profile?.cancellation_policy || "flexible";
+    const cancellationRefundDeadlineHours =
+      cancellationPolicy === "flexible"
+        ? 24
+        : cancellationPolicy === "moderate"
+          ? 48
+          : null;
     const nowMs = Date.now();
 
     if (
@@ -193,6 +200,8 @@ export async function POST(req: Request) {
         client_name: clientName,
         client_email: clientEmail,
         client_phone: clientPhone,
+        cancellation_policy: cancellationPolicy,
+        cancellation_refund_deadline_hours: cancellationRefundDeadlineHours,
       })
       .select("id")
       .maybeSingle<{ id: string }>();

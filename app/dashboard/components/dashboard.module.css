@@ -701,6 +701,73 @@
   font-size: 12px;
 }
 
+.billingSettings,
+.billingSection {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.billingSettings {
+  padding-top: var(--space-xs);
+}
+
+.billingSection + .billingSection {
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border);
+}
+
+.billingSection h3,
+.billingSection p {
+  margin: 0;
+}
+
+.billingSection h3 {
+  font-size: 1rem;
+}
+
+.billingSection p,
+.policyChoice small,
+.inlineField > span {
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.billingWide {
+  grid-column: 1 / -1;
+}
+
+.policyChoices {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.policyChoice {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: flex-start;
+  padding: var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.policyChoice:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--muted);
+}
+
+.policyChoice input {
+  margin-top: 3px;
+  accent-color: var(--primary);
+}
+
+.policyChoice span {
+  display: grid;
+  gap: 3px;
+}
+
 .googleReviewsForm {
   display: grid;
   gap: var(--space-md);

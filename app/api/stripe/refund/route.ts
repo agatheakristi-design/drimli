@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { refundDestinationChargePolicy } from "@/lib/billing";
+import { ensureClientCreditNote } from "@/lib/clientCreditNotes";
 
 export const runtime = "nodejs";
 
@@ -61,24 +62,29 @@ export async function POST(request: Request) {
         ? "refunded"
         : "partially_refunded"
       : "paid";
-    const { error: refundStoreError } = await supabaseAdmin.from("drimli_refunds").upsert({
+    const { data: storedRefund, error: refundStoreError } = await supabaseAdmin.from("drimli_refunds").upsert({
       payment_id: payment.id,
       stripe_refund_id: refund.id,
       amount,
       currency: payment.currency,
       status: refund.status ?? "pending",
-    }, { onConflict: "stripe_refund_id" });
+    }, { onConflict: "stripe_refund_id" }).select("id").single();
     if (refundStoreError) throw refundStoreError;
 
     if (refundSucceeded) {
+      const paymentIntent = await stripe.paymentIntents.retrieve(payment.stripe_payment_intent_id, { expand: ["latest_charge.application_fee"] });
+      const charge = typeof paymentIntent.latest_charge === "object" ? paymentIntent.latest_charge : null;
+      const applicationFee = charge && typeof charge.application_fee === "object" ? charge.application_fee : null;
+      const refundedApplicationFeeAmount = applicationFee?.amount_refunded ?? 0;
       const { data: updatedPayment, error: paymentUpdateError } = await supabaseAdmin
         .from("drimli_payments")
-        .update({ refunded_amount: refundedAmount, status, updated_at: new Date().toISOString() })
+        .update({ refunded_amount: refundedAmount, refunded_application_fee_amount: refundedApplicationFeeAmount, status, updated_at: new Date().toISOString() })
         .eq("id", payment.id)
         .eq("refunded_amount", payment.refunded_amount)
         .select("id")
         .maybeSingle();
       if (paymentUpdateError || !updatedPayment) throw new Error("Refund state update conflict");
+      await ensureClientCreditNote(supabaseAdmin, storedRefund.id, new Date(refund.created * 1000).toISOString());
     }
 
     return NextResponse.json({ refundId: refund.id, amount, status });

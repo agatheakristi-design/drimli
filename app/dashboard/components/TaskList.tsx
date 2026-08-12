@@ -18,6 +18,7 @@ import DrimpayOnboarding from "./DrimpayOnboarding";
 import GoogleMeetOnboarding from "./GoogleMeetOnboarding";
 import GoogleReviewsOnboarding from "./GoogleReviewsOnboarding";
 import GoogleReviewRequestAdminTest from "./GoogleReviewRequestAdminTest";
+import BillingSettingsOnboarding from "./BillingSettingsOnboarding";
 import ServicesManager from "./ServicesManager";
 import { tasks } from "./tasks";
 import styles from "./dashboard.module.css";
@@ -31,6 +32,7 @@ export default function TaskList() {
   const [paymentReady, setPaymentReady] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const [googleReviewsReady, setGoogleReviewsReady] = useState(false);
+  const [billingReady, setBillingReady] = useState(false);
   const [googleReviewsOpen, setGoogleReviewsOpen] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoStatus, setPhotoStatus] = useState("");
@@ -38,7 +40,7 @@ export default function TaskList() {
   const [description, setDescription] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [openTask, setOpenTask] = useState<
-    "services" | "description" | "payments" | null
+    "services" | "description" | "payments" | "billing" | null
   >(null);
   const [savingDescription, setSavingDescription] = useState(false);
   const [descriptionStatus, setDescriptionStatus] = useState("");
@@ -112,6 +114,10 @@ export default function TaskList() {
 
     if (label === "Booster mes avis Google") {
       return googleReviewsReady;
+    }
+
+    if (label === "Facturation") {
+      return billingReady;
     }
 
     return defaultValue;
@@ -483,6 +489,16 @@ export default function TaskList() {
                     />
                   </div>
                 )}
+              </div>
+            );
+          }
+
+          if (task.label === "Facturation") {
+            const billingOpen = openTask === "billing";
+            return (
+              <div key={task.label} className={`${className} ${styles.taskRowExpanded} ${billingOpen ? styles.taskRowExpandedOpen : ""}`}>
+                <button type="button" className={styles.taskRowHeader} aria-expanded={billingOpen} onClick={() => setOpenTask(billingOpen ? null : "billing")}>{content}</button>
+                {billingOpen && <div className={styles.inlineEditor}><BillingSettingsOnboarding onCompletionChange={setBillingReady} /></div>}
               </div>
             );
           }

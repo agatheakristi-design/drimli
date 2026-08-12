@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { VideoRoomStatus } from "@/lib/video/types";
 
 type Context = {
-  params: Promise<{ id: string }> | { id: string };
+  params: Promise<{ id: string }>;
 };
 
 const ALLOWED_STATUSES = new Set<VideoRoomStatus>([
@@ -58,7 +58,7 @@ export async function PATCH(request: Request, context: Context) {
     return response("Requête invalide.", 400);
   }
 
-  const { id } = await Promise.resolve(context.params);
+  const { id } = await context.params;
   if (!id) return response("Rendez-vous introuvable.", 404);
 
   const { data: appointment, error: appointmentError } = await supabaseAdmin
