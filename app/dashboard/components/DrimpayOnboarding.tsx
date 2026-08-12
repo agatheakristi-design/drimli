@@ -1,52 +1,127 @@
 "use client";
 
-import { useState } from "react";
+import {
+  Component,
+  useCallback,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from "react";
+import {
+  ConnectAccountOnboarding,
+  ConnectComponentsProvider,
+} from "@stripe/react-connect-js";
+import {
+  loadConnectAndInitialize,
+  type StripeConnectInstance,
+} from "@stripe/connect-js/pure";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/app/components/ui/Button";
 
-export default function DrimpayOnboarding({
-  paymentReady = false,
+type ErrorBoundaryProps = {
+  children: ReactNode;
+  fallback: ReactNode;
+};
+
+type ErrorBoundaryState = {
+  failed: boolean;
+};
+
+class StripeOnboardingErrorBoundary extends Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
+  state: ErrorBoundaryState = { failed: false };
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("Stripe Connect onboarding failed to render", error, info);
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+
+function EmbeddedStripeOnboarding({
+  paymentReady,
   onBack,
+  onRetry,
 }: {
-  paymentReady?: boolean;
+  paymentReady: boolean;
   onBack?: () => void;
+  onRetry: () => void;
 }) {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function openStripeOnboarding() {
-    setLoading(true);
+  const fetchClientSecret = useCallback(async () => {
     setError("");
 
-    try {
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-      if (!token) throw new Error("Session manquante. Reconnectez-vous puis réessayez.");
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
 
-      const activationResponse = await fetch("/api/drimpay/activate", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const activation = await activationResponse.json().catch(() => null);
-      if (!activationResponse.ok) {
-        throw new Error(activation?.details || activation?.error || "Impossible de préparer Stripe Connect.");
-      }
-
-      const linkResponse = await fetch("/api/drimpay/onboarding-link", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const link = await linkResponse.json().catch(() => null);
-      if (!linkResponse.ok || !link?.url) {
-        throw new Error(link?.error || "Impossible d’ouvrir la configuration Stripe.");
-      }
-
-      window.location.assign(link.url);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Impossible d’ouvrir Stripe Connect.");
-      setLoading(false);
+    if (!token) {
+      const message = "Session manquante. Reconnectez-vous puis réessayez.";
+      setError(message);
+      throw new Error(message);
     }
-  }
+
+    const cookieResponse = await fetch("/api/auth/set-cookie", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+
+    if (!cookieResponse.ok) {
+      const body = await cookieResponse.json().catch(() => null);
+      const message =
+        body?.error || `Impossible de préparer la session (${cookieResponse.status}).`;
+      setError(message);
+      throw new Error(message);
+    }
+
+    const sessionResponse = await fetch("/api/drimpay/account-session", {
+      method: "POST",
+    });
+    const session = await sessionResponse.json().catch(() => null);
+
+    if (!sessionResponse.ok || !session?.client_secret) {
+      const message =
+        session?.error ||
+        session?.details ||
+        `Impossible de charger Stripe Connect (${sessionResponse.status}).`;
+      setError(message);
+      throw new Error(message);
+    }
+
+    return session.client_secret as string;
+  }, []);
+
+  const [connectInstance] = useState<StripeConnectInstance>(() => {
+    const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+    if (!publishableKey) {
+      throw new Error("Clé Stripe manquante : NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
+    }
+
+    const primaryColor = getComputedStyle(document.documentElement)
+      .getPropertyValue("--primary")
+      .trim();
+
+    return loadConnectAndInitialize({
+      publishableKey,
+      fetchClientSecret,
+      appearance: {
+        variables: {
+          colorPrimary: primaryColor || "#4F6F52",
+        },
+      },
+      locale: "fr-FR",
+    });
+  });
 
   return (
     <div className="space-y-3">
@@ -56,16 +131,66 @@ export default function DrimpayOnboarding({
           : "Configurez votre compte Stripe sécurisé pour recevoir les paiements de vos clients."}
       </p>
 
+      {loading && !error ? <p>Chargement des paiements…</p> : null}
       {error ? <p role="alert">❌ {error}</p> : null}
 
+      {error ? (
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => onBack?.()}>
+            Fermer
+          </Button>
+          <Button onClick={onRetry}>Réessayer</Button>
+        </div>
+      ) : null}
+
+      <ConnectComponentsProvider connectInstance={connectInstance}>
+        <ConnectAccountOnboarding
+          onExit={() => onBack?.()}
+          onLoaderStart={() => setLoading(false)}
+          onLoadError={({ error: loadError }) => {
+            setLoading(false);
+            setError(
+              loadError.message ||
+                "Impossible d’afficher la configuration des paiements."
+            );
+          }}
+        />
+      </ConnectComponentsProvider>
+    </div>
+  );
+}
+
+export default function DrimpayOnboarding({
+  paymentReady = false,
+  onBack,
+}: {
+  paymentReady?: boolean;
+  onBack?: () => void;
+}) {
+  const [retryKey, setRetryKey] = useState(0);
+  const retry = useCallback(() => setRetryKey((key) => key + 1), []);
+
+  const fallback = (
+    <div className="space-y-3">
+      <p role="alert">
+        ❌ Impossible d’afficher la configuration des paiements.
+      </p>
       <div className="flex gap-2">
-        <Button variant="secondary" disabled={loading} onClick={() => onBack?.()}>
+        <Button variant="secondary" onClick={() => onBack?.()}>
           Fermer
         </Button>
-        <Button disabled={loading} onClick={openStripeOnboarding}>
-          {loading ? "Ouverture de Stripe…" : "Configurer mes paiements"}
-        </Button>
+        <Button onClick={retry}>Réessayer</Button>
       </div>
     </div>
+  );
+
+  return (
+    <StripeOnboardingErrorBoundary key={retryKey} fallback={fallback}>
+      <EmbeddedStripeOnboarding
+        paymentReady={paymentReady}
+        onBack={onBack}
+        onRetry={retry}
+      />
+    </StripeOnboardingErrorBoundary>
   );
 }
