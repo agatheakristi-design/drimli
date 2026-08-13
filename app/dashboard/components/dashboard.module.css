@@ -546,7 +546,7 @@
 }
 
 .taskCopy strong {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--foreground);
 }
@@ -621,6 +621,8 @@
   display: grid;
   gap: var(--space-lg);
   color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .inlineEditorLabel {
@@ -636,14 +638,14 @@
   width: 100%;
   min-height: 140px;
   resize: vertical;
-  padding: 14px 15px;
-  border: 1px solid var(--border);
-  border-radius: 13px;
-  background: var(--card);
+  padding: 13px var(--control-padding-x);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--muted);
   color: var(--foreground);
   font: inherit;
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.5;
   outline: none;
 }
 
@@ -675,11 +677,12 @@
   min-width: 0;
   min-height: var(--control-height);
   padding: 0 var(--control-padding-x);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--card);
+  background: var(--muted);
   color: var(--foreground);
   font: inherit;
+  font-size: 13px;
   outline: none;
 }
 
@@ -722,7 +725,7 @@
 }
 
 .billingSection h3 {
-  font-size: 1rem;
+  font-size: 14px;
 }
 
 .billingSection p,
@@ -857,7 +860,7 @@
 .googleBusinessSelected strong,
 .googleBusinessResult strong {
   color: var(--foreground);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
 }
 
 .googleBusinessSearch {
@@ -1183,6 +1186,13 @@
   margin-top: 0;
 }
 
+.embeddedServiceForm :global(.input),
+.embeddedServiceForm :global(.textarea) {
+  border-color: transparent;
+  background: var(--muted);
+  font-size: 13px;
+}
+
 .paymentOnboardingContent {
   display: grid;
   gap: var(--space-md);
@@ -1191,7 +1201,7 @@
 .paymentOnboardingContent > p {
   margin: 0;
   color: var(--muted-foreground);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   line-height: 1.5;
 }
 
