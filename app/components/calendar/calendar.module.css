@@ -28,9 +28,13 @@
 }
 
 .toolbarActions {
+  display: grid;
   justify-content: flex-end;
+  justify-items: end;
+  gap: 7px;
 }
 
+.toolbarPrimaryActions,
 .toolbarSecondaryActions {
   display: flex;
   align-items: center;
@@ -300,10 +304,9 @@
 .appointmentBilling dd { margin:0; font-weight:600; }
 .appointmentRefund { display:grid; gap:8px; padding-top:8px; border-top:1px solid var(--border); }
 .refundsList { display:grid; border-top:1px solid var(--border); }
-.refundRow { display:grid; gap:5px; width:100%; padding:16px 0; border:0; border-bottom:1px solid var(--border); background:transparent; color:var(--muted-foreground); font:inherit; font-size:13px; line-height:1.45; text-align:left; cursor:pointer; }
-.refundRow:hover { color:var(--foreground); }
-.refundRow:focus-visible { outline:3px solid var(--focus-ring); outline-offset:3px; }
+.refundRow { display:grid; gap:5px; width:100%; padding:16px 0; border-bottom:1px solid var(--border); color:var(--muted-foreground); font-size:13px; line-height:1.45; }
 .refundRowHeading { color:var(--foreground); font-weight:600; }
+.refundDocuments { display:grid; gap:8px; padding-top:8px; }
 .refundsState { margin:0; color:var(--muted-foreground); font-size:13px; }
 .appointmentCancellation { display:grid; gap:12px; padding:16px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--card); }
 .appointmentCancellation > p { margin:0; color:var(--muted-foreground); font-size:13px; line-height:1.5; }

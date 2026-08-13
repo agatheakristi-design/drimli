@@ -35,10 +35,14 @@ export default function Toolbar({
       <div className={styles.toolbarTitle}>{label}</div>
 
       <div className={styles.toolbarActions}>
-        <Button variant="secondary" onClick={onToday}>
-          Aujourd’hui
-        </Button>
-
+        <div className={styles.toolbarPrimaryActions}>
+          <Button variant="secondary" onClick={onToday}>
+            Aujourd’hui
+          </Button>
+          <Button variant="secondary" onClick={onSettings}>
+            Configurer
+          </Button>
+        </div>
         <div className={styles.toolbarSecondaryActions}>
           <button
             type="button"
@@ -47,9 +51,6 @@ export default function Toolbar({
           >
             Remboursements
           </button>
-          <Button variant="secondary" onClick={onSettings}>
-            Configurer
-          </Button>
         </div>
       </div>
     </header>

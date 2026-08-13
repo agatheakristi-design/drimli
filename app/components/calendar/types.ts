@@ -33,6 +33,17 @@ export type RefundedAppointment = {
   refundedAmount: number;
   currency: string;
   refundStatus: "partial" | "total";
+  invoice: null | {
+    invoiceNumber: string;
+    downloadUrl: string | null;
+  };
+  creditNotes: Array<{
+    id: string;
+    creditNoteNumber: string;
+    amount: number;
+    currency: string;
+    downloadUrl: string | null;
+  }>;
 };
 
 export type CalendarSettingsSection =

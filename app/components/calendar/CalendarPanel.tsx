@@ -23,7 +23,6 @@ type CalendarPanelProps = {
   openSection: CalendarSettingsSection | null;
   onSectionChange: (section: CalendarSettingsSection | null) => void;
   selectedBlockId: string | null;
-  onAppointmentSelect: (appointment: CalendarAppointment) => void;
 };
 
 export default function CalendarPanel({
@@ -36,7 +35,6 @@ export default function CalendarPanel({
   openSection,
   onSectionChange,
   selectedBlockId,
-  onAppointmentSelect,
 }: CalendarPanelProps) {
   useEffect(() => {
     if (!open) return;
@@ -83,7 +81,7 @@ export default function CalendarPanel({
             onAppointmentChanged={onCalendarChanged}
           />
         ) : mode === "refunds" ? (
-          <RefundsList onAppointmentSelect={onAppointmentSelect} />
+          <RefundsList />
         ) : (
           <Settings
             onCalendarChanged={onCalendarChanged}

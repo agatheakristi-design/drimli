@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import type { CalendarAppointment, RefundedAppointment } from "./types";
+import Button from "@/app/components/ui/Button";
+import type { RefundedAppointment } from "./types";
 import styles from "./calendar.module.css";
-
-type RefundsListProps = {
-  onAppointmentSelect: (appointment: CalendarAppointment) => void;
-};
 
 function money(amount: number, currency: string) {
   return new Intl.NumberFormat("fr-FR", {
@@ -25,9 +22,7 @@ function dateLabel(iso: string) {
   }).format(new Date(iso));
 }
 
-export default function RefundsList({
-  onAppointmentSelect,
-}: RefundsListProps) {
+export default function RefundsList() {
   const [refunds, setRefunds] = useState<RefundedAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -82,11 +77,9 @@ export default function RefundsList({
   return (
     <div className={styles.refundsList}>
       {refunds.map((refund) => (
-        <button
+        <section
           key={refund.appointment.id}
-          type="button"
           className={styles.refundRow}
-          onClick={() => onAppointmentSelect(refund.appointment)}
         >
           <span className={styles.refundRowHeading}>
             {dateLabel(refund.appointment.start_datetime)} — {refund.appointment.clientName}
@@ -97,7 +90,40 @@ export default function RefundsList({
               ? `${money(refund.refundedAmount, refund.currency)} remboursés intégralement`
               : `${money(refund.refundedAmount, refund.currency)} remboursés sur ${money(refund.amountPaid, refund.currency)}`}
           </span>
-        </button>
+          <div className={styles.refundDocuments}>
+            {refund.invoice?.downloadUrl ? (
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  window.open(
+                    refund.invoice!.downloadUrl!,
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+              >
+                Télécharger la facture
+              </Button>
+            ) : null}
+            {refund.creditNotes.map((creditNote) =>
+              creditNote.downloadUrl ? (
+                <Button
+                  key={creditNote.id}
+                  variant="secondary"
+                  onClick={() =>
+                    window.open(
+                      creditNote.downloadUrl!,
+                      "_blank",
+                      "noopener,noreferrer"
+                    )
+                  }
+                >
+                  Télécharger l’avoir {creditNote.creditNoteNumber}
+                </Button>
+              ) : null
+            )}
+          </div>
+        </section>
       ))}
     </div>
   );

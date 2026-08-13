@@ -263,10 +263,6 @@ export default function Calendar() {
           openSection={settingsSection}
           onSectionChange={setSettingsSection}
           selectedBlockId={selectedBlockId}
-          onAppointmentSelect={(appointment) => {
-            setSelectedAppointment(appointment);
-            setPanelMode("appointment");
-          }}
         />
       </main>
     </section>
