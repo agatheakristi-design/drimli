@@ -17,6 +17,7 @@ import {
 } from "@stripe/connect-js/pure";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/app/components/ui/Button";
+import styles from "./dashboard.module.css";
 
 type ErrorBoundaryProps = {
   children: ReactNode;
@@ -124,7 +125,7 @@ function EmbeddedStripeOnboarding({
   });
 
   return (
-    <div className="space-y-3">
+    <div className={styles.paymentOnboardingContent}>
       <p>
         {paymentReady
           ? "Votre compte Stripe est activé. Vous pouvez vérifier ou mettre à jour vos informations de paiement."
@@ -135,11 +136,17 @@ function EmbeddedStripeOnboarding({
       {error ? <p role="alert">❌ {error}</p> : null}
 
       {error ? (
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => onBack?.()}>
+        <div className={styles.inlineEditorActions}>
+          <Button
+            variant="secondary"
+            className={styles.inlineSecondaryButton}
+            onClick={() => onBack?.()}
+          >
             Fermer
           </Button>
-          <Button onClick={onRetry}>Réessayer</Button>
+          <Button className={styles.inlinePrimaryButton} onClick={onRetry}>
+            Réessayer
+          </Button>
         </div>
       ) : null}
 
@@ -171,15 +178,21 @@ export default function DrimpayOnboarding({
   const retry = useCallback(() => setRetryKey((key) => key + 1), []);
 
   const fallback = (
-    <div className="space-y-3">
+    <div className={styles.paymentOnboardingContent}>
       <p role="alert">
         ❌ Impossible d’afficher la configuration des paiements.
       </p>
-      <div className="flex gap-2">
-        <Button variant="secondary" onClick={() => onBack?.()}>
+      <div className={styles.inlineEditorActions}>
+        <Button
+          variant="secondary"
+          className={styles.inlineSecondaryButton}
+          onClick={() => onBack?.()}
+        >
           Fermer
         </Button>
-        <Button onClick={retry}>Réessayer</Button>
+        <Button className={styles.inlinePrimaryButton} onClick={retry}>
+          Réessayer
+        </Button>
       </div>
     </div>
   );

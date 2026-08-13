@@ -559,6 +559,7 @@
 .taskArrow {
   flex-shrink: 0;
   color: var(--muted-foreground);
+  transition: transform 160ms ease;
 }
 
 
@@ -617,10 +618,9 @@
 }
 
 .inlineEditor {
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--muted);
+  display: grid;
+  gap: var(--space-lg);
+  color: var(--foreground);
 }
 
 .inlineEditorLabel {
@@ -659,12 +659,12 @@
 .inlineFields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--space-md);
 }
 
 .inlineField {
   display: grid;
-  gap: 7px;
+  gap: var(--space-xs);
   color: var(--foreground);
   font-size: 13px;
   font-weight: 600;
@@ -692,8 +692,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-top: 12px;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
 }
 
 .inlineEditorStatus {
@@ -949,18 +949,23 @@
 
 .inlineEditorActions {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .inlineSecondaryButton,
 .inlinePrimaryButton {
   min-height: 40px;
   padding: 0 15px;
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    opacity 150ms ease;
 }
 
 .professionalPanelBackdrop {
@@ -1057,6 +1062,20 @@
   color: var(--primary-foreground);
 }
 
+.inlineSecondaryButton:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.inlinePrimaryButton:hover:not(:disabled) {
+  opacity: .92;
+}
+
+.inlineSecondaryButton:focus-visible,
+.inlinePrimaryButton:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 .inlineSecondaryButton:disabled,
 .inlinePrimaryButton:disabled {
   cursor: wait;
@@ -1110,62 +1129,7 @@
   overflow: hidden;
 }
 
-.taskRowExpanded:hover {
-  transform: none;
-}
-
-.taskRowHeader {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 16px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.taskRowExpanded .inlineEditor {
-  margin: 0 16px 16px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.taskRowExpanded:not(:has(.inlineEditor)) {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 16px;
-}
-
-.taskRowExpanded:not(:has(.inlineEditor)) .taskRowHeader {
-  padding: 0;
-}
-
-.taskRowExpanded:has(.inlineEditor) {
-  display: block;
-  padding: 0;
-}
-
-.taskRowExpanded:has(.inlineEditor) .taskRowHeader {
-  padding: 16px;
-}
-
-
-/* Correction définitive de la tâche Description */
-.taskRow.taskRowExpanded {
-  display: block;
-  padding: 0;
-  overflow: hidden;
-}
-
-.taskRow.taskRowExpanded .taskRowHeader {
+.taskRowExpanded .taskRowHeader {
   display: flex;
   align-items: center;
   gap: 14px;
@@ -1180,19 +1144,59 @@
   cursor: pointer;
 }
 
-.taskRow.taskRowExpanded:not(.taskRowExpandedOpen):hover {
+.taskRowExpanded:not(.taskRowExpandedOpen):hover {
   border-color: var(--border);
   box-shadow: var(--shadow-sm);
   transform: translateY(-1px);
 }
 
-.taskRow.taskRowExpandedOpen:hover {
+.taskRowExpandedOpen,
+.taskRowExpandedOpen:hover {
   transform: none;
+  box-shadow: none;
 }
 
-.taskRow.taskRowExpandedOpen .inlineEditor {
-  margin: 0 16px 16px;
-  padding: 0;
+.taskRowExpandedOpen .taskArrow {
+  transform: rotate(90deg);
+}
+
+.taskRowExpandedOpen .inlineEditor {
+  margin: 0 16px 20px 68px;
+  padding: 18px 0 0;
   border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
   background: transparent;
+}
+
+.taskRowExpandedOpen .inlineEditor > :first-child {
+  margin-top: 0;
+}
+
+.taskRowExpandedOpen .inlineEditor > :last-child {
+  margin-bottom: 0;
+}
+
+.embeddedServiceForm {
+  display: grid;
+  gap: var(--space-md);
+  margin-top: 0;
+}
+
+.paymentOnboardingContent {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.paymentOnboardingContent > p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .taskRowExpandedOpen .inlineEditor {
+    margin: 0 16px 16px;
+  }
 }
