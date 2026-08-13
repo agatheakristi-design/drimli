@@ -643,7 +643,7 @@
   width: 100%;
   min-height: 140px;
   resize: vertical;
-  padding: 13px var(--control-padding-x);
+  padding: 12px var(--control-padding-x);
   border: 1px solid var(--task-field-border);
   border-radius: var(--radius-md);
   background: transparent;
@@ -651,12 +651,16 @@
   font: inherit;
   font-size: 13px;
   line-height: 1.5;
+  appearance: none;
   outline: none;
+  box-shadow: none;
 }
 
 .inlineTextarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
+  box-shadow: none;
 }
 
 .inlineTextarea::placeholder {
