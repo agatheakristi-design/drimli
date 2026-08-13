@@ -19,13 +19,21 @@ export type CalendarAppointment = {
   clientEmail: string | null;
   start_datetime: string;
   end_datetime: string;
-  status: "confirmed";
+  status: "confirmed" | "cancelled_by_provider" | "cancelled_by_client";
   videoProvider: string | null;
   videoJoinUrl: string | null;
   videoRoomStatus: "closed" | "open" | "locked";
 };
 
-export type CalendarPanelMode = "settings" | "appointment";
+export type CalendarPanelMode = "settings" | "refunds" | "appointment";
+
+export type RefundedAppointment = {
+  appointment: CalendarAppointment;
+  amountPaid: number;
+  refundedAmount: number;
+  currency: string;
+  refundStatus: "partial" | "total";
+};
 
 export type CalendarSettingsSection =
   | "availability"

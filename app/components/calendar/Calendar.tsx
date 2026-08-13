@@ -225,6 +225,10 @@ export default function Calendar() {
           }
           setPanelMode(panelMode === "settings" ? null : "settings");
         }}
+        onRefunds={() => {
+          setSelectedAppointment(null);
+          setPanelMode(panelMode === "refunds" ? null : "refunds");
+        }}
       />
 
       <main className={styles.calendarContent}>
@@ -259,6 +263,10 @@ export default function Calendar() {
           openSection={settingsSection}
           onSectionChange={setSettingsSection}
           selectedBlockId={selectedBlockId}
+          onAppointmentSelect={(appointment) => {
+            setSelectedAppointment(appointment);
+            setPanelMode("appointment");
+          }}
         />
       </main>
     </section>

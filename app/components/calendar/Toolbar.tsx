@@ -9,6 +9,7 @@ type ToolbarProps = {
   onNext: () => void;
   onToday: () => void;
   onSettings: () => void;
+  onRefunds: () => void;
 };
 
 export default function Toolbar({
@@ -17,6 +18,7 @@ export default function Toolbar({
   onNext,
   onToday,
   onSettings,
+  onRefunds,
 }: ToolbarProps) {
   return (
     <header className={styles.toolbar}>
@@ -37,9 +39,18 @@ export default function Toolbar({
           Aujourd’hui
         </Button>
 
-        <Button variant="secondary" onClick={onSettings}>
-          Configurer
-        </Button>
+        <div className={styles.toolbarSecondaryActions}>
+          <button
+            type="button"
+            className={styles.toolbarTextAction}
+            onClick={onRefunds}
+          >
+            Remboursements
+          </button>
+          <Button variant="secondary" onClick={onSettings}>
+            Configurer
+          </Button>
+        </div>
       </div>
     </header>
   );

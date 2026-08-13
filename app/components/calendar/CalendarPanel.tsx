@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { X } from "lucide-react";
 import Settings from "./Settings";
 import AppointmentDetails from "./AppointmentDetails";
+import RefundsList from "./RefundsList";
 import type {
   Availability,
   CalendarAppointment,
@@ -22,6 +23,7 @@ type CalendarPanelProps = {
   openSection: CalendarSettingsSection | null;
   onSectionChange: (section: CalendarSettingsSection | null) => void;
   selectedBlockId: string | null;
+  onAppointmentSelect: (appointment: CalendarAppointment) => void;
 };
 
 export default function CalendarPanel({
@@ -34,6 +36,7 @@ export default function CalendarPanel({
   openSection,
   onSectionChange,
   selectedBlockId,
+  onAppointmentSelect,
 }: CalendarPanelProps) {
   useEffect(() => {
     if (!open) return;
@@ -58,7 +61,9 @@ export default function CalendarPanel({
         <h2>
           {mode === "appointment"
             ? "Détail du rendez-vous"
-            : "Configuration du calendrier"}
+            : mode === "refunds"
+              ? "Remboursements"
+              : "Configuration du calendrier"}
         </h2>
 
         <button
@@ -77,6 +82,8 @@ export default function CalendarPanel({
             appointment={appointment}
             onAppointmentChanged={onCalendarChanged}
           />
+        ) : mode === "refunds" ? (
+          <RefundsList onAppointmentSelect={onAppointmentSelect} />
         ) : (
           <Settings
             onCalendarChanged={onCalendarChanged}

@@ -55,6 +55,10 @@ function videoLabel(provider: string | null, joinUrl: string | null) {
   return "Visioconférence prête";
 }
 
+function appointmentStatusLabel(status: CalendarAppointment["status"]) {
+  return status === "confirmed" ? "Confirmé" : "Annulé";
+}
+
 export default function AppointmentDetails({
   appointment,
   onAppointmentChanged,
@@ -212,7 +216,7 @@ export default function AppointmentDetails({
         ) : null}
         <div className={styles.appointmentDetailsRow}>
           <dt>Statut</dt>
-          <dd>Confirmé</dd>
+          <dd>{appointmentStatusLabel(appointment.status)}</dd>
         </div>
         <div className={styles.appointmentDetailsRow}>
           <dt>Paiement</dt>
@@ -233,7 +237,7 @@ export default function AppointmentDetails({
         </div>
       </dl>
 
-      {billing?.payment ? (
+      {billing?.payment && appointment.status === "confirmed" ? (
         <div className={styles.appointmentBilling}>
           <section>
             <h4>Paiement</h4>
@@ -267,7 +271,12 @@ export default function AppointmentDetails({
         </section>
       ) : null}
 
-      {appointment.videoJoinUrl && roomStatus !== "locked" ? (
+      {appointment.status !== "confirmed" ? (
+        <p className={styles.appointmentEmptyState}>
+          Ce rendez-vous est annulé. Son paiement et ses documents restent
+          accessibles ci-dessus.
+        </p>
+      ) : appointment.videoJoinUrl && roomStatus !== "locked" ? (
         <>
           <p className={styles.appointmentEmptyState}>
             {roomStatus === "closed"

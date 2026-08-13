@@ -31,6 +31,33 @@
   justify-content: flex-end;
 }
 
+.toolbarSecondaryActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbarTextAction {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.toolbarTextAction:hover {
+  color: var(--foreground);
+}
+
+.toolbarTextAction:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
 .toolbarTitle {
   font-size: 18px;
   font-weight: 600;
@@ -272,6 +299,12 @@
 .appointmentBilling dl div { display:flex; justify-content:space-between; gap:16px; font-size:13px; }
 .appointmentBilling dd { margin:0; font-weight:600; }
 .appointmentRefund { display:grid; gap:8px; padding-top:8px; border-top:1px solid var(--border); }
+.refundsList { display:grid; border-top:1px solid var(--border); }
+.refundRow { display:grid; gap:5px; width:100%; padding:16px 0; border:0; border-bottom:1px solid var(--border); background:transparent; color:var(--muted-foreground); font:inherit; font-size:13px; line-height:1.45; text-align:left; cursor:pointer; }
+.refundRow:hover { color:var(--foreground); }
+.refundRow:focus-visible { outline:3px solid var(--focus-ring); outline-offset:3px; }
+.refundRowHeading { color:var(--foreground); font-weight:600; }
+.refundsState { margin:0; color:var(--muted-foreground); font-size:13px; }
 .appointmentCancellation { display:grid; gap:12px; padding:16px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--card); }
 .appointmentCancellation > p { margin:0; color:var(--muted-foreground); font-size:13px; line-height:1.5; }
 .appointmentCancellationChoices { display:grid; gap:10px; padding-top:4px; }
