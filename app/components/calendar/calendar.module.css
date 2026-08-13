@@ -12,7 +12,7 @@
 .toolbar {
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr minmax(0, auto) 1fr;
   align-items: center;
   gap: 16px;
   padding: 20px 24px;
@@ -28,38 +28,21 @@
 }
 
 .toolbarActions {
-  display: grid;
-  justify-content: flex-end;
-  justify-items: end;
-  gap: 7px;
-}
-
-.toolbarPrimaryActions,
-.toolbarSecondaryActions {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
-.toolbarTextAction {
+.toolbarIconButton {
+  width: var(--control-height);
+  min-width: var(--control-height);
+  height: var(--control-height);
   padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--muted-foreground);
-  font: inherit;
-  font-size: 13px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.toolbarTextAction:hover {
   color: var(--foreground);
 }
 
-.toolbarTextAction:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 3px;
+.toolbarIconButton svg {
+  display: block;
 }
 
 .toolbarTitle {
@@ -70,16 +53,16 @@
 
 @media (max-width: 760px) {
   .toolbar {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding-inline: 12px;
   }
 
   .toolbarTitle {
-    order: -1;
-    text-align: left;
-  }
-
-  .toolbarActions {
-    justify-content: flex-start;
+    overflow: hidden;
+    font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -306,7 +289,12 @@
 .refundsList { display:grid; border-top:1px solid var(--border); }
 .refundRow { display:grid; gap:5px; width:100%; padding:16px 0; border-bottom:1px solid var(--border); color:var(--muted-foreground); font-size:13px; line-height:1.45; }
 .refundRowHeading { color:var(--foreground); font-weight:600; }
-.refundDocuments { display:grid; gap:8px; padding-top:8px; }
+.refundDocuments { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding-top:8px; }
+.refundDocumentItem { display:inline-flex; align-items:center; gap:8px; }
+.refundDocumentSeparator { color:var(--muted-foreground); }
+.refundDocumentLink { color:var(--foreground); font-size:13px; text-decoration:underline; text-underline-offset:3px; }
+.refundDocumentLink:hover { color:var(--muted-foreground); }
+.refundDocumentLink:focus-visible { outline:3px solid var(--focus-ring); outline-offset:3px; }
 .refundsState { margin:0; color:var(--muted-foreground); font-size:13px; }
 .appointmentCancellation { display:grid; gap:12px; padding:16px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--card); }
 .appointmentCancellation > p { margin:0; color:var(--muted-foreground); font-size:13px; line-height:1.5; }

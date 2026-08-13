@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import Button from "@/app/components/ui/Button";
 import type { RefundedAppointment } from "./types";
 import styles from "./calendar.module.css";
 
@@ -92,34 +91,30 @@ export default function RefundsList() {
           </span>
           <div className={styles.refundDocuments}>
             {refund.invoice?.downloadUrl ? (
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  window.open(
-                    refund.invoice!.downloadUrl!,
-                    "_blank",
-                    "noopener,noreferrer"
-                  )
-                }
+              <a
+                className={styles.refundDocumentLink}
+                href={refund.invoice.downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                Télécharger la facture
-              </Button>
+                Facture
+              </a>
             ) : null}
-            {refund.creditNotes.map((creditNote) =>
+            {refund.creditNotes.map((creditNote, index) =>
               creditNote.downloadUrl ? (
-                <Button
-                  key={creditNote.id}
-                  variant="secondary"
-                  onClick={() =>
-                    window.open(
-                      creditNote.downloadUrl!,
-                      "_blank",
-                      "noopener,noreferrer"
-                    )
-                  }
-                >
-                  Télécharger l’avoir {creditNote.creditNoteNumber}
-                </Button>
+                <span key={creditNote.id} className={styles.refundDocumentItem}>
+                  <span className={styles.refundDocumentSeparator}>|</span>
+                  <a
+                    className={styles.refundDocumentLink}
+                    href={creditNote.downloadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {refund.creditNotes.length > 1
+                      ? `Avoir ${index + 1}`
+                      : "Avoir"}
+                  </a>
+                </span>
               ) : null
             )}
           </div>
