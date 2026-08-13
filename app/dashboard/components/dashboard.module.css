@@ -618,6 +618,11 @@
 }
 
 .inlineEditor {
+  --task-field-border: color-mix(
+    in srgb,
+    var(--muted-foreground) 45%,
+    var(--border)
+  );
   display: grid;
   gap: var(--space-lg);
   color: var(--foreground);
@@ -639,9 +644,9 @@
   min-height: 140px;
   resize: vertical;
   padding: 13px var(--control-padding-x);
-  border: 1px solid transparent;
+  border: 1px solid var(--task-field-border);
   border-radius: var(--radius-md);
-  background: var(--muted);
+  background: transparent;
   color: var(--foreground);
   font: inherit;
   font-size: 13px;
@@ -677,9 +682,9 @@
   min-width: 0;
   min-height: var(--control-height);
   padding: 0 var(--control-padding-x);
-  border: 1px solid transparent;
+  border: 1px solid var(--task-field-border);
   border-radius: var(--radius-md);
-  background: var(--muted);
+  background: transparent;
   color: var(--foreground);
   font: inherit;
   font-size: 13px;
@@ -1188,9 +1193,15 @@
 
 .embeddedServiceForm :global(.input),
 .embeddedServiceForm :global(.textarea) {
-  border-color: transparent;
-  background: var(--muted);
+  border-color: var(--task-field-border);
+  background: transparent;
   font-size: 13px;
+}
+
+.embeddedServiceForm :global(.input:focus),
+.embeddedServiceForm :global(.textarea:focus) {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .paymentOnboardingContent {
