@@ -13,6 +13,7 @@ type SidebarProps = {
   fullName: string;
   email: string;
   onEditProfessionalDetails: () => void;
+  onOpenDrimliInvoices: () => void;
 };
 
 const navigation = [
@@ -43,6 +44,7 @@ export default function Sidebar({
   fullName,
   email,
   onEditProfessionalDetails,
+  onOpenDrimliInvoices,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -89,6 +91,14 @@ export default function Sidebar({
             <strong>{fullName}</strong>
             <span>{email}</span>
           </div>
+        </button>
+
+        <button
+          type="button"
+          className={styles.accountTextAction}
+          onClick={onOpenDrimliInvoices}
+        >
+          Factures Drimli
         </button>
 
         <div className={styles.signOut}>

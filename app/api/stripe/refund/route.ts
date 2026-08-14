@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { refundDestinationChargePolicy } from "@/lib/billing";
 import { ensureClientCreditNote } from "@/lib/clientCreditNotes";
+import { syncRefundedCommissionMovements } from "@/lib/drimliCommissionLedger";
 
 export const runtime = "nodejs";
 
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
 
   const { data: payment, error } = await supabaseAdmin
     .from("drimli_payments")
-    .select("id, provider_id, stripe_payment_intent_id, amount_paid, refunded_amount, currency")
+    .select("id, provider_id, stripe_payment_intent_id, amount_paid, application_fee_amount, refunded_amount, currency, paid_at")
     .eq("appointment_id", body.appointmentId)
     .maybeSingle();
   if (error || !payment) return NextResponse.json({ error: "Payment not found" }, { status: 404 });
@@ -84,6 +85,16 @@ export async function POST(request: Request) {
         .select("id")
         .maybeSingle();
       if (paymentUpdateError || !updatedPayment) throw new Error("Refund state update conflict");
+      if (applicationFee) {
+        await syncRefundedCommissionMovements({
+          admin: supabaseAdmin,
+          stripe,
+          payment,
+          applicationFeeId: applicationFee.id,
+          refundId: storedRefund.id,
+          stripeRefundCreated: refund.created,
+        });
+      }
       await ensureClientCreditNote(supabaseAdmin, storedRefund.id, new Date(refund.created * 1000).toISOString());
     }
 

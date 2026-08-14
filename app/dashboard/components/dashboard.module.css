@@ -124,6 +124,22 @@
   margin-top: 18px;
 }
 
+.accountTextAction {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.accountTextAction:hover {
+  color: var(--foreground);
+}
+
 @media (max-width: 900px) {
   .sidebar {
     position: static;
@@ -1060,6 +1076,52 @@
   padding: var(--space-md) var(--space-xl);
   border-top: 1px solid var(--border);
   background: var(--card);
+}
+
+.drimliInvoicesEmpty {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+.drimliInvoicesList {
+  display: grid;
+}
+
+.drimliInvoiceItem {
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-lg) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.drimliInvoiceItem:first-child {
+  padding-top: 0;
+}
+
+.drimliInvoiceItem > span {
+  color: var(--muted-foreground);
+}
+
+.drimliInvoiceLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  color: var(--muted-foreground);
+}
+
+.drimliInvoiceLinks a {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.drimliInvoiceLinks a + a::before {
+  content: "|";
+  margin-right: var(--space-sm);
+  color: var(--border);
+  text-decoration: none;
 }
 
 .inlineSecondaryButton {

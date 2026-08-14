@@ -14,6 +14,10 @@ import {
 import { isGoogleMeetUrl } from "@/lib/video/meetUrl";
 import { calculateTaxBreakdown } from "@/lib/billing";
 import { ensureClientCreditNote } from "@/lib/clientCreditNotes";
+import {
+  recordCollectedCommission,
+  syncRefundedCommissionMovements,
+} from "@/lib/drimliCommissionLedger";
 
 export const runtime = "nodejs";
 
@@ -337,7 +341,7 @@ export async function POST(req: Request) {
         paymentIntentId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
       }
       if (!paymentIntentId) throw new Error("Refund is missing its payment intent");
-      const { data: payment } = await supabaseAdmin.from("drimli_payments").select("id, amount_paid").eq("stripe_payment_intent_id", paymentIntentId).maybeSingle();
+      const { data: payment } = await supabaseAdmin.from("drimli_payments").select("id, provider_id, amount_paid, application_fee_amount, currency, paid_at").eq("stripe_payment_intent_id", paymentIntentId).maybeSingle();
       if (payment) {
         const { data: stored, error: refundError } = await supabaseAdmin.from("drimli_refunds").upsert({ payment_id: payment.id, stripe_refund_id: refund.id, amount: refund.amount, currency: refund.currency.toUpperCase(), status: refund.status || "pending" }, { onConflict: "stripe_refund_id" }).select("id").single();
         if (refundError) throw refundError;
@@ -347,6 +351,16 @@ export async function POST(req: Request) {
         const charge = typeof intent.latest_charge === "object" ? intent.latest_charge : null;
         const applicationFee = charge && typeof charge.application_fee === "object" ? charge.application_fee : null;
         await supabaseAdmin.from("drimli_payments").update({ refunded_amount: refundedAmount, refunded_application_fee_amount: applicationFee?.amount_refunded ?? 0, status: refundedAmount === 0 ? "paid" : refundedAmount >= payment.amount_paid ? "refunded" : "partially_refunded", updated_at: new Date().toISOString() }).eq("id", payment.id);
+        if (applicationFee) {
+          await syncRefundedCommissionMovements({
+            admin: supabaseAdmin,
+            stripe,
+            payment,
+            applicationFeeId: applicationFee.id,
+            refundId: stored.id,
+            stripeRefundCreated: refund.created,
+          });
+        }
         if (refund.status === "succeeded") await ensureClientCreditNote(supabaseAdmin, stored.id, new Date(refund.created * 1000).toISOString());
       }
       const { error: completionError } = await supabaseAdmin.from("stripe_webhook_events").update({ processing_status: "completed", processed_at: new Date().toISOString(), last_error: null }).eq("id", event.id);
@@ -402,7 +416,7 @@ export async function POST(req: Request) {
       billingSnapshot.currency.toLowerCase() !== session.currency.toLowerCase()
     ) throw new Error("Stripe payment does not match billing snapshot");
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
-      expand: ["latest_charge"],
+      expand: ["latest_charge.application_fee"],
     });
     if (paymentIntent.application_fee_amount !== billingSnapshot.application_fee_amount) {
       throw new Error("Stripe application fee does not match billing snapshot");
@@ -448,7 +462,7 @@ export async function POST(req: Request) {
         ? paymentIntent.latest_charge.created * 1000
         : paymentIntent.created * 1000
     ).toISOString();
-    const { error: paymentRecordError } = await supabaseAdmin.from("drimli_payments").upsert({
+    const { data: paymentRecord, error: paymentRecordError } = await supabaseAdmin.from("drimli_payments").upsert({
       appointment_id: appt.id,
       provider_id: appt.provider_id,
       stripe_checkout_session_id: session.id,
@@ -459,8 +473,14 @@ export async function POST(req: Request) {
       status: "paid",
       paid_at: paidAt,
       updated_at: new Date().toISOString(),
-    }, { onConflict: "stripe_checkout_session_id" });
-    if (paymentRecordError) throw paymentRecordError;
+    }, { onConflict: "stripe_checkout_session_id" }).select("id, provider_id, application_fee_amount, currency, paid_at").single();
+    if (paymentRecordError || !paymentRecord) throw paymentRecordError || new Error("Payment record missing");
+    const paidCharge = typeof paymentIntent.latest_charge === "object" ? paymentIntent.latest_charge : null;
+    const paidApplicationFee = paidCharge && typeof paidCharge.application_fee === "object"
+      ? paidCharge.application_fee
+      : null;
+    if (!paidApplicationFee) throw new Error("Stripe application fee object is missing");
+    await recordCollectedCommission(supabaseAdmin, paymentRecord, paidApplicationFee.id);
 
     const { data: existingClientInvoice } = await supabaseAdmin
       .from("client_invoices")
