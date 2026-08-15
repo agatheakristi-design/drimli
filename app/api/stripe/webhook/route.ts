@@ -791,12 +791,41 @@ export async function POST(req: Request) {
             "Confirmation email was sent but its status could not be stored."
           );
         }
-      } catch {
+      } catch (error: unknown) {
+        const errorRecord =
+          typeof error === "object" && error !== null
+            ? (error as Record<string, unknown>)
+            : null;
+        const sanitizedMessage = errorMessage(error)
+          .replace(
+            /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,
+            "[email redacted]"
+          )
+          .replace(
+            /(?:re_|sk_(?:live|test)_|whsec_)[A-Za-z0-9_-]+/g,
+            "[secret redacted]"
+          );
+        const resendCode = errorRecord?.code;
+        const resendStatus = errorRecord?.statusCode ?? errorRecord?.status;
+
         console.error("[GOOGLE_MEET_ERROR]", {
           appointmentId: appt.id,
           providerId: appt.provider_id,
           stage: "email_send",
-          message: safeMeetFailureMessage("email_send"),
+          errorType:
+            typeof errorRecord?.name === "string"
+              ? errorRecord.name
+              : error instanceof Error
+                ? error.constructor.name
+                : typeof error,
+          message: sanitizedMessage,
+          ...(typeof resendCode === "string" || typeof resendCode === "number"
+            ? { code: resendCode }
+            : {}),
+          ...(typeof resendStatus === "string" ||
+          typeof resendStatus === "number"
+            ? { status: resendStatus }
+            : {}),
         });
       }
     }
