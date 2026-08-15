@@ -11,7 +11,6 @@ import {
   buildAppointmentPortalUrl,
   generateAppointmentJoinToken,
 } from "@/lib/video/appointmentPortal";
-import { isGoogleMeetUrl } from "@/lib/video/meetUrl";
 import { calculateTaxBreakdown } from "@/lib/billing";
 import { ensureClientCreditNote } from "@/lib/clientCreditNotes";
 import {
@@ -457,6 +456,18 @@ export async function POST(req: Request) {
       throw new Error(`Failed to record paid appointment: ${upErr.message}`);
     }
 
+    let joinToken: string;
+    try {
+      joinToken = await ensureAppointmentJoinToken(appt.id, appt.join_token);
+    } catch {
+      console.error("[APPOINTMENT_PORTAL_ERROR]", {
+        appointmentId: appt.id,
+        providerId: appt.provider_id,
+        stage: "join_token_allocation",
+      });
+      throw new Error("Appointment portal unavailable after payment was recorded");
+    }
+
     const paidAt = new Date(
       typeof paymentIntent.latest_charge === "object" && paymentIntent.latest_charge
         ? paymentIntent.latest_charge.created * 1000
@@ -577,7 +588,8 @@ export async function POST(req: Request) {
       }, { onConflict: "stripe_checkout_session_id" });
     }
 
-    // 2.5) Créer le rendez-vous Google Meet si le professionnel est connecté
+    // Effet secondaire : Google Meet ne doit pas bloquer le paiement,
+    // la facture ou le calendrier client.
     try {
       if (
         !appt.video_join_url &&
@@ -656,7 +668,6 @@ export async function POST(req: Request) {
             }
           : {}),
       });
-      throw new Error("Meeting creation failed after payment was recorded");
     }
 
     const { data: reloadedAppointment, error: reloadError } =
@@ -675,41 +686,6 @@ export async function POST(req: Request) {
         stage: "appointment_reload",
         message: "Confirmed appointment could not be reloaded.",
       });
-      throw new Error("Appointment reload failed after payment was recorded");
-    }
-
-    const hasValidMeetUrl = isGoogleMeetUrl(
-      reloadedAppointment.video_join_url
-    );
-
-    if (
-      reloadedAppointment.video_provider !== "google_meet" ||
-      !hasValidMeetUrl
-    ) {
-      console.error("[GOOGLE_MEET_ERROR]", {
-        appointmentId: appt.id,
-        providerId: appt.provider_id,
-        stage: "appointment_reload",
-        message: reloadedAppointment.confirmation_email_sent_at
-          ? "Inconsistent state: email marked sent without a Google Meet URL."
-          : "Google Meet URL is absent after appointment reload.",
-      });
-      throw new Error("Meeting link unavailable after payment was recorded");
-    }
-
-    let joinToken: string;
-    try {
-      joinToken = await ensureAppointmentJoinToken(
-        reloadedAppointment.id,
-        reloadedAppointment.join_token
-      );
-    } catch {
-      console.error("[APPOINTMENT_PORTAL_ERROR]", {
-        appointmentId: appt.id,
-        providerId: appt.provider_id,
-        stage: "join_token_allocation",
-      });
-      throw new Error("Appointment portal unavailable after payment was recorded");
     }
 
     // 3) Charger infos pro + service
@@ -741,8 +717,9 @@ export async function POST(req: Request) {
     }
     const serviceTitle = (prod?.title || "Prestation").toString();
 
-    // 4) Email de confirmation — uniquement après persistance et relecture de Meet
+    // Effet secondaire : l'email peut être retenté sans invalider le paiement.
     if (
+      reloadedAppointment &&
       !reloadedAppointment.confirmation_email_sent_at &&
       reloadedAppointment.client_email &&
       reloadedAppointment.start_datetime &&
@@ -783,7 +760,6 @@ export async function POST(req: Request) {
           stage: "email_send",
           message: safeMeetFailureMessage("email_send"),
         });
-        throw new Error("Confirmation email failed after payment was recorded");
       }
     }
 

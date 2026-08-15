@@ -166,11 +166,13 @@ export default function AppointmentDetails({
         if (!response.ok) throw new Error(payload.error || "Remboursement impossible.");
       }
 
-      const { error } = await supabase
-        .from("appointments")
-        .update({ status: "cancelled_by_provider" })
-        .eq("id", appointment.id);
-      if (error) throw error;
+      if (refund === "none") {
+        const { error } = await supabase
+          .from("appointments")
+          .update({ status: "cancelled_by_provider" })
+          .eq("id", appointment.id);
+        if (error) throw error;
+      }
       setStatusMessage(refund === "none" ? "Rendez-vous annulé sans remboursement." : "Rendez-vous annulé et remboursement effectué.");
       setCancellationOpen(false);
       onAppointmentChanged?.();
