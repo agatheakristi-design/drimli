@@ -40,6 +40,37 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function expandedApplicationFee(paymentIntent: Stripe.PaymentIntent) {
+  const charge = typeof paymentIntent.latest_charge === "object"
+    ? paymentIntent.latest_charge
+    : null;
+  return charge && typeof charge.application_fee === "object"
+    ? charge.application_fee
+    : null;
+}
+
+async function retrieveApplicationFeeWithRetry(
+  paymentIntentId: string,
+  initialPaymentIntent: Stripe.PaymentIntent
+) {
+  const initialFee = expandedApplicationFee(initialPaymentIntent);
+  if (initialFee) return initialFee;
+
+  for (const delayMs of [0, 500, 1_000, 1_500]) {
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    const refreshedPaymentIntent = await stripe.paymentIntents.retrieve(
+      paymentIntentId,
+      { expand: ["latest_charge.application_fee"] }
+    );
+    const applicationFee = expandedApplicationFee(refreshedPaymentIntent);
+    if (applicationFee) return applicationFee;
+  }
+
+  return null;
+}
+
 function safeMeetFailureMessage(stage: string) {
   const messages: Record<string, string> = {
     integration_lookup: "Google integration could not be checked.",
@@ -456,18 +487,6 @@ export async function POST(req: Request) {
       throw new Error(`Failed to record paid appointment: ${upErr.message}`);
     }
 
-    let joinToken: string;
-    try {
-      joinToken = await ensureAppointmentJoinToken(appt.id, appt.join_token);
-    } catch {
-      console.error("[APPOINTMENT_PORTAL_ERROR]", {
-        appointmentId: appt.id,
-        providerId: appt.provider_id,
-        stage: "join_token_allocation",
-      });
-      throw new Error("Appointment portal unavailable after payment was recorded");
-    }
-
     const paidAt = new Date(
       typeof paymentIntent.latest_charge === "object" && paymentIntent.latest_charge
         ? paymentIntent.latest_charge.created * 1000
@@ -486,12 +505,18 @@ export async function POST(req: Request) {
       updated_at: new Date().toISOString(),
     }, { onConflict: "stripe_checkout_session_id" }).select("id, provider_id, application_fee_amount, currency, paid_at").single();
     if (paymentRecordError || !paymentRecord) throw paymentRecordError || new Error("Payment record missing");
-    const paidCharge = typeof paymentIntent.latest_charge === "object" ? paymentIntent.latest_charge : null;
-    const paidApplicationFee = paidCharge && typeof paidCharge.application_fee === "object"
-      ? paidCharge.application_fee
-      : null;
-    if (!paidApplicationFee) throw new Error("Stripe application fee object is missing");
-    await recordCollectedCommission(supabaseAdmin, paymentRecord, paidApplicationFee.id);
+
+    let joinToken: string;
+    try {
+      joinToken = await ensureAppointmentJoinToken(appt.id, appt.join_token);
+    } catch {
+      console.error("[APPOINTMENT_PORTAL_ERROR]", {
+        appointmentId: appt.id,
+        providerId: appt.provider_id,
+        stage: "join_token_allocation",
+      });
+      throw new Error("Appointment portal unavailable after payment was recorded");
+    }
 
     const { data: existingClientInvoice } = await supabaseAdmin
       .from("client_invoices")
@@ -587,6 +612,19 @@ export async function POST(req: Request) {
         file_path: filePath,
       }, { onConflict: "stripe_checkout_session_id" });
     }
+
+    const paidApplicationFee = await retrieveApplicationFeeWithRetry(
+      paymentIntentId,
+      paymentIntent
+    );
+    if (!paidApplicationFee) {
+      throw new Error("Stripe application fee is not available yet");
+    }
+    await recordCollectedCommission(
+      supabaseAdmin,
+      paymentRecord,
+      paidApplicationFee.id
+    );
 
     // Effet secondaire : Google Meet ne doit pas bloquer le paiement,
     // la facture ou le calendrier client.
