@@ -11,8 +11,12 @@ import {
   buildAppointmentPortalUrl,
   generateAppointmentJoinToken,
 } from "@/lib/video/appointmentPortal";
-import { isGoogleMeetUrl } from "@/lib/video/meetUrl";
 import { calculateTaxBreakdown } from "@/lib/billing";
+import { ensureClientCreditNote } from "@/lib/clientCreditNotes";
+import {
+  recordCollectedCommission,
+  syncRefundedCommissionMovements,
+} from "@/lib/drimliCommissionLedger";
 
 export const runtime = "nodejs";
 
@@ -34,6 +38,37 @@ const supabaseAdmin = createClient(
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function expandedApplicationFee(paymentIntent: Stripe.PaymentIntent) {
+  const charge = typeof paymentIntent.latest_charge === "object"
+    ? paymentIntent.latest_charge
+    : null;
+  return charge && typeof charge.application_fee === "object"
+    ? charge.application_fee
+    : null;
+}
+
+async function retrieveApplicationFeeWithRetry(
+  paymentIntentId: string,
+  initialPaymentIntent: Stripe.PaymentIntent
+) {
+  const initialFee = expandedApplicationFee(initialPaymentIntent);
+  if (initialFee) return initialFee;
+
+  for (const delayMs of [0, 500, 1_000, 1_500]) {
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    const refreshedPaymentIntent = await stripe.paymentIntents.retrieve(
+      paymentIntentId,
+      { expand: ["latest_charge.application_fee"] }
+    );
+    const applicationFee = expandedApplicationFee(refreshedPaymentIntent);
+    if (applicationFee) return applicationFee;
+  }
+
+  return null;
 }
 
 function safeMeetFailureMessage(stage: string) {
@@ -141,8 +176,14 @@ async function generatePatientInvoicePdf(params: {
   clientName: string;
   clientEmail?: string | null;
   serviceTitle: string;
-  serviceTtcCents: number;
+  serviceDescription?: string | null;
+  serviceDurationMinutes?: number | null;
+  totalExcludingTax: number;
+  vatAmount: number;
+  totalIncludingTax: number;
+  currency: string;
   issuedAtIso: string;
+  serviceDateIso: string;
 }) {
   // Lazy import to keep startup light
   const [{ default: chromium }, { chromium: playwrightChromium }] = await Promise.all([
@@ -151,12 +192,12 @@ async function generatePatientInvoicePdf(params: {
   ]);
 
   const vatRate = Number.isFinite(params.providerVatRate) ? params.providerVatRate : 0;
-  const ttc = params.serviceTtcCents / 100;
-  const ht = vatRate > 0 ? ttc / (1 + vatRate) : ttc;
-  const vat = ttc - ht;
+  const ttc = params.totalIncludingTax / 100;
+  const ht = params.totalExcludingTax / 100;
+  const vat = params.vatAmount / 100;
 
   const fmt = (n: number) =>
-    new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
+    new Intl.NumberFormat("fr-FR", { style: "currency", currency: params.currency }).format(n);
 
   const html = `<!doctype html>
 <html>
@@ -187,6 +228,7 @@ async function generatePatientInvoicePdf(params: {
     <div class="muted" style="text-align:right">
       <div><b>Facture</b> ${params.invoiceNumber}</div>
       <div>Date: ${new Date(params.issuedAtIso).toLocaleDateString("fr-FR")}</div>
+      <div>Date de prestation: ${new Date(params.serviceDateIso).toLocaleDateString("fr-FR")}</div>
     </div>
   </div>
 
@@ -218,7 +260,7 @@ async function generatePatientInvoicePdf(params: {
       </thead>
       <tbody>
         <tr>
-          <td>${escapeHtml(params.serviceTitle)}</td>
+          <td>${escapeHtml(params.serviceTitle)}${params.serviceDescription ? `<div class="muted">${escapeHtml(params.serviceDescription)}</div>` : ""}${params.serviceDurationMinutes ? `<div class="muted">Durée : ${params.serviceDurationMinutes} min</div>` : ""}</td>
           <td class="right">${fmt(ttc)}</td>
         </tr>
       </tbody>
@@ -251,7 +293,7 @@ async function generatePatientInvoicePdf(params: {
 
   const browser = await playwrightChromium.launch({
     args: chromium.args,
-    executablePath: await chromium.executablePath(),
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || await chromium.executablePath(),
     headless: true,
   });
   const page = await browser.newPage();
@@ -321,6 +363,41 @@ export async function POST(req: Request) {
     }
     claimedEventId = event.id;
 
+    if (event.type === "refund.created" || event.type === "refund.updated" || event.type === "refund.failed") {
+      const refund = event.data.object as Stripe.Refund;
+      let paymentIntentId = typeof refund.payment_intent === "string" ? refund.payment_intent : refund.payment_intent?.id;
+      if (!paymentIntentId && refund.charge) {
+        const charge = await stripe.charges.retrieve(typeof refund.charge === "string" ? refund.charge : refund.charge.id);
+        paymentIntentId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+      }
+      if (!paymentIntentId) throw new Error("Refund is missing its payment intent");
+      const { data: payment } = await supabaseAdmin.from("drimli_payments").select("id, provider_id, amount_paid, application_fee_amount, currency, paid_at").eq("stripe_payment_intent_id", paymentIntentId).maybeSingle();
+      if (payment) {
+        const { data: stored, error: refundError } = await supabaseAdmin.from("drimli_refunds").upsert({ payment_id: payment.id, stripe_refund_id: refund.id, amount: refund.amount, currency: refund.currency.toUpperCase(), status: refund.status || "pending" }, { onConflict: "stripe_refund_id" }).select("id").single();
+        if (refundError) throw refundError;
+        const allRefunds = await stripe.refunds.list({ payment_intent: paymentIntentId, limit: 100 });
+        const refundedAmount = allRefunds.data.filter((item) => item.status === "succeeded").reduce((sum, item) => sum + item.amount, 0);
+        const intent = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ["latest_charge.application_fee"] });
+        const charge = typeof intent.latest_charge === "object" ? intent.latest_charge : null;
+        const applicationFee = charge && typeof charge.application_fee === "object" ? charge.application_fee : null;
+        await supabaseAdmin.from("drimli_payments").update({ refunded_amount: refundedAmount, refunded_application_fee_amount: applicationFee?.amount_refunded ?? 0, status: refundedAmount === 0 ? "paid" : refundedAmount >= payment.amount_paid ? "refunded" : "partially_refunded", updated_at: new Date().toISOString() }).eq("id", payment.id);
+        if (applicationFee) {
+          await syncRefundedCommissionMovements({
+            admin: supabaseAdmin,
+            stripe,
+            payment,
+            applicationFeeId: applicationFee.id,
+            refundId: stored.id,
+            stripeRefundCreated: refund.created,
+          });
+        }
+        if (refund.status === "succeeded") await ensureClientCreditNote(supabaseAdmin, stored.id, new Date(refund.created * 1000).toISOString());
+      }
+      const { error: completionError } = await supabaseAdmin.from("stripe_webhook_events").update({ processing_status: "completed", processed_at: new Date().toISOString(), last_error: null }).eq("id", event.id);
+      if (completionError) throw completionError;
+      return NextResponse.json({ received: true });
+    }
+
     if (event.type !== "checkout.session.completed") {
       const { error: completionError } = await supabaseAdmin.from("stripe_webhook_events").update({
         processing_status: "completed",
@@ -368,7 +445,9 @@ export async function POST(req: Request) {
       billingSnapshot.amount_total !== session.amount_total ||
       billingSnapshot.currency.toLowerCase() !== session.currency.toLowerCase()
     ) throw new Error("Stripe payment does not match billing snapshot");
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
+      expand: ["latest_charge.application_fee"],
+    });
     if (paymentIntent.application_fee_amount !== billingSnapshot.application_fee_amount) {
       throw new Error("Stripe application fee does not match billing snapshot");
     }
@@ -408,7 +487,12 @@ export async function POST(req: Request) {
       throw new Error(`Failed to record paid appointment: ${upErr.message}`);
     }
 
-    const { error: paymentRecordError } = await supabaseAdmin.from("drimli_payments").upsert({
+    const paidAt = new Date(
+      typeof paymentIntent.latest_charge === "object" && paymentIntent.latest_charge
+        ? paymentIntent.latest_charge.created * 1000
+        : paymentIntent.created * 1000
+    ).toISOString();
+    const { data: paymentRecord, error: paymentRecordError } = await supabaseAdmin.from("drimli_payments").upsert({
       appointment_id: appt.id,
       provider_id: appt.provider_id,
       stripe_checkout_session_id: session.id,
@@ -417,49 +501,93 @@ export async function POST(req: Request) {
       currency: session.currency.toUpperCase(),
       application_fee_amount: billingSnapshot.application_fee_amount,
       status: "paid",
-      paid_at: new Date(session.created * 1000).toISOString(),
+      paid_at: paidAt,
       updated_at: new Date().toISOString(),
-    }, { onConflict: "stripe_checkout_session_id" });
-    if (paymentRecordError) throw paymentRecordError;
+    }, { onConflict: "stripe_checkout_session_id" }).select("id, provider_id, application_fee_amount, currency, paid_at").single();
+    if (paymentRecordError || !paymentRecord) throw paymentRecordError || new Error("Payment record missing");
+
+    let joinToken: string;
+    try {
+      joinToken = await ensureAppointmentJoinToken(appt.id, appt.join_token);
+    } catch {
+      console.error("[APPOINTMENT_PORTAL_ERROR]", {
+        appointmentId: appt.id,
+        providerId: appt.provider_id,
+        stage: "join_token_allocation",
+      });
+      throw new Error("Appointment portal unavailable after payment was recorded");
+    }
 
     const { data: existingClientInvoice } = await supabaseAdmin
       .from("client_invoices")
-      .select("id")
+      .select("*")
       .eq("stripe_checkout_session_id", session.id)
       .maybeSingle();
 
-    if (!existingClientInvoice) {
+    let clientInvoice = existingClientInvoice;
+    if (!clientInvoice) {
       const tax = calculateTaxBreakdown(
         session.amount_total,
         billingSnapshot.vat_regime,
         Number(billingSnapshot.vat_rate)
       );
-      const { data: invoiceNumber, error: numberError } = await supabaseAdmin.rpc(
-        "next_client_invoice_number",
-        { p_provider_id: appt.provider_id, p_invoice_year: new Date().getUTCFullYear(), p_series: "FAC" }
+      const issuedAt = paidAt;
+      const { data: reservedInvoice, error: reserveError } = await supabaseAdmin.rpc(
+        "create_paid_client_invoice",
+        { p_invoice: {
+          provider_id: appt.provider_id, appointment_id: appt.id,
+          product_id: appt.product_id, stripe_checkout_session_id: session.id,
+          stripe_payment_intent_id: paymentIntentId, issued_at: issuedAt,
+          paid_at: paidAt, service_date: appt.start_datetime,
+          issuer_full_name: billingSnapshot.issuer_full_name,
+          issuer_business_name: billingSnapshot.issuer_business_name,
+          issuer_profession: billingSnapshot.issuer_profession,
+          issuer_email: billingSnapshot.issuer_email, issuer_phone: billingSnapshot.issuer_phone,
+          issuer_address: billingSnapshot.issuer_address, issuer_city: billingSnapshot.issuer_city,
+          issuer_postal_code: billingSnapshot.issuer_postal_code,
+          issuer_country: billingSnapshot.issuer_country, issuer_siret: billingSnapshot.issuer_siret,
+          issuer_vat_number: billingSnapshot.issuer_vat_number,
+          customer_name: billingSnapshot.customer_name, customer_email: billingSnapshot.customer_email,
+          customer_phone: billingSnapshot.customer_phone, service_title: billingSnapshot.service_title,
+          service_description: billingSnapshot.service_description,
+          service_duration_minutes: billingSnapshot.service_duration_minutes,
+          total_excluding_tax: tax.totalExcludingTax, vat_rate: tax.vatRate,
+          vat_amount: tax.vatAmount, total_including_tax: session.amount_total,
+          currency: session.currency.toUpperCase(), vat_regime: billingSnapshot.vat_regime,
+          vat_exemption_mention: tax.vatExemptionMention,
+          client_download_token_hash: billingSnapshot.client_download_token_hash,
+        } }
       );
-      if (numberError || !invoiceNumber) throw new Error("Invoice number allocation failed");
+      if (reserveError || !reservedInvoice) throw new Error("Invoice reservation failed");
+      clientInvoice = reservedInvoice;
+    }
 
-      const issuedAt = new Date().toISOString();
+    if (!clientInvoice.file_path) {
       const pdf = await generatePatientInvoicePdf({
-        invoiceNumber,
-        providerName: billingSnapshot.issuer_full_name,
-        providerBusinessName: billingSnapshot.issuer_business_name,
-        providerAddress: billingSnapshot.issuer_address,
-        providerPostalCode: billingSnapshot.issuer_postal_code,
-        providerCity: billingSnapshot.issuer_city,
-        providerCountry: billingSnapshot.issuer_country,
-        providerSiret: billingSnapshot.issuer_siret,
-        providerVatNumber: billingSnapshot.issuer_vat_number,
-        providerVatRate: tax.vatRate,
-        vatExemptionMention: tax.vatExemptionMention,
-        clientName: billingSnapshot.customer_name,
-        clientEmail: billingSnapshot.customer_email,
-        serviceTitle: billingSnapshot.service_title,
-        serviceTtcCents: session.amount_total,
-        issuedAtIso: issuedAt,
+        invoiceNumber: clientInvoice.invoice_number,
+        providerName: clientInvoice.issuer_full_name,
+        providerBusinessName: clientInvoice.issuer_business_name,
+        providerAddress: clientInvoice.issuer_address,
+        providerPostalCode: clientInvoice.issuer_postal_code,
+        providerCity: clientInvoice.issuer_city,
+        providerCountry: clientInvoice.issuer_country,
+        providerSiret: clientInvoice.issuer_siret,
+        providerVatNumber: clientInvoice.issuer_vat_number,
+        providerVatRate: Number(clientInvoice.vat_rate),
+        vatExemptionMention: clientInvoice.vat_exemption_mention,
+        clientName: clientInvoice.customer_name,
+        clientEmail: clientInvoice.customer_email,
+        serviceTitle: clientInvoice.service_title,
+        serviceDescription: clientInvoice.service_description,
+        serviceDurationMinutes: clientInvoice.service_duration_minutes,
+        totalExcludingTax: clientInvoice.total_excluding_tax,
+        vatAmount: clientInvoice.vat_amount,
+        totalIncludingTax: clientInvoice.total_including_tax,
+        currency: clientInvoice.currency,
+        issuedAtIso: clientInvoice.issued_at,
+        serviceDateIso: clientInvoice.service_date,
       });
-      const periodMonth = monthKeyFromIso(issuedAt);
+      const periodMonth = monthKeyFromIso(clientInvoice.issued_at);
       const filePath = `providers/${appt.provider_id}/invoices/${periodMonth}/patient_invoice_${session.id}.pdf`;
       const upload = await supabaseAdmin.storage.from("invoices").upload(filePath, pdf, {
         contentType: "application/pdf",
@@ -467,47 +595,12 @@ export async function POST(req: Request) {
       });
       if (upload.error) throw upload.error;
 
-      const { error: invoiceError } = await supabaseAdmin.from("client_invoices").insert({
-        provider_id: appt.provider_id,
-        appointment_id: appt.id,
-        product_id: appt.product_id,
-        stripe_checkout_session_id: session.id,
-        stripe_payment_intent_id: paymentIntentId,
-        invoice_number: invoiceNumber,
-        status: "paid",
-        issued_at: issuedAt,
-        paid_at: issuedAt,
-        service_date: appt.start_datetime,
-        issuer_full_name: billingSnapshot.issuer_full_name,
-        issuer_business_name: billingSnapshot.issuer_business_name,
-        issuer_profession: billingSnapshot.issuer_profession,
-        issuer_email: billingSnapshot.issuer_email,
-        issuer_phone: billingSnapshot.issuer_phone,
-        issuer_address: billingSnapshot.issuer_address,
-        issuer_city: billingSnapshot.issuer_city,
-        issuer_postal_code: billingSnapshot.issuer_postal_code,
-        issuer_country: billingSnapshot.issuer_country,
-        issuer_siret: billingSnapshot.issuer_siret,
-        issuer_vat_number: billingSnapshot.issuer_vat_number,
-        customer_name: billingSnapshot.customer_name,
-        customer_email: billingSnapshot.customer_email,
-        customer_phone: billingSnapshot.customer_phone,
-        service_title: billingSnapshot.service_title,
-        service_description: billingSnapshot.service_description,
-        service_duration_minutes: billingSnapshot.service_duration_minutes,
-        unit_price_excluding_tax: tax.totalExcludingTax,
-        total_excluding_tax: tax.totalExcludingTax,
-        vat_rate: tax.vatRate,
-        vat_amount: tax.vatAmount,
-        total_including_tax: session.amount_total,
-        currency: session.currency.toUpperCase(),
-        vat_regime: billingSnapshot.vat_regime,
-        vat_exemption_mention: tax.vatExemptionMention,
+      const { error: invoiceError } = await supabaseAdmin.from("client_invoices").update({
         storage_bucket: "invoices",
         file_path: filePath,
-        generated_at: issuedAt,
+        generated_at: new Date().toISOString(),
         content_hash: createHash("sha256").update(pdf).digest("hex"),
-      });
+      }).eq("id", clientInvoice.id).is("file_path", null);
       if (invoiceError) throw invoiceError;
 
       await supabaseAdmin.from("patient_invoices").upsert({
@@ -520,7 +613,21 @@ export async function POST(req: Request) {
       }, { onConflict: "stripe_checkout_session_id" });
     }
 
-    // 2.5) Créer le rendez-vous Google Meet si le professionnel est connecté
+    const paidApplicationFee = await retrieveApplicationFeeWithRetry(
+      paymentIntentId,
+      paymentIntent
+    );
+    if (!paidApplicationFee) {
+      throw new Error("Stripe application fee is not available yet");
+    }
+    await recordCollectedCommission(
+      supabaseAdmin,
+      paymentRecord,
+      paidApplicationFee.id
+    );
+
+    // Effet secondaire : Google Meet ne doit pas bloquer le paiement,
+    // la facture ou le calendrier client.
     try {
       if (
         !appt.video_join_url &&
@@ -599,7 +706,6 @@ export async function POST(req: Request) {
             }
           : {}),
       });
-      throw new Error("Meeting creation failed after payment was recorded");
     }
 
     const { data: reloadedAppointment, error: reloadError } =
@@ -618,41 +724,6 @@ export async function POST(req: Request) {
         stage: "appointment_reload",
         message: "Confirmed appointment could not be reloaded.",
       });
-      throw new Error("Appointment reload failed after payment was recorded");
-    }
-
-    const hasValidMeetUrl = isGoogleMeetUrl(
-      reloadedAppointment.video_join_url
-    );
-
-    if (
-      reloadedAppointment.video_provider !== "google_meet" ||
-      !hasValidMeetUrl
-    ) {
-      console.error("[GOOGLE_MEET_ERROR]", {
-        appointmentId: appt.id,
-        providerId: appt.provider_id,
-        stage: "appointment_reload",
-        message: reloadedAppointment.confirmation_email_sent_at
-          ? "Inconsistent state: email marked sent without a Google Meet URL."
-          : "Google Meet URL is absent after appointment reload.",
-      });
-      throw new Error("Meeting link unavailable after payment was recorded");
-    }
-
-    let joinToken: string;
-    try {
-      joinToken = await ensureAppointmentJoinToken(
-        reloadedAppointment.id,
-        reloadedAppointment.join_token
-      );
-    } catch {
-      console.error("[APPOINTMENT_PORTAL_ERROR]", {
-        appointmentId: appt.id,
-        providerId: appt.provider_id,
-        stage: "join_token_allocation",
-      });
-      throw new Error("Appointment portal unavailable after payment was recorded");
     }
 
     // 3) Charger infos pro + service
@@ -684,8 +755,9 @@ export async function POST(req: Request) {
     }
     const serviceTitle = (prod?.title || "Prestation").toString();
 
-    // 4) Email de confirmation — uniquement après persistance et relecture de Meet
+    // Effet secondaire : l'email peut être retenté sans invalider le paiement.
     if (
+      reloadedAppointment &&
       !reloadedAppointment.confirmation_email_sent_at &&
       reloadedAppointment.client_email &&
       reloadedAppointment.start_datetime &&
@@ -719,14 +791,42 @@ export async function POST(req: Request) {
             "Confirmation email was sent but its status could not be stored."
           );
         }
-      } catch {
+      } catch (error: unknown) {
+        const errorRecord =
+          typeof error === "object" && error !== null
+            ? (error as Record<string, unknown>)
+            : null;
+        const sanitizedMessage = errorMessage(error)
+          .replace(
+            /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,
+            "[email redacted]"
+          )
+          .replace(
+            /(?:re_|sk_(?:live|test)_|whsec_)[A-Za-z0-9_-]+/g,
+            "[secret redacted]"
+          );
+        const resendCode = errorRecord?.code;
+        const resendStatus = errorRecord?.statusCode ?? errorRecord?.status;
+
         console.error("[GOOGLE_MEET_ERROR]", {
           appointmentId: appt.id,
           providerId: appt.provider_id,
           stage: "email_send",
-          message: safeMeetFailureMessage("email_send"),
+          errorType:
+            typeof errorRecord?.name === "string"
+              ? errorRecord.name
+              : error instanceof Error
+                ? error.constructor.name
+                : typeof error,
+          message: sanitizedMessage,
+          ...(typeof resendCode === "string" || typeof resendCode === "number"
+            ? { code: resendCode }
+            : {}),
+          ...(typeof resendStatus === "string" ||
+          typeof resendStatus === "number"
+            ? { status: resendStatus }
+            : {}),
         });
-        throw new Error("Confirmation email failed after payment was recorded");
       }
     }
 

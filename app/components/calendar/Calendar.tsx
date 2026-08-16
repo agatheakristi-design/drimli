@@ -225,6 +225,10 @@ export default function Calendar() {
           }
           setPanelMode(panelMode === "settings" ? null : "settings");
         }}
+        onRefunds={() => {
+          setSelectedAppointment(null);
+          setPanelMode(panelMode === "refunds" ? null : "refunds");
+        }}
       />
 
       <main className={styles.calendarContent}>

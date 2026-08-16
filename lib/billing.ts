@@ -46,3 +46,16 @@ export function refundDestinationChargePolicy(amount: number) {
     refund_application_fee: true as const,
   };
 }
+
+export function cancellationRefundAmount(
+  choice: "full" | "partial" | "none",
+  remainingAmount: number,
+  partialAmount?: number
+) {
+  if (choice === "none") return null;
+  if (choice === "full") return remainingAmount;
+  if (!Number.isInteger(partialAmount) || partialAmount! <= 0 || partialAmount! >= remainingAmount) {
+    throw new Error("Invalid partial refund amount");
+  }
+  return partialAmount!;
+}

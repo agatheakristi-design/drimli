@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { X } from "lucide-react";
 import Settings from "./Settings";
 import AppointmentDetails from "./AppointmentDetails";
+import RefundsList from "./RefundsList";
 import type {
   Availability,
   CalendarAppointment,
@@ -58,7 +59,9 @@ export default function CalendarPanel({
         <h2>
           {mode === "appointment"
             ? "Détail du rendez-vous"
-            : "Configuration du calendrier"}
+            : mode === "refunds"
+              ? "Remboursements"
+              : "Configuration du calendrier"}
         </h2>
 
         <button
@@ -77,6 +80,8 @@ export default function CalendarPanel({
             appointment={appointment}
             onAppointmentChanged={onCalendarChanged}
           />
+        ) : mode === "refunds" ? (
+          <RefundsList />
         ) : (
           <Settings
             onCalendarChanged={onCalendarChanged}

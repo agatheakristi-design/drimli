@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/app/components/ui/Button";
 import { useRouter } from "next/navigation";
+import styles from "./dashboard.module.css";
 
 type Product = {
   id: string;
@@ -374,7 +375,19 @@ export default function ServicesManager({
 
           {showFormArea && (
             <>
-              <section style={{ marginTop: 20, border: "1px solid var(--border)", borderRadius: 14, padding: 16 }}>
+              <section
+                className={embedded ? styles.embeddedServiceForm : undefined}
+                style={
+                  embedded
+                    ? undefined
+                    : {
+                        marginTop: 20,
+                        border: "1px solid var(--border)",
+                        borderRadius: 14,
+                        padding: 16,
+                      }
+                }
+              >
                 <div style={{ display: "grid", gap: 12 }}>
                   <label style={{ display: "grid", gap: 6 }}>
                     <strong>Nom du service *</strong>

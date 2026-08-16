@@ -31,7 +31,14 @@ type ProfileRow = {
   profession: string | null;
   description: string | null;
   avatar_url: string | null;
+  cancellation_policy: "flexible" | "moderate" | "non_refundable" | null;
 };
+
+function cancellationPolicyLabel(policy: ProfileRow["cancellation_policy"]) {
+  if (policy === "moderate") return "Remboursement possible jusqu’à 48 h avant le rendez-vous";
+  if (policy === "non_refundable") return "Réservation non remboursable après paiement";
+  return "Remboursement possible jusqu’à 24 h avant le rendez-vous";
+}
 
 function formatParisTime(iso: string) {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -177,7 +184,7 @@ export default function Page() {
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("full_name, profession, description, avatar_url")
+        .select("full_name, profession, description, avatar_url, cancellation_policy")
         .eq("provider_id", data.provider_id)
         .maybeSingle<ProfileRow>();
 
@@ -547,7 +554,7 @@ export default function Page() {
                 </p>
                 <p>
                   <CalendarDays size={18} aria-hidden="true" />
-                  Annulation possible jusqu&apos;à 24 h avant
+                  {cancellationPolicyLabel(profile?.cancellation_policy ?? null)}
                 </p>
               </div>
             </Card>

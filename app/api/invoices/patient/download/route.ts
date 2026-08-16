@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -18,6 +19,7 @@ const supabaseAdmin = createClient(
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const sessionId = searchParams.get("session_id");
+  const token = searchParams.get("token");
 
   if (!sessionId) {
     return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
@@ -25,7 +27,7 @@ export async function GET(req: Request) {
 
   const { data: currentInvoice } = await supabaseAdmin
     .from("client_invoices")
-    .select("storage_bucket, file_path")
+    .select("storage_bucket, file_path, client_download_token_hash")
     .eq("stripe_checkout_session_id", sessionId)
     .maybeSingle();
 
@@ -33,7 +35,16 @@ export async function GET(req: Request) {
     ? { bucket: currentInvoice.storage_bucket, file_path: currentInvoice.file_path }
     : null;
 
-  if (!row) {
+  if (currentInvoice?.client_download_token_hash) {
+    if (!token) return NextResponse.json({ error: "Invoice token required" }, { status: 403 });
+    const actual = Buffer.from(createHash("sha256").update(token).digest("hex"));
+    const expected = Buffer.from(currentInvoice.client_download_token_hash);
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+      return NextResponse.json({ error: "Invalid invoice token" }, { status: 403 });
+    }
+  }
+
+  if (!row && !currentInvoice) {
     const legacy = await supabaseAdmin
       .from("patient_invoices")
       .select("bucket, file_path")

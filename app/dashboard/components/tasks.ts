@@ -43,9 +43,9 @@ export const tasks = [
     done: false,
   },
   {
-    label: "Facturation automatique",
+    label: "Facturation",
     description: "Générez automatiquement vos factures.",
-    href: "/dashboard/factures",
+    href: null,
     done: false,
   },
 ];

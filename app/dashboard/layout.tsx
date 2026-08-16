@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import DashboardGate from "@/app/components/DashboardGate";
 import Sidebar from "./components/Sidebar";
 import ProfessionalDetailsPanel from "./components/ProfessionalDetailsPanel";
+import DrimliInvoicesPanel from "./components/DrimliInvoicesPanel";
 import styles from "./components/dashboard.module.css";
 
 export default function DashboardLayout({
@@ -16,6 +17,7 @@ export default function DashboardLayout({
   const [fullName, setFullName] = useState("Professionnel");
   const [email, setEmail] = useState("");
   const [professionalDetailsOpen, setProfessionalDetailsOpen] = useState(false);
+  const [drimliInvoicesOpen, setDrimliInvoicesOpen] = useState(false);
 
   const openProfessionalDetails = useCallback(() => {
     setProfessionalDetailsOpen(true);
@@ -62,6 +64,7 @@ export default function DashboardLayout({
           fullName={fullName}
           email={email}
           onEditProfessionalDetails={openProfessionalDetails}
+          onOpenDrimliInvoices={() => setDrimliInvoicesOpen(true)}
         />
 
         <main className={styles.main}>
@@ -72,6 +75,10 @@ export default function DashboardLayout({
           open={professionalDetailsOpen}
           onClose={closeProfessionalDetails}
           onSaved={setFullName}
+        />
+        <DrimliInvoicesPanel
+          open={drimliInvoicesOpen}
+          onClose={() => setDrimliInvoicesOpen(false)}
         />
       </div>
     </DashboardGate>

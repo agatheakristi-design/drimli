@@ -44,7 +44,7 @@ function addOneDay(date: string) {
   return value.toISOString().slice(0, 10);
 }
 
-export function generateSlots(params: {
+function generateSlots(params: {
   date: string;
   openingTime: string;
   closingTime: string;

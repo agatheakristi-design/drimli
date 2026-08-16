@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 import Container from "@/app/components/ui/Container";
@@ -10,8 +9,6 @@ import Card from "@/app/components/ui/Card";
 import DrimpayOnboarding from "@/app/dashboard/components/DrimpayOnboarding";
 
 export default function PaiementsPage() {
-  const router = useRouter();
-
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
 
@@ -67,11 +64,7 @@ export default function PaiementsPage() {
 
           {status ? <p>{status}</p> : null}
 
-          <DrimpayOnboarding
-            onDone={() => {
-              router.push("/dashboard");
-            }}
-          />
+          <DrimpayOnboarding />
         </div>
       </Card>
     </Container>

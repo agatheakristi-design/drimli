@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomBytes, createHash } from "node:crypto";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
     // 1) Load appointment
     const { data: appt, error: apptErr } = await supabaseAdmin
       .from("appointments")
-      .select("id, provider_id, product_id, start_datetime, end_datetime, status, client_name, client_email, client_phone")
+      .select("id, provider_id, product_id, start_datetime, end_datetime, status, client_name, client_email, client_phone, cancellation_policy, cancellation_refund_deadline_hours")
       .eq("id", appointmentId)
       .maybeSingle();
 
@@ -151,6 +152,8 @@ export async function POST(req: Request) {
 
     // The 5% total commission includes Stripe processing fees.
     const feeCents = calculateDrimliFee(amount);
+    const invoiceToken = randomBytes(32).toString("base64url");
+    const invoiceTokenHash = createHash("sha256").update(invoiceToken).digest("hex");
 
 const appUrl = (
 
@@ -187,7 +190,7 @@ const appUrl = (
           drimli_commission_rate: "0.05",
         },
       },
-      success_url: `${appUrl}/paiement/succes?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${appUrl}/paiement/succes?session_id={CHECKOUT_SESSION_ID}&invoice_token=${encodeURIComponent(invoiceToken)}`,
       cancel_url: `${appUrl}/paiement/annule?appointmentId=${encodeURIComponent(appointmentId)}`,
       metadata: {
         appointment_id: appt.id,
@@ -208,6 +211,7 @@ const appUrl = (
         amount_total: amount,
         currency: "EUR",
         application_fee_amount: feeCents,
+        client_download_token_hash: invoiceTokenHash,
         issuer_full_name: String(prof.full_name).trim(),
         issuer_business_name: prof.business_name || null,
         issuer_profession: prof.profession || null,
@@ -227,6 +231,8 @@ const appUrl = (
         service_title: product.title || "Prestation",
         service_description: product.description || null,
         service_duration_minutes: product.duration_minutes || null,
+        cancellation_policy: appt.cancellation_policy,
+        cancellation_refund_deadline_hours: appt.cancellation_refund_deadline_hours,
       });
 
     if (snapshotError) {

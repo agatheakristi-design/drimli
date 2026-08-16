@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { refundDestinationChargePolicy } from "@/lib/billing";
+import { ensureClientCreditNote } from "@/lib/clientCreditNotes";
+import { syncRefundedCommissionMovements } from "@/lib/drimliCommissionLedger";
 
 export const runtime = "nodejs";
 
@@ -30,7 +32,7 @@ export async function POST(request: Request) {
 
   const { data: payment, error } = await supabaseAdmin
     .from("drimli_payments")
-    .select("id, provider_id, stripe_payment_intent_id, amount_paid, refunded_amount, currency")
+    .select("id, provider_id, stripe_payment_intent_id, amount_paid, application_fee_amount, refunded_amount, currency, paid_at")
     .eq("appointment_id", body.appointmentId)
     .maybeSingle();
   if (error || !payment) return NextResponse.json({ error: "Payment not found" }, { status: 404 });
@@ -38,55 +40,115 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const remaining = payment.amount_paid - payment.refunded_amount;
-  const amount = body.amountCents === undefined ? remaining : Number(body.amountCents);
-  if (!Number.isInteger(amount) || amount <= 0 || amount > remaining) {
+  const existingRefunds = await stripe.refunds.list({
+    payment_intent: payment.stripe_payment_intent_id,
+    limit: 100,
+  });
+  const stripeRefundedAmount = existingRefunds.data
+    .filter((refund) => refund.status === "succeeded")
+    .reduce((sum, refund) => sum + refund.amount, 0);
+  const existingAppointmentRefund = existingRefunds.data.find(
+    (refund) =>
+      refund.status === "succeeded" &&
+      refund.metadata?.appointment_id === body.appointmentId
+  );
+  const remaining = payment.amount_paid - stripeRefundedAmount;
+  const requestedAmount = body.amountCents === undefined ? remaining : Number(body.amountCents);
+  if (remaining > 0 && (!Number.isInteger(requestedAmount) || requestedAmount <= 0 || requestedAmount > remaining)) {
     return NextResponse.json({ error: "Invalid refund amount" }, { status: 400 });
   }
 
+  let completedRefund: Stripe.Refund | null = null;
   try {
-    const refund = await stripe.refunds.create(
-      {
-        payment_intent: payment.stripe_payment_intent_id,
-        ...refundDestinationChargePolicy(amount),
-        metadata: { appointment_id: body.appointmentId, payment_id: payment.id },
-      },
-      { idempotencyKey: `appointment-refund/${payment.id}/${payment.refunded_amount}/${amount}` }
-    );
+    const createsRefund = !existingAppointmentRefund && remaining > 0;
+    const refund = !createsRefund
+      ? existingAppointmentRefund ?? existingRefunds.data.find((item) => item.status === "succeeded") ?? null
+      : await stripe.refunds.create(
+          {
+            payment_intent: payment.stripe_payment_intent_id,
+            ...refundDestinationChargePolicy(requestedAmount),
+            metadata: { appointment_id: body.appointmentId, payment_id: payment.id },
+          },
+          { idempotencyKey: `appointment-refund/${payment.id}/${stripeRefundedAmount}/${requestedAmount}` }
+        );
+
+    if (!refund) {
+      return NextResponse.json({ error: "Refund state unavailable" }, { status: 409 });
+    }
 
     const refundSucceeded = refund.status === "succeeded";
-    const refundedAmount = payment.refunded_amount + (refundSucceeded ? amount : 0);
+    if (refundSucceeded) completedRefund = refund;
+    const refundedAmount = refundSucceeded
+      ? Math.min(payment.amount_paid, stripeRefundedAmount + (createsRefund ? requestedAmount : 0))
+      : stripeRefundedAmount;
     const status = refundSucceeded
       ? refundedAmount === payment.amount_paid
         ? "refunded"
         : "partially_refunded"
       : "paid";
-    const { error: refundStoreError } = await supabaseAdmin.from("drimli_refunds").upsert({
-      payment_id: payment.id,
-      stripe_refund_id: refund.id,
-      amount,
-      currency: payment.currency,
-      status: refund.status ?? "pending",
-    }, { onConflict: "stripe_refund_id" });
-    if (refundStoreError) throw refundStoreError;
-
     if (refundSucceeded) {
+      const paymentIntent = await stripe.paymentIntents.retrieve(payment.stripe_payment_intent_id, { expand: ["latest_charge.application_fee"] });
+      const charge = typeof paymentIntent.latest_charge === "object" ? paymentIntent.latest_charge : null;
+      const applicationFee = charge && typeof charge.application_fee === "object" ? charge.application_fee : null;
+      const refundedApplicationFeeAmount = applicationFee?.amount_refunded ?? 0;
       const { data: updatedPayment, error: paymentUpdateError } = await supabaseAdmin
         .from("drimli_payments")
-        .update({ refunded_amount: refundedAmount, status, updated_at: new Date().toISOString() })
+        .update({ refunded_amount: refundedAmount, refunded_application_fee_amount: refundedApplicationFeeAmount, status, updated_at: new Date().toISOString() })
         .eq("id", payment.id)
-        .eq("refunded_amount", payment.refunded_amount)
         .select("id")
         .maybeSingle();
       if (paymentUpdateError || !updatedPayment) throw new Error("Refund state update conflict");
+      const { error: appointmentUpdateError } = await supabaseAdmin
+        .from("appointments")
+        .update({ status: "cancelled_by_provider" })
+        .eq("id", body.appointmentId)
+        .eq("provider_id", payment.provider_id);
+      if (appointmentUpdateError) throw new Error("Appointment cancellation state update failed");
+
+      try {
+        const { data: storedRefund, error: refundStoreError } = await supabaseAdmin.from("drimli_refunds").upsert({
+          payment_id: payment.id,
+          stripe_refund_id: refund.id,
+          amount: refund.amount,
+          currency: payment.currency,
+          status: refund.status ?? "pending",
+        }, { onConflict: "stripe_refund_id" }).select("id").single();
+        if (refundStoreError || !storedRefund) throw refundStoreError || new Error("Refund record missing");
+        if (applicationFee) {
+          await syncRefundedCommissionMovements({
+            admin: supabaseAdmin,
+            stripe,
+            payment,
+            applicationFeeId: applicationFee.id,
+            refundId: storedRefund.id,
+            stripeRefundCreated: refund.created,
+          });
+        }
+        await ensureClientCreditNote(supabaseAdmin, storedRefund.id, new Date(refund.created * 1000).toISOString());
+      } catch (secondaryError: unknown) {
+        console.error("[REFUND_SECONDARY_PROCESSING_ERROR]", {
+          appointmentId: body.appointmentId,
+          refundId: refund.id,
+          message: secondaryError instanceof Error ? secondaryError.message : "unknown",
+        });
+      }
     }
 
-    return NextResponse.json({ refundId: refund.id, amount, status });
+    return NextResponse.json({ refundId: refund.id, amount: refund.amount, status });
   } catch (refundError: unknown) {
     console.error("[STRIPE_REFUND_ERROR]", {
       appointmentId: body.appointmentId,
       message: refundError instanceof Error ? refundError.message : "unknown",
     });
+    if (completedRefund) {
+      return NextResponse.json({
+        refundId: completedRefund.id,
+        amount: completedRefund.amount,
+        status: "succeeded",
+        reconciliationRequired: true,
+        error: "Refund succeeded; reconciliation is pending",
+      }, { status: 202 });
+    }
     return NextResponse.json({ error: "Refund failed" }, { status: 500 });
   }
 }

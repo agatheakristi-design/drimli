@@ -18,6 +18,7 @@ function PaiementSuccesContent() {
   const sp = useSearchParams();
   const router = useRouter();
   const sessionId = sp.get("session_id");
+  const invoiceToken = sp.get("invoice_token");
 
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
@@ -135,7 +136,7 @@ function PaiementSuccesContent() {
           className={`${styles.action} ${styles.progressiveAction} ${
             invoiceVisible ? styles.progressiveActionVisible : ""
           }`}
-          href={`/api/invoices/patient/download?session_id=${encodeURIComponent(sessionId ?? "")}`}
+          href={`/api/invoices/patient/download?session_id=${encodeURIComponent(sessionId ?? "")}&token=${encodeURIComponent(invoiceToken ?? "")}`}
         >
           <FileText aria-hidden="true" />
           <span>Télécharger la facture</span>
