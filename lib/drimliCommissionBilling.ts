@@ -81,7 +81,7 @@ function frenchDate(iso: string) {
 }
 
 function issuerBlock(issuer: Record<string, string>) {
-  return `<strong>${escapeHtml(issuer.tradeName)}</strong><br>${escapeHtml(issuer.legalName)} – ${escapeHtml(issuer.legalForm)} au capital de ${escapeHtml(issuer.capital)}<br>${escapeHtml(issuer.address)}<br>${escapeHtml(issuer.postalCode)} ${escapeHtml(issuer.city)}, ${escapeHtml(issuer.country)}<br>SIREN : ${escapeHtml(issuer.siren)}<br>RCS : ${escapeHtml(issuer.rcs)}<br>TVA : ${escapeHtml(issuer.vatNumber)}`;
+  return `<strong>${escapeHtml(issuer.tradeName)}</strong><br>${escapeHtml(issuer.legalName)} – ${escapeHtml(issuer.legalForm)}<br>${escapeHtml(issuer.address)}<br>${escapeHtml(issuer.postalCode)} ${escapeHtml(issuer.city)}, ${escapeHtml(issuer.country)}<br>SIREN : ${escapeHtml(issuer.siren)}<br>RCS : ${escapeHtml(issuer.rcs)}<br>TVA : ${escapeHtml(issuer.vatNumber)}`;
 }
 
 function customerBlock(customer: Record<string, string | null>) {
