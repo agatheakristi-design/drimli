@@ -1,8 +1,11 @@
 import { tasks } from "./tasks";
 import styles from "./dashboard.module.css";
 
-export default function ProgressCard() {
-  const completedTasks = tasks.filter((task) => task.done).length;
+export default function ProgressCard({
+  completedTasks,
+}: {
+  completedTasks: number;
+}) {
   const progress = Math.round((completedTasks / tasks.length) * 100);
 
   return (

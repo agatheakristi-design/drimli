@@ -22,7 +22,11 @@ import ServicesManager from "./ServicesManager";
 import { tasks } from "./tasks";
 import styles from "./dashboard.module.css";
 
-export default function TaskList() {
+export default function TaskList({
+  onCompletedTasksChange,
+}: {
+  onCompletedTasksChange: (completedTasks: number) => void;
+}) {
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   const [userId, setUserId] = useState<string | null>(null);
@@ -248,6 +252,10 @@ export default function TaskList() {
   const completedTasks = tasks.filter((task) =>
     isTaskDone(task.label, task.done)
   ).length;
+
+  useEffect(() => {
+    onCompletedTasksChange(completedTasks);
+  }, [completedTasks, onCompletedTasksChange]);
 
   return (
     <section className={styles.tasksPanel}>
