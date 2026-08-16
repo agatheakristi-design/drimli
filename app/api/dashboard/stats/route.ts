@@ -7,11 +7,9 @@ export async function GET(request: Request) {
   const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   const { data: auth } = await admin.auth.getUser(token);
   if (!auth.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const now = new Date();
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString();
-  const { data, error } = await admin.from("drimli_payments").select("amount_paid, refunded_amount").eq("provider_id", auth.user.id).gte("paid_at", start).lt("paid_at", end);
+  const { data, error } = await admin.from("drimli_payments").select("amount_paid, refunded_amount").eq("provider_id", auth.user.id);
   if (error) return NextResponse.json({ error: "Unable to load revenue" }, { status: 500 });
   const grossRevenue = (data || []).reduce((sum, row) => sum + row.amount_paid - row.refunded_amount, 0);
-  return NextResponse.json({ grossRevenue });
+  const salesCount = (data || []).filter((row) => row.refunded_amount < row.amount_paid).length;
+  return NextResponse.json({ grossRevenue, salesCount });
 }
