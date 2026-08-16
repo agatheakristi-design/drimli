@@ -9,6 +9,7 @@ import ProgressCard from "./components/ProgressCard";
 import PublicLinkCard from "./components/PublicLinkCard";
 import TaskList from "./components/TaskList";
 import StatsPanel from "./components/StatsPanel";
+import { tasks } from "./components/tasks";
 
 import styles from "./components/dashboard.module.css";
 
@@ -17,6 +18,9 @@ export default function DashboardPage() {
   const [slug, setSlug] = useState<string | null>(null);
   const [published, setPublished] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [completedTasks, setCompletedTasks] = useState(
+    tasks.filter((task) => task.done).length
+  );
 
   useEffect(() => {
     async function load() {
@@ -54,7 +58,7 @@ export default function DashboardPage() {
       <WelcomeCard fullName={fullName} />
 
       <div className={styles.metaGrid}>
-        <ProgressCard />
+        <ProgressCard completedTasks={completedTasks} />
         <PublicLinkCard
           slug={slug}
           published={published}
@@ -63,7 +67,7 @@ export default function DashboardPage() {
       </div>
 
       <div className={styles.contentGrid}>
-        <TaskList />
+        <TaskList onCompletedTasksChange={setCompletedTasks} />
         <StatsPanel />
       </div>
     </>
