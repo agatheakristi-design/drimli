@@ -72,7 +72,7 @@ export default function StatsPanel() {
 
       const response = await fetch("/api/dashboard/stats", { headers: { Authorization: `Bearer ${accessToken}` } });
       const payload = await response.json().catch(() => null);
-      if (!cancelled) setRevenueCents(response.ok ? Number(payload?.professionalRevenue || 0) : 0);
+      if (!cancelled) setRevenueCents(response.ok ? Number(payload?.grossRevenue || 0) : 0);
     }
 
     loadStats();
@@ -111,7 +111,7 @@ export default function StatsPanel() {
       </div>
 
       <div className={styles.statsCard}>
-        <span className={styles.statsLabel}>Net professionnel</span>
+        <span className={styles.statsLabel}>Revenus</span>
         <strong className={styles.statsValue}>{formattedRevenue}</strong>
         <span className={styles.statsDelta}>
           <ArrowUpRight size={14} />
