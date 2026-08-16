@@ -12,7 +12,6 @@ import styles from "./dashboard.module.css";
 type SidebarProps = {
   fullName: string;
   email: string;
-  onEditProfessionalDetails: () => void;
   onOpenDrimliInvoices: () => void;
 };
 
@@ -43,7 +42,6 @@ function getInitials(fullName: string) {
 export default function Sidebar({
   fullName,
   email,
-  onEditProfessionalDetails,
   onOpenDrimliInvoices,
 }: SidebarProps) {
   const pathname = usePathname();
@@ -80,8 +78,8 @@ export default function Sidebar({
         <button
           type="button"
           className={styles.accountButton}
-          onClick={onEditProfessionalDetails}
-          aria-label="Modifier mes informations professionnelles"
+          onClick={onOpenDrimliInvoices}
+          aria-label="Ouvrir mes factures Drimli"
         >
           <div className={styles.accountAvatar}>
             {getInitials(fullName)}
@@ -91,14 +89,6 @@ export default function Sidebar({
             <strong>{fullName}</strong>
             <span>{email}</span>
           </div>
-        </button>
-
-        <button
-          type="button"
-          className={styles.accountTextAction}
-          onClick={onOpenDrimliInvoices}
-        >
-          Factures Drimli
         </button>
 
         <div className={styles.signOut}>
