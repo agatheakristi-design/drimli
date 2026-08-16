@@ -9,15 +9,8 @@ type PageViewRow = {
   views: number | string | null;
 };
 
-function toDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 export default function StatsPanel() {
-  const [reservations, setReservations] = useState(0);
+  const [sales, setSales] = useState(0);
   const [revenueCents, setRevenueCents] = useState(0);
   const [views, setViews] = useState(0);
 
@@ -31,21 +24,10 @@ export default function StatsPanel() {
 
       if (!user || !accessToken) return;
 
-      const now = new Date();
-
-      const monthStartDate = toDateKey(
-        new Date(now.getFullYear(), now.getMonth(), 1)
-      );
-      const nextMonthStartDate = toDateKey(
-        new Date(now.getFullYear(), now.getMonth() + 1, 1)
-      );
-
       const { data: pageViews } = await supabase
         .from("professional_page_views_daily")
         .select("views")
-        .eq("provider_id", user.id)
-        .gte("view_date", monthStartDate)
-        .lt("view_date", nextMonthStartDate);
+        .eq("provider_id", user.id);
 
       const viewTotal = ((pageViews ?? []) as PageViewRow[]).reduce(
         (total, row) => {
@@ -59,20 +41,12 @@ export default function StatsPanel() {
         setViews(viewTotal);
       }
 
-      const { count } = await supabase
-        .from("appointments")
-        .select("id", { count: "exact", head: true })
-        .eq("provider_id", user.id)
-        .eq("status", "confirmed")
-        .gte("start_datetime", now.toISOString());
-
-      if (!cancelled) {
-        setReservations(count ?? 0);
-      }
-
       const response = await fetch("/api/dashboard/stats", { headers: { Authorization: `Bearer ${accessToken}` } });
       const payload = await response.json().catch(() => null);
-      if (!cancelled) setRevenueCents(response.ok ? Number(payload?.grossRevenue || 0) : 0);
+      if (!cancelled) {
+        setRevenueCents(response.ok ? Number(payload?.grossRevenue || 0) : 0);
+        setSales(response.ok ? Number(payload?.salesCount || 0) : 0);
+      }
     }
 
     loadStats();
@@ -97,16 +71,16 @@ export default function StatsPanel() {
         </strong>
         <span className={styles.statsDelta}>
           <Eye size={14} />
-          Ce mois-ci
+          Depuis votre inscription
         </span>
       </div>
 
       <div className={styles.statsCard}>
-        <span className={styles.statsLabel}>Réservations</span>
-        <strong className={styles.statsValue}>{reservations}</strong>
+        <span className={styles.statsLabel}>Rendez-vous</span>
+        <strong className={styles.statsValue}>{sales}</strong>
         <span className={styles.statsDelta}>
           <ArrowUpRight size={14} />
-          À venir
+          Depuis votre inscription
         </span>
       </div>
 
@@ -115,7 +89,7 @@ export default function StatsPanel() {
         <strong className={styles.statsValue}>{formattedRevenue}</strong>
         <span className={styles.statsDelta}>
           <ArrowUpRight size={14} />
-          Ce mois-ci
+          Depuis votre inscription
         </span>
       </div>
 
