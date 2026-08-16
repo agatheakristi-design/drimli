@@ -49,6 +49,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Page introuvable." }, { status: 404 });
   }
 
+  const authorization = request.headers.get("authorization");
+  const accessToken = authorization?.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length)
+    : null;
+
+  if (accessToken) {
+    const {
+      data: { user },
+    } = await supabaseAdmin.auth.getUser(accessToken);
+
+    if (user?.id === profile.provider_id) {
+      return new NextResponse(null, {
+        status: 204,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+  }
+
   const { error: incrementError } = await supabaseAdmin.rpc(
     "increment_professional_page_view",
     { p_provider_id: profile.provider_id }
