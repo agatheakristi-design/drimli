@@ -71,16 +71,16 @@ export default function StatsPanel() {
         </strong>
         <span className={styles.statsDelta}>
           <Eye size={14} />
-          Depuis votre inscription
+          Visites de votre page depuis sa mise en ligne
         </span>
       </div>
 
       <div className={styles.statsCard}>
-        <span className={styles.statsLabel}>Rendez-vous</span>
+        <span className={styles.statsLabel}>Réservation</span>
         <strong className={styles.statsValue}>{sales}</strong>
         <span className={styles.statsDelta}>
           <ArrowUpRight size={14} />
-          Depuis votre inscription
+          Réservations prises via votre page Drimli depuis sa création
         </span>
       </div>
 
@@ -89,7 +89,7 @@ export default function StatsPanel() {
         <strong className={styles.statsValue}>{formattedRevenue}</strong>
         <span className={styles.statsDelta}>
           <ArrowUpRight size={14} />
-          Depuis votre inscription
+          Générés via Drimli depuis votre inscription
         </span>
       </div>
 
