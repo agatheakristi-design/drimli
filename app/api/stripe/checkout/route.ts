@@ -7,6 +7,8 @@ import {
   stripeAccountState,
 } from "@/lib/stripeConnect";
 import { calculateDrimliFee } from "@/lib/billing";
+import { isWithinRefundableHoldLimit } from "@/lib/payoutPolicy";
+import { setConnectedAccountPayoutMode } from "@/lib/stripePayouts";
 
 export const runtime = "nodejs";
 
@@ -116,6 +118,21 @@ export async function POST(req: Request) {
         transfers: destinationState.transfers,
       });
       return stripeAccountNotReady();
+    }
+
+    if (appt.cancellation_policy === "moderate") {
+      if (!isWithinRefundableHoldLimit(new Date(), appt.end_datetime)) {
+        return NextResponse.json(
+          { error: "La date du rendez-vous dépasse la limite de conservation Stripe." },
+          { status: 409 }
+        );
+      }
+      await setConnectedAccountPayoutMode(stripe, destinationAccount.id, "manual");
+      const { error: modeError } = await supabaseAdmin
+        .from("profiles")
+        .update({ drimli_payout_mode: "manual" })
+        .eq("provider_id", appt.provider_id);
+      if (modeError) throw modeError;
     }
 
     const requiredInvoiceFields: Array<[string, unknown]> = [

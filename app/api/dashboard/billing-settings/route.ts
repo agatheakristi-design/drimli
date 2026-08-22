@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { resolveStripeAccountId } from "@/lib/stripeConnect";
+import { isSelectablePolicy, REFUNDABLE_POLICY } from "@/lib/payoutPolicy";
+import { setConnectedAccountPayoutMode } from "@/lib/stripePayouts";
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,7 +12,7 @@ const admin = createClient(
 );
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-const profileFields = "first_name, last_name, full_name, business_name, address, postal_code, city, country, siret, vat_regime, vat_number, vat_rate, cancellation_policy, billing_information_validated_at, stripe_account_id, stripe_connect_account_id";
+const profileFields = "first_name, last_name, full_name, business_name, address, postal_code, city, country, siret, vat_regime, vat_number, vat_rate, cancellation_policy, billing_information_validated_at, stripe_account_id, stripe_connect_account_id, drimli_payout_mode";
 
 async function authenticatedProfile(request: Request) {
   const authorization = request.headers.get("authorization") ?? "";
@@ -44,7 +46,7 @@ export async function GET(request: Request) {
     vat_regime: text(profile.vat_regime) || "franchise_base",
     vat_number: text(profile.vat_number),
     vat_rate: profile.vat_rate == null ? "" : String(Number(profile.vat_rate) * 100),
-    cancellation_policy: text(profile.cancellation_policy) || "flexible",
+    cancellation_policy: text(profile.cancellation_policy) || "non_refundable",
   };
 
   const resolved = resolveStripeAccountId(profile);
@@ -91,11 +93,33 @@ export async function PUT(request: Request) {
   if (!['franchise_base', 'standard'].includes(vatRegime)) {
     return NextResponse.json({ error: "Choisissez un régime de TVA." }, { status: 400 });
   }
-  if (!['flexible', 'moderate', 'non_refundable'].includes(policy)) {
+  if (!isSelectablePolicy(policy)) {
     return NextResponse.json({ error: "Choisissez une politique d’annulation." }, { status: 400 });
   }
   if (vatRegime === "standard" && (!text(body.vat_number) || !Number.isFinite(vatPercent) || vatPercent! <= 0 || vatPercent! > 100)) {
     return NextResponse.json({ error: "Indiquez le numéro et le taux de TVA applicables." }, { status: 400 });
+  }
+
+  const resolved = resolveStripeAccountId(authenticated.profile);
+  if (resolved.conflict) {
+    return NextResponse.json({ error: "Les informations du compte Stripe sont incohérentes." }, { status: 409 });
+  }
+
+  let payoutMode = text(authenticated.profile.drimli_payout_mode) || "automatic";
+  if (policy === REFUNDABLE_POLICY) {
+    if (!resolved.accountId) {
+      return NextResponse.json({ error: "Configurez Stripe Connect avant d’activer les remboursements." }, { status: 409 });
+    }
+    try {
+      await setConnectedAccountPayoutMode(stripe, resolved.accountId, "manual");
+      payoutMode = "manual";
+    } catch (payoutError) {
+      console.error("[PAYOUT_MODE_UPDATE_FAILED]", {
+        providerId: authenticated.userId,
+        type: payoutError instanceof Error ? payoutError.name : "unknown",
+      });
+      return NextResponse.json({ error: "Impossible de sécuriser les virements Stripe." }, { status: 502 });
+    }
   }
 
   const { error } = await admin.from("profiles").update({
@@ -112,6 +136,7 @@ export async function PUT(request: Request) {
     vat_number: vatRegime === "standard" ? text(body.vat_number) : null,
     vat_rate: vatRegime === "standard" ? vatPercent! / 100 : 0,
     cancellation_policy: policy,
+    drimli_payout_mode: payoutMode,
     billing_information_validated_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }).eq("provider_id", authenticated.userId);

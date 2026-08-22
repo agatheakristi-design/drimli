@@ -5,6 +5,7 @@ import {
   isSlotStartAllowed,
   providerTimeZone,
 } from "@/lib/booking/slotCutoff";
+import { isWithinRefundableHoldLimit, refundDeadlineHours } from "@/lib/payoutPolicy";
 
 function isUuid(v: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -137,14 +138,18 @@ export async function POST(req: Request) {
     }
 
     const timeZone = providerTimeZone(profile?.availability);
-    const cancellationPolicy = profile?.cancellation_policy || "flexible";
-    const cancellationRefundDeadlineHours =
-      cancellationPolicy === "flexible"
-        ? 24
-        : cancellationPolicy === "moderate"
-          ? 48
-          : null;
+    const cancellationPolicy = profile?.cancellation_policy === "moderate"
+      ? "moderate"
+      : "non_refundable";
+    const cancellationRefundDeadlineHours = refundDeadlineHours(cancellationPolicy);
     const nowMs = Date.now();
+
+    if (cancellationPolicy === "moderate" && !isWithinRefundableHoldLimit(new Date(nowMs), end)) {
+      return NextResponse.json(
+        { error: "Ce rendez-vous est trop éloigné pour permettre un remboursement sécurisé." },
+        { status: 400 }
+      );
+    }
 
     if (
       !isSlotStartAllowed({

@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { refundDestinationChargePolicy } from "@/lib/billing";
 import { ensureClientCreditNote } from "@/lib/clientCreditNotes";
 import { syncRefundedCommissionMovements } from "@/lib/drimliCommissionLedger";
+import { canRefundAt } from "@/lib/payoutPolicy";
 
 export const runtime = "nodejs";
 
@@ -40,6 +41,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const { data: appointment } = await supabaseAdmin
+    .from("appointments")
+    .select("start_datetime, cancellation_policy, cancellation_refund_deadline_hours")
+    .eq("id", body.appointmentId)
+    .maybeSingle();
+  if (!appointment) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+  if (appointment.cancellation_policy === "non_refundable") {
+    return NextResponse.json({ error: "Cette réservation est sans remboursement." }, { status: 409 });
+  }
+  const deadlineHours = appointment.cancellation_refund_deadline_hours;
+  if (!deadlineHours || !canRefundAt(appointment.start_datetime, deadlineHours, new Date())) {
+    return NextResponse.json({ error: `Le délai de remboursement de ${deadlineHours ?? 48} h est dépassé.` }, { status: 409 });
+  }
+  if (appointment.cancellation_policy === "moderate" && body.amountCents !== undefined) {
+    return NextResponse.json({ error: "Seul le remboursement intégral est disponible." }, { status: 400 });
+  }
+
   const existingRefunds = await stripe.refunds.list({
     payment_intent: payment.stripe_payment_intent_id,
     limit: 100,
@@ -58,6 +76,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid refund amount" }, { status: 400 });
   }
 
+  const { data: refundClaimed, error: refundClaimError } = await supabaseAdmin
+    .rpc("begin_drimli_payment_refund", { p_payment_id: payment.id });
+  if (refundClaimError || !refundClaimed) {
+    return NextResponse.json({ error: "Un payout ou un remboursement est déjà en cours." }, { status: 409 });
+  }
+
   let completedRefund: Stripe.Refund | null = null;
   try {
     const createsRefund = !existingAppointmentRefund && remaining > 0;
@@ -73,7 +97,7 @@ export async function POST(request: Request) {
         );
 
     if (!refund) {
-      return NextResponse.json({ error: "Refund state unavailable" }, { status: 409 });
+      throw new Error("Refund state unavailable");
     }
 
     const refundSucceeded = refund.status === "succeeded";
@@ -98,6 +122,11 @@ export async function POST(request: Request) {
         .select("id")
         .maybeSingle();
       if (paymentUpdateError || !updatedPayment) throw new Error("Refund state update conflict");
+      const { error: commitmentError } = await supabaseAdmin.rpc("complete_drimli_payment_refund", {
+        p_payment_id: payment.id,
+        p_refunded_amount: refundedAmount,
+      });
+      if (commitmentError) throw new Error("Refund payout state update failed");
       const { error: appointmentUpdateError } = await supabaseAdmin
         .from("appointments")
         .update({ status: "cancelled_by_provider" })
@@ -136,6 +165,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ refundId: refund.id, amount: refund.amount, status });
   } catch (refundError: unknown) {
+    if (!completedRefund) {
+      await supabaseAdmin.rpc("release_drimli_payment_refund", { p_payment_id: payment.id });
+    }
     console.error("[STRIPE_REFUND_ERROR]", {
       appointmentId: body.appointmentId,
       message: refundError instanceof Error ? refundError.message : "unknown",

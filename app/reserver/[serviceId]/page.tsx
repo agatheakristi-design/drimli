@@ -36,8 +36,8 @@ type ProfileRow = {
 
 function cancellationPolicyLabel(policy: ProfileRow["cancellation_policy"]) {
   if (policy === "moderate") return "Remboursement possible jusqu’à 48 h avant le rendez-vous";
-  if (policy === "non_refundable") return "Réservation non remboursable après paiement";
-  return "Remboursement possible jusqu’à 24 h avant le rendez-vous";
+  if (policy === "flexible") return "Remboursement possible jusqu’à 24 h avant le rendez-vous";
+  return "Sans remboursement";
 }
 
 function formatParisTime(iso: string) {

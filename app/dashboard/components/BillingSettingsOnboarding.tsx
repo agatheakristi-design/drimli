@@ -13,13 +13,12 @@ type Values = {
 const empty: Values = {
   first_name: "", last_name: "", full_name: "", business_name: "", address: "",
   postal_code: "", city: "", country: "FR", siret: "", vat_regime: "franchise_base",
-  vat_number: "", vat_rate: "", cancellation_policy: "flexible",
+  vat_number: "", vat_rate: "", cancellation_policy: "non_refundable",
 };
 
 const policies = [
-  ["flexible", "Flexible", "Remboursement possible jusqu’à 24 h avant le rendez-vous."],
-  ["moderate", "Modérée", "Remboursement possible jusqu’à 48 h avant le rendez-vous."],
-  ["non_refundable", "Non remboursable", "La réservation n’est pas remboursable après paiement."],
+  ["non_refundable", "Sans remboursement", "La réservation n’est pas remboursable après paiement."],
+  ["moderate", "Remboursement possible jusqu’à 48 h avant le rendez-vous", "Les fonds sont versés après le rendez-vous."],
 ] as const;
 
 export default function BillingSettingsOnboarding({ onCompletionChange }: { onCompletionChange?: (complete: boolean) => void }) {
