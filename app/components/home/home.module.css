@@ -27,8 +27,7 @@
   letter-spacing: 0.035em;
 }
 
-.google,
-.apple {
+.google {
   border: 0;
   border-radius: 4px;
   background: #111;
@@ -36,21 +35,19 @@
   color: #fff;
 }
 
-.apple svg {
-  fill: currentColor;
-}
-
-.apple:disabled {
-  background: #111;
-  color: #fff;
-  opacity: 1;
-}
-
 .email {
   border: 0;
   border-radius: 4px;
   background: rgb(245 245 245 / 0.78);
   color: var(--muted-foreground);
+}
+
+.auth {
+  gap: 14px;
+}
+
+.reassurance {
+  margin-top: 16px;
 }
 
 @media (max-width: 760px) {
