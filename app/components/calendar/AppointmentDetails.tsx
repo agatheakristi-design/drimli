@@ -20,6 +20,10 @@ type BillingDetails = {
   cancellation_refund_deadline_hours: number | null;
 };
 
+type CancellationResult = {
+  refunded: boolean;
+};
+
 function cancellationLabel(policy: BillingDetails["cancellation_policy"]) {
   if (policy === "moderate") return "remboursement possible jusqu’à 48 h avant le rendez-vous.";
   if (policy === "non_refundable") return "la réservation n’est pas remboursable après paiement.";
@@ -65,8 +69,10 @@ export default function AppointmentDetails({
   const [roomStatus, setRoomStatus] = useState(appointment.videoRoomStatus);
   const [meetingStarted, setMeetingStarted] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [billing, setBilling] = useState<BillingDetails | null>(null);
+  const [cancellationResult, setCancellationResult] = useState<CancellationResult | null>(null);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [newStart, setNewStart] = useState("");
 
@@ -74,6 +80,7 @@ export default function AppointmentDetails({
     setRoomStatus(appointment.videoRoomStatus);
     setMeetingStarted(false);
     setStatusMessage("");
+    setCancellationResult(null);
   }, [appointment.id, appointment.videoRoomStatus]);
 
   useEffect(() => {
@@ -142,6 +149,7 @@ export default function AppointmentDetails({
   async function cancelAppointment() {
     if (!billing?.payment) return;
     setUpdating(true);
+    setCancelling(true);
     setStatusMessage("");
     try {
       const { data } = await supabase.auth.getSession();
@@ -155,13 +163,15 @@ export default function AppointmentDetails({
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Annulation impossible.");
-      setStatusMessage(payload.refunded
-        ? "Rendez-vous annulé et remboursement effectué."
-        : "Rendez-vous annulé sans remboursement.");
+      if (typeof payload.refunded !== "boolean") {
+        throw new Error("Résultat de l’annulation indisponible.");
+      }
+      setCancellationResult({ refunded: payload.refunded });
       onAppointmentChanged?.();
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Annulation impossible.");
     } finally {
+      setCancelling(false);
       setUpdating(false);
     }
   }
@@ -266,9 +276,20 @@ export default function AppointmentDetails({
       {billing?.payment ? (
         <section className={styles.appointmentCancellation}>
           <p><strong>Conditions acceptées par le client :</strong> {cancellationLabel(billing.cancellation_policy)}</p>
-          {appointment.status === "confirmed" ? <Button variant="secondary" disabled={updating} onClick={() => setRescheduleOpen((open) => !open)}>Déplacer le rendez-vous</Button> : null}
-          {rescheduleOpen ? <div className={styles.appointmentCancellationChoices}><label>Nouvelle date et heure<input type="datetime-local" value={newStart} onChange={(event) => setNewStart(event.target.value)} /></label><Button variant="secondary" disabled={updating || !newStart} onClick={rescheduleAppointment}>Confirmer le déplacement</Button></div> : null}
-          <Button variant="danger" disabled={updating} onClick={cancelAppointment}>Annuler le rendez-vous</Button>
+          {!cancellationResult && appointment.status === "confirmed" ? <Button variant="secondary" disabled={updating} onClick={() => setRescheduleOpen((open) => !open)}>Déplacer le rendez-vous</Button> : null}
+          {!cancellationResult && rescheduleOpen ? <div className={styles.appointmentCancellationChoices}><label>Nouvelle date et heure<input type="datetime-local" value={newStart} onChange={(event) => setNewStart(event.target.value)} /></label><Button variant="secondary" disabled={updating || !newStart} onClick={rescheduleAppointment}>Confirmer le déplacement</Button></div> : null}
+          {cancellationResult ? (
+            <div className={styles.appointmentCancellationResult} role="status">
+              <strong>Rendez-vous annulé</strong>
+              <span>{cancellationResult.refunded
+                ? "Le client a été remboursé intégralement."
+                : "Aucun remboursement n’a été effectué."}</span>
+            </div>
+          ) : appointment.status === "confirmed" ? (
+            <Button variant="danger" disabled={updating} onClick={cancelAppointment}>
+              {cancelling ? "Annulation en cours…" : "Annuler le rendez-vous"}
+            </Button>
+          ) : null}
         </section>
       ) : null}
 
