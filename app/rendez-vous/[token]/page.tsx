@@ -232,8 +232,6 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
 
       <AppointmentManagement
         token={token}
-        providerId={details.providerId}
-        serviceId={details.serviceId}
         serviceTitle={details.serviceTitle}
         initialStart={details.startsAt.toISOString()}
         initialEnd={details.endsAt.toISOString()}

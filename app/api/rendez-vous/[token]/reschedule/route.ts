@@ -5,6 +5,7 @@ import { AppointmentRescheduleError, reschedulePaidAppointment } from "@/lib/app
 import { sendAppointmentRescheduledEmail } from "@/lib/email";
 import { buildAppointmentPortalUrl } from "@/lib/video/appointmentPortal";
 import type { CancellationPolicy } from "@/lib/payoutPolicy";
+import { filterClientRescheduleSlots, type RescheduleSlot } from "@/lib/clientRescheduleSlots";
 
 export const runtime = "nodejs";
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -15,6 +16,64 @@ function parisDate(iso: string) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date(iso));
+}
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
+  const { token } = await context.params;
+  const date = new URL(request.url).searchParams.get("date") || "";
+  if (!token || token.length > 200) return NextResponse.json({ error: "Lien invalide." }, { status: 404 });
+  if (!DATE_PATTERN.test(date)) return NextResponse.json({ error: "Date invalide." }, { status: 400 });
+
+  const { data: appointment } = await admin.from("appointments")
+    .select("id, provider_id, product_id, start_datetime, status")
+    .eq("join_token", token).maybeSingle();
+  if (!appointment) return NextResponse.json({ error: "Lien invalide." }, { status: 404 });
+  const [{ data: snapshot }, { data: commitment }] = await Promise.all([
+    admin.from("billing_checkout_snapshots").select("cancellation_policy")
+      .eq("appointment_id", appointment.id).maybeSingle(),
+    admin.from("drimli_payout_commitments").select("created_at, policy_snapshot, status")
+      .eq("appointment_id", appointment.id).maybeSingle(),
+  ]);
+  if (!snapshot?.cancellation_policy) {
+    return NextResponse.json({ error: "Conditions introuvables." }, { status: 409 });
+  }
+  const permissions = clientAppointmentPermissions(
+    snapshot.cancellation_policy as CancellationPolicy,
+    appointment.start_datetime,
+    new Date()
+  );
+  if (appointment.status !== "confirmed" || !permissions.canReschedule) {
+    return NextResponse.json({ error: "Le délai de déplacement est dépassé." }, { status: 409 });
+  }
+  if (commitment && commitment.status !== "pending") {
+    return NextResponse.json({ error: "Ce paiement n’est plus déplaçable." }, { status: 409 });
+  }
+
+  const slotsUrl = new URL("/api/slots", request.url);
+  slotsUrl.search = new URLSearchParams({
+    providerId: appointment.provider_id,
+    serviceId: appointment.product_id,
+    date,
+  }).toString();
+  const slotsResponse = await fetch(slotsUrl, { cache: "no-store" });
+  const slots = await slotsResponse.json().catch(() => []);
+  if (!slotsResponse.ok || !Array.isArray(slots)) {
+    return NextResponse.json({ error: "Impossible de charger les créneaux." }, { status: 502 });
+  }
+
+  const validSlots = slots.filter((slot): slot is RescheduleSlot =>
+    Boolean(slot) && typeof slot === "object"
+      && typeof (slot as RescheduleSlot).start === "string"
+      && typeof (slot as RescheduleSlot).end === "string"
+  );
+  const eligibleSlots = filterClientRescheduleSlots({
+    slots: validSlots,
+    policySnapshot: commitment?.policy_snapshot,
+    commitmentCreatedAt: commitment?.created_at,
+  });
+  return NextResponse.json(eligibleSlots, { status: 200 });
 }
 
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
@@ -44,16 +103,6 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   const duration = Date.parse(appointment.end_datetime) - Date.parse(appointment.start_datetime);
   const requestedStart = new Date(body.start);
   const requestedEnd = new Date(requestedStart.getTime() + duration);
-  if (!clientAppointmentPermissions(
-    snapshot.cancellation_policy as CancellationPolicy,
-    requestedStart,
-    new Date()
-  ).canReschedule) {
-    return NextResponse.json(
-      { error: "Le nouveau créneau est trop proche pour respecter vos conditions de modification." },
-      { status: 409 }
-    );
-  }
   const slotsUrl = new URL("/api/slots", request.url);
   slotsUrl.search = new URLSearchParams({
     providerId: appointment.provider_id,

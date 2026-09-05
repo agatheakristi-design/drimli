@@ -26,8 +26,6 @@ function todayInParis() {
 
 export default function AppointmentManagement(props: {
   token: string;
-  providerId: string;
-  serviceId: string;
   serviceTitle: string;
   initialStart: string;
   initialEnd: string;
@@ -46,9 +44,7 @@ export default function AppointmentManagement(props: {
   const [error, setError] = useState("");
   const [cancelled, setCancelled] = useState(false);
   const busy = moving || cancelling;
-  const slotsParams = useMemo(() => new URLSearchParams({
-    providerId: props.providerId, serviceId: props.serviceId, date,
-  }).toString(), [date, props.providerId, props.serviceId]);
+  const slotsParams = useMemo(() => new URLSearchParams({ date }).toString(), [date]);
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -56,7 +52,9 @@ export default function AppointmentManagement(props: {
     setLoadingSlots(true);
     setSelected(null);
     setError("");
-    fetch(`/api/slots?${slotsParams}`, { signal: controller.signal })
+    fetch(`/api/rendez-vous/${encodeURIComponent(props.token)}/reschedule?${slotsParams}`, {
+      signal: controller.signal,
+    })
       .then(async (response) => {
         if (!response.ok) throw new Error("Impossible de charger les créneaux.");
         const payload = await response.json();
@@ -69,7 +67,7 @@ export default function AppointmentManagement(props: {
       })
       .finally(() => { if (!controller.signal.aborted) setLoadingSlots(false); });
     return () => controller.abort();
-  }, [pickerOpen, slotsParams]);
+  }, [pickerOpen, props.token, slotsParams]);
 
   async function reschedule() {
     if (!selected) return;
@@ -127,16 +125,16 @@ export default function AppointmentManagement(props: {
           </div>
         ) : (
           <>
-            <p>{permissions.message}</p>
             {permissions.canReschedule || permissions.canCancel ? (
               <div className={styles.managementActions}>
                 {permissions.canReschedule ? (
-                  <button type="button" disabled={busy} onClick={() => setPickerOpen((open) => !open)}>
+                  <button className={styles.textAction} type="button" disabled={busy} onClick={() => setPickerOpen((open) => !open)}>
                     Déplacer mon rendez-vous
                   </button>
                 ) : null}
+                {permissions.canReschedule && permissions.canCancel ? <span aria-hidden="true">|</span> : null}
                 {permissions.canCancel ? (
-                  <button type="button" className={styles.dangerAction} disabled={busy} onClick={cancel}>
+                  <button type="button" className={styles.textAction} disabled={busy} onClick={cancel}>
                     {cancelling ? "Annulation en cours…" : "Annuler mon rendez-vous"}
                   </button>
                 ) : null}
