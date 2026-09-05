@@ -358,9 +358,9 @@ export default function LandingContent() {
         </section>
 
         <footer className={styles.footer}>
-          <span>{t.privacy as string}</span>
+          <Link href="/privacy">{t.privacy as string}</Link>
           <span aria-hidden="true">·</span>
-          <span>{t.terms as string}</span>
+          <Link href="/terms">{t.terms as string}</Link>
         </footer>
       </div>
     </main>
