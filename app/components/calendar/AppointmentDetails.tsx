@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabaseClient";
 import type { CalendarAppointment } from "./types";
 import type { VideoRoomStatus } from "@/lib/video/types";
 import styles from "./calendar.module.css";
-import { cancellationRefundAmount } from "@/lib/billing";
 
 type AppointmentDetailsProps = {
   appointment: CalendarAppointment;
@@ -68,8 +67,6 @@ export default function AppointmentDetails({
   const [updating, setUpdating] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [billing, setBilling] = useState<BillingDetails | null>(null);
-  const [cancellationOpen, setCancellationOpen] = useState(false);
-  const [partialRefund, setPartialRefund] = useState("");
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [newStart, setNewStart] = useState("");
 
@@ -142,7 +139,7 @@ export default function AppointmentDetails({
     }
   }
 
-  async function cancelAppointment(refund: "full" | "partial" | "none") {
+  async function cancelAppointment() {
     if (!billing?.payment) return;
     setUpdating(true);
     setStatusMessage("");
@@ -151,33 +148,16 @@ export default function AppointmentDetails({
       const accessToken = data.session?.access_token;
       if (!accessToken) throw new Error("Session expirée.");
 
-      if (refund !== "none") {
-        const requestedAmount = refund === "partial"
-          ? Math.round(Number(partialRefund.replace(",", ".")) * 100)
-          : undefined;
-        const remaining = billing.payment.amount_paid - billing.payment.refunded_amount;
-        let amountCents: number | null;
-        try { amountCents = cancellationRefundAmount(refund, remaining, requestedAmount); }
-        catch { throw new Error("Indiquez un montant partiel valide."); }
-        const response = await fetch("/api/stripe/refund", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ appointmentId: appointment.id, ...(refund === "partial" ? { amountCents } : {}) }),
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.error || "Remboursement impossible.");
-      }
-
-      if (refund === "none") {
-        const response = await fetch(`/api/appointments/${encodeURIComponent(appointment.id)}/cancel`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.error || "Annulation impossible.");
-      }
-      setStatusMessage(refund === "none" ? "Rendez-vous annulé sans remboursement." : "Rendez-vous annulé et remboursement effectué.");
-      setCancellationOpen(false);
+      const response = await fetch("/api/stripe/refund", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ appointmentId: appointment.id }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Annulation impossible.");
+      setStatusMessage(payload.refunded
+        ? "Rendez-vous annulé et remboursement effectué."
+        : "Rendez-vous annulé sans remboursement.");
       onAppointmentChanged?.();
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Annulation impossible.");
@@ -288,14 +268,7 @@ export default function AppointmentDetails({
           <p><strong>Conditions acceptées par le client :</strong> {cancellationLabel(billing.cancellation_policy)}</p>
           {appointment.status === "confirmed" ? <Button variant="secondary" disabled={updating} onClick={() => setRescheduleOpen((open) => !open)}>Déplacer le rendez-vous</Button> : null}
           {rescheduleOpen ? <div className={styles.appointmentCancellationChoices}><label>Nouvelle date et heure<input type="datetime-local" value={newStart} onChange={(event) => setNewStart(event.target.value)} /></label><Button variant="secondary" disabled={updating || !newStart} onClick={rescheduleAppointment}>Confirmer le déplacement</Button></div> : null}
-          <Button variant="danger" disabled={updating} onClick={() => setCancellationOpen((open) => !open)}>Annuler le rendez-vous</Button>
-          {cancellationOpen ? (
-            <div className={styles.appointmentCancellationChoices}>
-              {billing.cancellation_policy !== "non_refundable" ? <Button variant="secondary" disabled={updating} onClick={() => cancelAppointment("full")}>Annuler et rembourser intégralement</Button> : null}
-              {billing.cancellation_policy === "flexible" ? <><label>Montant du remboursement partiel (€)<input type="number" min="0.01" step="0.01" value={partialRefund} onChange={(event) => setPartialRefund(event.target.value)} /></label><Button variant="secondary" disabled={updating} onClick={() => cancelAppointment("partial")}>Annuler et rembourser partiellement</Button></> : null}
-              <Button variant="secondary" disabled={updating} onClick={() => cancelAppointment("none")}>Annuler sans remboursement</Button>
-            </div>
-          ) : null}
+          <Button variant="danger" disabled={updating} onClick={cancelAppointment}>Annuler le rendez-vous</Button>
         </section>
       ) : null}
 

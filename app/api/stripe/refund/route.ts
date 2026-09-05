@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { refundDestinationChargePolicy } from "@/lib/billing";
 import { ensureClientCreditNote } from "@/lib/clientCreditNotes";
 import { syncRefundedCommissionMovements } from "@/lib/drimliCommissionLedger";
-import { canRefundAt } from "@/lib/payoutPolicy";
+import { shouldRefundCancellation, type CancellationPolicy } from "@/lib/payoutPolicy";
 
 export const runtime = "nodejs";
 
@@ -25,7 +25,6 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as {
     appointmentId?: unknown;
-    amountCents?: unknown;
   } | null;
   if (typeof body?.appointmentId !== "string") {
     return NextResponse.json({ error: "appointmentId required" }, { status: 400 });
@@ -43,19 +42,39 @@ export async function POST(request: Request) {
 
   const { data: appointment } = await supabaseAdmin
     .from("appointments")
-    .select("start_datetime, cancellation_policy, cancellation_refund_deadline_hours")
+    .select("status, start_datetime")
     .eq("id", body.appointmentId)
     .maybeSingle();
   if (!appointment) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
-  if (appointment.cancellation_policy === "non_refundable") {
-    return NextResponse.json({ error: "Cette réservation est sans remboursement." }, { status: 409 });
+  const { data: snapshot } = await supabaseAdmin
+    .from("billing_checkout_snapshots")
+    .select("cancellation_policy, cancellation_refund_deadline_hours")
+    .eq("appointment_id", body.appointmentId)
+    .maybeSingle();
+  if (!snapshot?.cancellation_policy) {
+    return NextResponse.json({ error: "Conditions d’annulation introuvables." }, { status: 409 });
   }
-  const deadlineHours = appointment.cancellation_refund_deadline_hours;
-  if (!deadlineHours || !canRefundAt(appointment.start_datetime, deadlineHours, new Date())) {
-    return NextResponse.json({ error: `Le délai de remboursement de ${deadlineHours ?? 48} h est dépassé.` }, { status: 409 });
-  }
-  if (appointment.cancellation_policy === "moderate" && body.amountCents !== undefined) {
-    return NextResponse.json({ error: "Seul le remboursement intégral est disponible." }, { status: 400 });
+
+  const deadlineHours = snapshot.cancellation_refund_deadline_hours;
+  const shouldRefund = shouldRefundCancellation(
+    snapshot.cancellation_policy as CancellationPolicy,
+    appointment.start_datetime,
+    deadlineHours,
+    new Date()
+  );
+
+  if (!shouldRefund) {
+    if (appointment.status === "cancelled_by_provider") {
+      return NextResponse.json({ cancelled: true, refunded: false });
+    }
+    const { data: cancelled, error: cancellationError } = await supabaseAdmin.rpc(
+      "cancel_paid_appointment_without_refund",
+      { p_appointment_id: body.appointmentId, p_provider_id: payment.provider_id }
+    );
+    if (cancellationError || !cancelled) {
+      return NextResponse.json({ error: "Annulation impossible pendant un versement ou un remboursement." }, { status: 409 });
+    }
+    return NextResponse.json({ cancelled: true, refunded: false });
   }
 
   const existingRefunds = await stripe.refunds.list({
@@ -71,7 +90,7 @@ export async function POST(request: Request) {
       refund.metadata?.appointment_id === body.appointmentId
   );
   const remaining = payment.amount_paid - stripeRefundedAmount;
-  const requestedAmount = body.amountCents === undefined ? remaining : Number(body.amountCents);
+  const requestedAmount = remaining;
   if (remaining > 0 && (!Number.isInteger(requestedAmount) || requestedAmount <= 0 || requestedAmount > remaining)) {
     return NextResponse.json({ error: "Invalid refund amount" }, { status: 400 });
   }
@@ -163,7 +182,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ refundId: refund.id, amount: refund.amount, status });
+    return NextResponse.json({ refundId: refund.id, amount: refund.amount, status, cancelled: refundSucceeded, refunded: refundSucceeded });
   } catch (refundError: unknown) {
     if (!completedRefund) {
       await supabaseAdmin.rpc("release_drimli_payment_refund", { p_payment_id: payment.id });

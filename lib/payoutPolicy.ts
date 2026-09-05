@@ -28,6 +28,17 @@ export function canRefundAt(startIso: string, hours: number, now: string | Date)
   return nowMs <= refundDeadline(startIso, hours).getTime();
 }
 
+export function shouldRefundCancellation(
+  policy: CancellationPolicy,
+  startIso: string,
+  deadlineHours: number | null,
+  now: string | Date
+) {
+  return policy !== NO_REFUND_POLICY &&
+    deadlineHours !== null &&
+    canRefundAt(startIso, deadlineHours, now);
+}
+
 export function payoutEligibleAt(endIso: string) {
   return new Date(Date.parse(endIso) + PAYOUT_DELAY_MINUTES * 60 * 1000);
 }
