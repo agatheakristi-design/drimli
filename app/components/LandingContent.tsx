@@ -3,366 +3,52 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import Logo from "./ui/Logo";
 import styles from "./home/home.module.css";
 
 type Language = "en" | "fr";
-type MenuName = "solutions" | "product" | "pricing";
+type Copy = { login:string; signup:string; hero:React.ReactNode; subtitle:string; google:string; apple:string; or:string; email:string; reassurance:string; noSubscription:string; monthly:string; succeed:string; fixed:string; product:string; free:string; included:React.ReactNode; create:string; features:readonly (readonly [string,string])[]; practice:React.ReactNode; flowLabel:string; flow:readonly (readonly [string,string])[]; faq:string; faqs:readonly (readonly [string,React.ReactNode])[]; privacy:string; terms:string; comingSoon:string; googleError:string };
 
-const copy = {
+const copy: Record<Language, Copy> = {
   en: {
-    pageTitle: "Drimli — Create your account",
-    solutions: "Solutions",
-    product: "Product",
-    pricing: "Pricing",
-    login: "Log in",
-    signup: "Sign up",
-    openMenu: "Open menu",
-    closeMenu: "Close menu",
-    solutionsHeading: "For independent professionals",
-    solutionsItems: [
-      ["Coaches", "Sell and manage sessions without administrative friction."],
-      ["Consultants", "Turn expertise into bookable, paid remote consultations."],
-      ["Therapists", "Manage appointments, payments and video consultations in one place."],
-      ["Psychologists", "Offer a seamless experience before, during and after each session."],
-      ["Nutritionists", "Manage bookings, follow-ups and remote consultations."],
-      ["Trainers", "Schedule, sell and deliver training sessions online."],
-      ["Lawyers", "Offer secure remote consultations and get paid in advance."],
-      ["Architects", "Organise project consultations and client meetings online."],
-    ],
-    solutionsFooter: "...and anyone who wants to grow their business remotely",
-    productItems: [
-      ["Calendar", "Clients book online. Your calendar stays automatically up to date."],
-      ["Video", "Unlimited HD video consultations, built in."],
-      ["Payments", "Secure remote payments before every consultation."],
-      ["Automatic invoicing", "Compliant e-invoices generated and sent automatically."],
-      ["Google review generation", "Automatically invite clients to leave Google reviews."],
-    ],
-    productFooter: "Everything you need to sell remote sessions",
-    free: "Free.",
-    pricingPromise: "We only succeed when you do.",
-    pricingLines: ["No subscription.", "No monthly fee.", "5% per transaction."],
-    pricingFooter: "Start today",
-    hero: "Your business. Worldwide.",
-    promise: "Everything you need to sell remote sessions",
-    google: "Continue with Google",
-    apple: "Continue with Apple",
-    email: "Continue with email",
-    freeStatement: "Free. No subscription. We only succeed when you do.",
-    privacy: "Privacy",
-    terms: "Terms",
-    comingSoon: "Coming soon",
-    googleError: "Unable to continue with Google.",
+    login:"Log in", signup:"Get started", hero:<>Turn your expertise<br/>into paid remote sessions.</>,
+    subtitle:"Booking, payment, video, invoicing and Google reviews — brought together in one seamless flow.",
+    google:"Continue with Google", apple:"Continue with Apple", or:"or", email:"Continue with email", reassurance:"Free to use", noSubscription:"No subscription",
+    monthly:"0€/month.", succeed:"We only succeed when you do", fixed:"No subscription · No fixed fees", product:"The product", free:"Free.", included:<>Everything is included<br/>to launch and manage your sessions.</>, create:"Create your account",
+    features:[["Calendar","Availability, time zones, reminders."],["Payments","Secure checkout at booking."],["Unlimited video","Built-in room, no third-party app."],["E-invoicing","Issued and archived automatically."],["Google reviews","Requested automatically after each session."]],
+    practice:<>Your practice,<br/>open to the world.</>, flowLabel:"Drimli client flow",
+    flow:[["Share your drimli","Your calendar. Ready to book."],["Get booked & paid","Booking and payment, together."],["Unlimited 1:1 video","Connection link sent automatically."],["Invoicing, automatically","Generated and sent to your client."],["Reviews, automatically","Requested after every session."]],
+    faq:"Faq.", faqs:[["Who is drimli for?","For anyone who turns their expertise, talent or practice into paid online sessions — whatever their field, wherever they are."],["Is drimli really free?",<>Yes. drimli is free — no subscription, no monthly fee.<br/>Just 5% when you get paid. Payment processing included.</>],["What is drimli?",<>The global platform for independent professionals to grow their business remotely. Booking, payment, video, invoicing and reviews<br/>— brought together in one seamless flow.</>],["How do I share my drimli?","Add your drimli link to every profile — Instagram, LinkedIn, Facebook — your website, your email signature and anywhere clients can find you."],["What will my clients experience?","They book, pay, join their video session and receive their documents without jumping between different tools."]],
+    privacy:"Privacy", terms:"Terms", comingSoon:"Coming soon", googleError:"Unable to continue with Google.",
   },
   fr: {
-    pageTitle: "Drimli — Créer votre compte",
-    solutions: "Solutions",
-    product: "Produit",
-    pricing: "Tarifs",
-    login: "Se connecter",
-    signup: "Créer un compte",
-    openMenu: "Ouvrir le menu",
-    closeMenu: "Fermer le menu",
-    solutionsHeading: "Pour les professionnels indépendants",
-    solutionsItems: [
-      ["Coachs", "Vendez et gérez vos séances sans friction administrative."],
-      ["Consultants", "Transformez votre expertise en consultations réservables et payées."],
-      ["Thérapeutes", "Gérez rendez-vous, paiements et visio au même endroit."],
-      ["Psychologues", "Offrez une expérience fluide avant, pendant et après chaque séance."],
-      ["Nutritionnistes", "Gérez réservations, suivis et consultations à distance."],
-      ["Formateurs", "Planifiez, vendez et animez vos formations en ligne."],
-      ["Avocats", "Proposez des consultations sécurisées et payées à l’avance."],
-      ["Architectes", "Organisez vos consultations de projet et rendez-vous clients."],
-    ],
-    solutionsFooter:
-      "...et plus largement tous les professionnels qui développent leur activité à distance",
-    productItems: [
-      ["Calendrier", "Vos clients réservent en ligne. Votre agenda se met à jour automatiquement."],
-      ["Visio illimitée", "Consultations vidéo HD intégrées, sans limite."],
-      ["Paiement à distance", "Encaissez en toute sécurité avant chaque consultation."],
-      ["Facturation électronique automatique", "Factures conformes générées et envoyées automatiquement."],
-      ["Générateur automatique d’avis Google", "Invitez automatiquement vos clients et multipliez vos avis."],
-    ],
-    productFooter: "Tout ce qu’il faut pour vendre vos consultations à distance",
-    free: "Gratuit.",
-    pricingPromise: "Nous ne réussissons que lorsque vous réussissez.",
-    pricingLines: ["Sans abonnement.", "Sans frais mensuels.", "5 % par transaction."],
-    pricingFooter: "Commencer aujourd’hui",
-    hero: "Ton business. Partout.",
-    promise: "Tout ce dont vous avez besoin pour vendre vos consultations à distance.",
-    google: "Continuer avec Google",
-    apple: "Continuer avec Apple",
-    email: "Continuer avec l’e-mail",
-    freeStatement: "Gratuit. Sans abonnement. Nous ne réussissons que lorsque vous réussissez.",
-    privacy: "Confidentialité",
-    terms: "Conditions",
-    comingSoon: "Bientôt disponible",
-    googleError: "Impossible de continuer avec Google.",
+    login:"Se connecter", signup:"Commencer", hero:<>Vendez votre expertise<br/>à distance.</>, subtitle:"Réservation, paiement, visio, facturation et avis Google — en un seul parcours.",
+    google:"Continuer avec Google", apple:"Continuer avec Apple", or:"ou", email:"Continuer avec votre e-mail", reassurance:"Gratuit", noSubscription:"Sans abonnement",
+    monthly:"0€/mois.", succeed:"Nous ne réussissons que lorsque vous réussissez", fixed:"Pas d’abonnement · Pas de frais fixes", product:"Le produit", free:"Gratuit.", included:<>Tout est inclus<br/>pour lancer et gérer vos sessions.</>, create:"Créer votre compte",
+    features:[["Calendrier","Disponibilités, fuseaux horaires, rappels."],["Paiements","Paiement sécurisé à la réservation."],["Visio illimitée","Lien de connexion envoyé automatiquement."],["Facturation électronique","Émise et archivée automatiquement."],["Avis Google","Demandés automatiquement après chaque session."]],
+    practice:<>Votre activité,<br/>ouverte sur le monde.</>, flowLabel:"Parcours client Drimli",
+    flow:[["Partagez votre drimli","Votre agenda. Prêt à réserver."],["Le client réserve & paie","Paiement immédiat. Plus de no-show."],["Visio illimitée · 1:1","Lien envoyé automatiquement."],["Facturation, automatique","Générée et envoyée à votre client."],["Avis Google automatisés","Demandés après chaque session."]],
+    faq:"Faq.", faqs:[["Drimli, pour qui ?","Pour tous ceux qui transforment leur expertise, leur talent ou leur pratique en sessions payantes à distance — quel que soit leur domaine et où qu’ils soient."],["drimli est-il vraiment gratuit ?",<>Oui. drimli est gratuit — sans abonnement, sans frais mensuels.<br/>Seulement 5 % lorsque vous êtes payé, frais de paiement inclus.</>],["Qu’est-ce que drimli ?",<>La plateforme mondiale pour les professionnels indépendants qui souhaitent développer leur activité à distance. Réservation, paiement, visio, facturation et avis<br/>— réunis en un seul parcours fluide.</>],["Comment partager mon drimli ?","Ajoutez votre lien drimli à tous vos profils — Instagram, LinkedIn, Facebook — à votre site web, votre signature email et partout où vos clients peuvent vous trouver."],["Quelle expérience pour mes clients ?","Ils réservent, paient, rejoignent leur session vidéo et reçoivent leurs documents sans passer d’un outil à l’autre."]],
+    privacy:"Confidentialité", terms:"Conditions", comingSoon:"Bientôt disponible", googleError:"Impossible de continuer avec Google.",
   },
-} satisfies Record<Language, Record<string, string | string[] | string[][]>>;
+};
 
-function GoogleIcon() {
-  return (
-    <svg className={styles.googleIcon} viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M21.6 12.23c0-.71-.06-1.4-.18-2.06H12v3.9h5.38a4.6 4.6 0 0 1-2 3.02v2.53h3.24c1.9-1.75 2.98-4.33 2.98-7.39Z" fill="#4285F4" />
-      <path d="M12 22c2.7 0 4.98-.9 6.64-2.38l-3.24-2.53c-.9.6-2.05.96-3.4.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.6A10 10 0 0 0 12 22Z" fill="#34A853" />
-      <path d="M6.39 13.92A6.02 6.02 0 0 1 6.08 12c0-.67.11-1.32.31-1.92v-2.6H3.04A10 10 0 0 0 2 12c0 1.61.39 3.13 1.04 4.52l3.35-2.6Z" fill="#FBBC05" />
-      <path d="M12 5.95c1.47 0 2.78.5 3.82 1.49l2.86-2.87A9.59 9.59 0 0 0 12 2a10 10 0 0 0-8.96 5.48l3.35 2.6C7.18 7.71 9.39 5.95 12 5.95Z" fill="#EA4335" />
-    </svg>
-  );
-}
+function GoogleIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.32 2.98-7.36Z" fill="#4285F4"/><path d="M12 22c2.7 0 4.97-.9 6.62-2.41l-3.24-2.51c-.9.6-2.05.96-3.38.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.59A10 10 0 0 0 12 22Z" fill="#34A853"/><path d="M6.39 13.91A6.03 6.03 0 0 1 6.08 12c0-.66.11-1.31.31-1.91V7.5H3.04A10 10 0 0 0 2 12c0 1.61.38 3.14 1.04 4.5l3.35-2.59Z" fill="#FBBC05"/><path d="M12 5.96c1.47 0 2.79.51 3.83 1.5l2.87-2.87C16.96 2.97 14.7 2 12 2a10 10 0 0 0-8.96 5.5l3.35 2.59C7.18 7.72 9.39 5.96 12 5.96Z" fill="#EA4335"/></svg>}
+function AppleIcon(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.79 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.09ZM12.03 7.25C11.88 5.02 13.69 3.18 15.77 3c.29 2.58-2.34 4.5-3.74 4.25Z"/></svg>}
 
-function AppleIcon() {
-  return (
-    <svg className={styles.appleIcon} viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M16.74 12.53c.02-2.08 1.7-3.08 1.78-3.13-.97-1.42-2.49-1.61-3.03-1.63-1.29-.13-2.52.76-3.17.76-.65 0-1.65-.74-2.71-.72-1.4.02-2.69.81-3.41 2.06-1.46 2.53-.37 6.27 1.05 8.32.7 1.01 1.53 2.14 2.62 2.1 1.05-.04 1.45-.68 2.72-.68 1.27 0 1.63.68 2.74.66 1.13-.02 1.85-1.03 2.54-2.04.8-1.17 1.13-2.3 1.15-2.36-.03-.01-2.2-.84-2.28-3.34Zm-2.1-6.12c.58-.7.97-1.67.86-2.64-.84.03-1.85.56-2.45 1.26-.54.62-1.01 1.61-.88 2.55.93.07 1.89-.47 2.47-1.17Z" />
-    </svg>
-  );
-}
-
-export default function LandingContent() {
-  const [language, setLanguage] = useState<Language>("en");
-  const [openMenu, setOpenMenu] = useState<MenuName | null>(null);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [authStatus, setAuthStatus] = useState("");
-  const headerRef = useRef<HTMLElement>(null);
-  const t = copy[language];
-
-  useEffect(() => {
-    const saved = window.localStorage.getItem("drimliLanguage");
-    if (saved !== "fr") return;
-    const frame = window.requestAnimationFrame(() => setLanguage("fr"));
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.lang = language;
-    document.title = t.pageTitle as string;
-    window.localStorage.setItem("drimliLanguage", language);
-  }, [language, t.pageTitle]);
-
-  useEffect(() => {
-    function closeAll(event: MouseEvent) {
-      if (headerRef.current?.contains(event.target as Node)) return;
-      setOpenMenu(null);
-      setMobileOpen(false);
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      const activeTrigger = headerRef.current?.querySelector<HTMLButtonElement>(
-        '[aria-expanded="true"]'
-      );
-      setOpenMenu(null);
-      setMobileOpen(false);
-      activeTrigger?.focus();
-    }
-
-    document.addEventListener("mousedown", closeAll);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("mousedown", closeAll);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, []);
-
-  function chooseLanguage(value: Language) {
-    setLanguage(value);
-    setAuthStatus("");
-  }
-
-  function toggleMenu(menu: MenuName) {
-    setOpenMenu((current) => (current === menu ? null : menu));
-  }
-
-  async function continueWithGoogle() {
-    setAuthStatus("");
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-    if (error) setAuthStatus(t.googleError as string);
-  }
-
-  const solutionsItems = t.solutionsItems as string[][];
-  const productItems = t.productItems as string[][];
-  const pricingLines = t.pricingLines as string[];
-
-  return (
-    <main className={styles.home}>
-      <div className={styles.page}>
-        <header ref={headerRef} className={styles.topbar} data-mobile-open={mobileOpen}>
-          <Link href="/" className={styles.brand} aria-label="Drimli home">
-            drimli.
-          </Link>
-
-          <nav id="home-primary-navigation" className={styles.nav} aria-label="Primary navigation">
-            <div
-              className={styles.navItem}
-              onMouseEnter={() => setOpenMenu("solutions")}
-              onMouseLeave={() => setOpenMenu(null)}
-            >
-              <button
-                type="button"
-                className={styles.navTrigger}
-                aria-haspopup="menu"
-                aria-expanded={openMenu === "solutions"}
-                aria-controls="home-solutions-menu"
-                onClick={() => toggleMenu("solutions")}
-              >
-                {t.solutions as string}
-              </button>
-              <div
-                id="home-solutions-menu"
-                role="menu"
-                aria-label={t.solutions as string}
-                className={`${styles.popover} ${styles.solutionsPopover}`}
-                data-open={openMenu === "solutions"}
-              >
-                <div className={styles.popoverHeading}>{t.solutionsHeading as string}</div>
-                <div className={styles.entries}>
-                  {solutionsItems.map(([title, description]) => (
-                    <button type="button" role="menuitem" className={styles.entry} key={title}>
-                      <strong>{title}</strong>
-                      <small>{description}</small>
-                    </button>
-                  ))}
-                </div>
-                <div className={styles.solutionsFooter}>
-                  <span>{t.solutionsFooter as string}</span>
-                  <span aria-hidden="true">→</span>
-                </div>
-              </div>
-            </div>
-
-            <div
-              className={styles.navItem}
-              onMouseEnter={() => setOpenMenu("product")}
-              onMouseLeave={() => setOpenMenu(null)}
-            >
-              <button
-                type="button"
-                className={styles.navTrigger}
-                aria-haspopup="menu"
-                aria-expanded={openMenu === "product"}
-                aria-controls="home-product-menu"
-                onClick={() => toggleMenu("product")}
-              >
-                {t.product as string}
-              </button>
-              <div
-                id="home-product-menu"
-                role="menu"
-                aria-label={t.product as string}
-                className={`${styles.popover} ${styles.productPopover}`}
-                data-open={openMenu === "product"}
-              >
-                <div className={styles.entries}>
-                  {productItems.map(([title, description]) => (
-                    <button type="button" role="menuitem" className={styles.entry} key={title}>
-                      <strong>{title}</strong>
-                      <small>{description}</small>
-                    </button>
-                  ))}
-                </div>
-                <div className={styles.popoverFooter}>
-                  <span>{t.productFooter as string}</span>
-                  <span aria-hidden="true">→</span>
-                </div>
-              </div>
-            </div>
-
-            <div
-              className={styles.navItem}
-              onMouseEnter={() => setOpenMenu("pricing")}
-              onMouseLeave={() => setOpenMenu(null)}
-            >
-              <button
-                type="button"
-                className={styles.navTrigger}
-                aria-haspopup="menu"
-                aria-expanded={openMenu === "pricing"}
-                aria-controls="home-pricing-menu"
-                onClick={() => toggleMenu("pricing")}
-              >
-                {t.pricing as string}
-              </button>
-              <div
-                id="home-pricing-menu"
-                role="menu"
-                aria-label={t.pricing as string}
-                className={`${styles.popover} ${styles.pricingPopover}`}
-                data-open={openMenu === "pricing"}
-              >
-                <div className={styles.pricingMessage}>
-                  <strong>{t.free as string}</strong>
-                  <p>{t.pricingPromise as string}</p>
-                  <div className={styles.pricingLines}>
-                    {pricingLines.map((line) => <span key={line}>{line}</span>)}
-                  </div>
-                </div>
-                <Link href="/signup" className={styles.pricingFooter} role="menuitem">
-                  <span>{t.pricingFooter as string}</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
-              </div>
-            </div>
-
-            <div className={styles.languageSwitch} aria-label="Language">
-              <button type="button" aria-pressed={language === "en"} data-active={language === "en"} onClick={() => chooseLanguage("en")}>EN</button>
-              <span aria-hidden="true">|</span>
-              <button type="button" aria-pressed={language === "fr"} data-active={language === "fr"} onClick={() => chooseLanguage("fr")}>FR</button>
-            </div>
-            <Link href="/login" className={styles.login}>{t.login as string}</Link>
-            <Link href="/signup" className={styles.signup}>{t.signup as string}</Link>
-          </nav>
-
-          <button
-            type="button"
-            className={styles.mobileToggle}
-            aria-expanded={mobileOpen}
-            aria-controls="home-primary-navigation"
-            aria-label={(mobileOpen ? t.closeMenu : t.openMenu) as string}
-            onClick={() => {
-              setMobileOpen((value) => !value);
-              setOpenMenu(null);
-            }}
-          >
-            <span />
-            <span />
-          </button>
-        </header>
-
-        <section className={styles.hero} aria-labelledby="home-title">
-          <div className={styles.heroContent}>
-            <h1 id="home-title">{t.hero as string}</h1>
-            <p className={styles.promise}>{t.promise as string}</p>
-            <div className={styles.actions}>
-              <button type="button" className={styles.authButton} onClick={continueWithGoogle}>
-                <GoogleIcon />
-                <span>{t.google as string}</span>
-              </button>
-              <button
-                type="button"
-                className={styles.authButton}
-                disabled
-                aria-label={`${t.apple as string} — ${t.comingSoon as string}`}
-              >
-                <AppleIcon />
-                <span>{t.apple as string}</span>
-              </button>
-              <Link href="/signup" className={styles.emailLink}>{t.email as string}</Link>
-            </div>
-            <p className={styles.freeStatement}>{t.freeStatement as string}</p>
-            <p className={styles.status} role="status" aria-live="polite">{authStatus}</p>
-          </div>
-        </section>
-
-        <footer className={styles.footer}>
-          <Link href="/privacy">{t.privacy as string}</Link>
-          <span aria-hidden="true">·</span>
-          <Link href="/terms">{t.terms as string}</Link>
-        </footer>
-      </div>
-    </main>
-  );
+export default function LandingContent(){
+  const [language,setLanguage]=useState<Language>("en"); const [faqOpen,setFaqOpen]=useState<number|null>(null); const [authStatus,setAuthStatus]=useState(""); const flowRef=useRef<HTMLDivElement>(null); const t=copy[language];
+  useEffect(()=>{const frame=requestAnimationFrame(()=>{if(localStorage.getItem("drimli-lang")==="fr")setLanguage("fr")});return()=>cancelAnimationFrame(frame)},[]);
+  useEffect(()=>{const root=flowRef.current;if(!root)return;const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;const steps=[...root.querySelectorAll<HTMLElement>("[data-flow-step]")];const line=root.querySelector<HTMLElement>("[data-flow-progress]");if(reduce){steps.forEach(s=>s.dataset.visible="true");if(line)line.style.transform="scaleY(1)";return}let frame=0;const update=()=>{frame=0;const r=root.getBoundingClientRect();const ratio=Math.max(0,Math.min(1,(innerHeight*.59-r.top)/Math.max(1,r.height)));if(line)line.style.transform=`scaleY(${ratio})`;const reached=r.top+r.height*ratio;steps.forEach(s=>{if(reached>=s.getBoundingClientRect().top-18)s.dataset.visible="true"})};const queue=()=>{if(!frame)frame=requestAnimationFrame(update)};update();addEventListener("scroll",queue,{passive:true});addEventListener("resize",queue);return()=>{removeEventListener("scroll",queue);removeEventListener("resize",queue);if(frame)cancelAnimationFrame(frame)}},[]);
+  const chooseLanguage=(next:Language)=>{setLanguage(next);localStorage.setItem("drimli-lang",next)};
+  const continueWithGoogle=async()=>{setAuthStatus("");const {error}=await supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo:`${location.origin}/auth/callback`}});if(error)setAuthStatus(t.googleError)};
+  return <main className={styles.home} id="top">
+    <header className={styles.header}><Link href="#top" className={styles.logoLink} aria-label="Drimli home"><Logo/></Link><nav className={styles.headerActions} aria-label="Primary"><div className={styles.language} aria-label="Language"><button data-active={language==="en"} onClick={()=>chooseLanguage("en")}>EN</button><span>|</span><button data-active={language==="fr"} onClick={()=>chooseLanguage("fr")}>FR</button></div><Link href="/login" className={styles.login}>{t.login}</Link><Link href="/signup" className={styles.headerCta}>{t.signup}</Link></nav></header>
+    <section className={styles.hero}><h1>{t.hero}</h1><p>{t.subtitle}</p><div className={styles.auth}><button className={styles.google} onClick={continueWithGoogle}><GoogleIcon/>{t.google}</button><button className={styles.apple} disabled aria-label={`${t.apple} — ${t.comingSoon}`}><AppleIcon/>{t.apple}</button><div className={styles.divider}><span>{t.or}</span></div><Link className={styles.email} href="/signup">{t.email}</Link></div><div className={styles.reassurance}>{t.reassurance}<span>·</span>{t.noSubscription}</div><p className={styles.status} role="status">{authStatus}</p></section>
+    <section className={styles.pricing} id="pricing"><div className={styles.pricingIntro}><h2>{t.monthly}</h2><p>{t.succeed}</p><small>{t.fixed}</small></div><div className={styles.pricingCard}><div className={styles.priceCopy}><small>{t.product}</small><h3>{t.free}</h3><p>{t.included}</p><Link href="/signup">{t.create}</Link></div><div className={styles.features}>{t.features.map(([title,detail])=><div className={styles.feature} key={title}><b>✓</b><p><strong>{title}</strong><span>{detail}</span></p></div>)}</div></div></section>
+    <section className={styles.practice}><h2>{t.practice}</h2></section>
+    <section className={styles.flow} aria-label={t.flowLabel}><div className={styles.flowInner} ref={flowRef}><div className={styles.flowLine}><span data-flow-progress/></div>{t.flow.map(([title,detail],index)=><article className={styles.flowStep} data-flow-step key={title}><div><small>{String(index+1).padStart(2,"0")}</small><h3>{title}</h3><p>{detail}</p></div></article>)}</div></section>
+    <section className={styles.faq} id="faq"><h2>{t.faq}</h2><div className={styles.faqList}>{t.faqs.map(([question,answer],index)=><article className={styles.faqItem} key={question} data-open={faqOpen===index}><button type="button" aria-expanded={faqOpen===index} onClick={()=>setFaqOpen(faqOpen===index?null:index)}><span>{question}</span><i aria-hidden="true"/></button><div className={styles.answer}><p>{answer}</p></div></article>)}</div></section>
+    <footer className={styles.footer}><span>© 2026 drimli®</span><nav><Link href="/privacy">{t.privacy}</Link><Link href="/terms">{t.terms}</Link></nav></footer>
+  </main>;
 }

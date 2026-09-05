@@ -21,6 +21,12 @@
   letter-spacing: -0.025em;
 }
 
+.headerInner img {
+  display: block;
+  width: 112px;
+  height: auto;
+}
+
 .stateContainer {
   padding-block: var(--space-2xl);
 }
