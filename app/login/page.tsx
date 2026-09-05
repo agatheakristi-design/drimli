@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Container from "@/app/components/ui/Container";
 import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
+import styles from "./auth.module.css";
 
 const fieldClass =
   "w-full rounded-xl border border-border bg-background px-4 py-3 text-base outline-none";
@@ -43,14 +45,15 @@ export default function LoginPage() {
       }
 
       router.replace("/");
-    } catch (e: any) {
-      setStatus("Erreur inattendue : " + (e?.message || "unknown"));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "unknown";
+      setStatus("Erreur inattendue : " + message);
       setLoading(false);
     }
   }
 
   return (
-    <Container>
+    <Container className={styles.loginShell}>
       <Card>
         <div className="mx-auto max-w-2xl space-y-6">
           <div className="space-y-2">
@@ -83,6 +86,10 @@ export default function LoginPage() {
               autoComplete="current-password"
             />
           </label>
+
+          <div className={styles.forgotPasswordRow}>
+            <Link href="/forgot-password">Mot de passe oublié ?</Link>
+          </div>
 
           <Button onClick={submit} disabled={loading} className="w-full h-14 text-lg">
             {loading ? "…" : "Se connecter"}
