@@ -3,3 +3,41 @@
 @media(max-width:760px){.header{width:calc(100% - 34px);height:70px}.logoLink img{width:102px}.headerActions{gap:13px}.language{font-size:12px}.language span{margin:0 8px}.login{display:none}.headerCta{min-width:0;height:39px;padding:0 12px}.hero{min-height:calc(100svh - 70px);padding:64px 17px 90px}.hero h1,.practice h2{font-size:clamp(52px,14vw,76px)}.hero>p{font-size:17px;margin-top:24px}.auth{margin-top:34px}.pricing{padding:100px 17px 120px}.pricingIntro h2{font-size:clamp(54px,15vw,78px)}.pricingIntro p{font-size:21px}.pricingCard{margin-top:68px;grid-template-columns:1fr}.priceCopy,.features{padding:38px 28px}.features{border-left:0;border-top:1px solid var(--border)}.practice{min-height:64vh;padding:105px 17px 55px}.flow{padding:0 17px 82px}.flowLine{left:18px;bottom:64px}.flowStep{min-height:190px;display:block;padding-left:52px}.flowStep>div,.flowStep:nth-of-type(even)>div{width:100%;text-align:left}.flowStep h3{font-size:clamp(27px,7.6vw,33px)}.faq{padding:68px 17px 82px}.faq>h2{font-size:clamp(62px,14vw,82px);margin-bottom:68px}.faqList{padding:18px 14px}.faqItem button{min-height:76px;padding:0 14px;gap:18px}.faqItem button span{font-size:17px}.answer p{padding-inline:14px 38px;font-size:14px}.faqItem[data-open="true"] .answer p{padding-bottom:22px}.footer{min-height:150px;flex-direction:column;gap:22px}.footer nav{position:static}.reassurance{white-space:nowrap}}
 
 @media(prefers-reduced-motion:reduce){.home *{scroll-behavior:auto!important;animation:none!important;transition:none!important}.flowStep{opacity:1;transform:none}}
+
+/* Header and hero refinements: keep the opening screen continuous with the DRIMLI gradient. */
+.header {
+  background: transparent;
+  border-bottom: 0;
+  backdrop-filter: none;
+}
+
+.hero h1 {
+  font-weight: 400;
+  letter-spacing: 0.005em;
+}
+
+.hero > p {
+  color: var(--muted-foreground);
+  font-size: clamp(14px, 1.15vw, 17px);
+  letter-spacing: 0.035em;
+}
+
+.google,
+.apple {
+  border: 0;
+  border-radius: 4px;
+  background: #111;
+  box-shadow: none;
+  color: #fff;
+}
+
+.apple svg {
+  fill: currentColor;
+}
+
+.email {
+  border: 0;
+  border-radius: 4px;
+  background: rgb(245 245 245 / 0.78);
+  color: var(--muted-foreground);
+}
