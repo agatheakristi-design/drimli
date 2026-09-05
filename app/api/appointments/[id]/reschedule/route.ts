@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { AppointmentRescheduleError, reschedulePaidAppointment } from "@/lib/appointmentReschedule";
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,37 +27,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!appointment || appointment.status !== "confirmed") {
     return NextResponse.json({ error: "Ce rendez-vous ne peut pas être déplacé." }, { status: 409 });
   }
-  const duration = Date.parse(appointment.end_datetime) - Date.parse(appointment.start_datetime);
-  const newStart = new Date(body.start);
-  const newEnd = new Date(newStart.getTime() + duration);
-  if (newStart <= new Date()) return NextResponse.json({ error: "Choisissez une date future." }, { status: 400 });
-
-  const [appointments, blocks] = await Promise.all([
-    admin.from("appointments").select("id").eq("provider_id", auth.user.id)
-      .in("status", ["pending", "confirmed"]).neq("id", id)
-      .lt("start_datetime", newEnd.toISOString()).gt("end_datetime", newStart.toISOString()).limit(1),
-    admin.from("provider_blocks").select("id").eq("provider_id", auth.user.id)
-      .lt("start_datetime", newEnd.toISOString()).gt("end_datetime", newStart.toISOString()).limit(1),
-  ]);
-  if (appointments.error || blocks.error) return NextResponse.json({ error: "Vérification du créneau impossible." }, { status: 500 });
-  if ((appointments.data?.length ?? 0) || (blocks.data?.length ?? 0)) {
-    return NextResponse.json({ error: "Ce créneau n’est pas disponible." }, { status: 409 });
+  try {
+    const data = await reschedulePaidAppointment({ admin, appointment, newStartIso: body.start });
+    return NextResponse.json({ appointment: data });
+  } catch (error) {
+    const failure = error instanceof AppointmentRescheduleError
+      ? error
+      : new AppointmentRescheduleError("Déplacement impossible.", 500);
+    return NextResponse.json({ error: failure.message }, { status: failure.status });
   }
-
-  const { data, error } = await admin.rpc("reschedule_paid_appointment", {
-    p_appointment_id: id,
-    p_provider_id: auth.user.id,
-    p_new_start: newStart.toISOString(),
-    p_new_end: newEnd.toISOString(),
-    p_now: new Date().toISOString(),
-  });
-  if (error || !data) {
-    const message = error?.message.includes("holding limit")
-      ? "La nouvelle date dépasse la limite de 80 jours."
-      : error?.message.includes("payment state")
-        ? "Les fonds sont déjà en cours de versement ou le paiement n’est plus déplaçable."
-        : "Déplacement impossible.";
-    return NextResponse.json({ error: message }, { status: 409 });
-  }
-  return NextResponse.json({ appointment: data });
 }
