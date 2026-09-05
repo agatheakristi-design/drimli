@@ -35,6 +35,10 @@
   fill: currentColor;
 }
 
+.apple:disabled {
+  opacity: 1;
+}
+
 .email {
   border: 0;
   border-radius: 4px;
