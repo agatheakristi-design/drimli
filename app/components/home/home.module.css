@@ -11,9 +11,14 @@
   backdrop-filter: none;
 }
 
-.hero h1 {
-  font-weight: 400;
+.hero h1,
+.pricingIntro h2,
+.practice h2,
+.faq > h2 {
+  font-size: clamp(62px, 7.5vw, 102px);
+  font-weight: 600;
   letter-spacing: 0.005em;
+  line-height: 0.96;
 }
 
 .hero > p {
@@ -36,6 +41,8 @@
 }
 
 .apple:disabled {
+  background: #111;
+  color: #fff;
   opacity: 1;
 }
 
@@ -44,4 +51,13 @@
   border-radius: 4px;
   background: rgb(245 245 245 / 0.78);
   color: var(--muted-foreground);
+}
+
+@media (max-width: 760px) {
+  .hero h1,
+  .pricingIntro h2,
+  .practice h2,
+  .faq > h2 {
+    font-size: clamp(52px, 14vw, 76px);
+  }
 }
