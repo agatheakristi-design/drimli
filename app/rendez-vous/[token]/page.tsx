@@ -8,6 +8,9 @@ import {
 import { isGoogleMeetUrl } from "@/lib/video/meetUrl";
 import type { VideoRoomStatus } from "@/lib/video/types";
 import PortalRefresh from "./PortalRefresh";
+import AppointmentManagement from "./AppointmentManagement";
+import { clientAppointmentPermissions } from "@/lib/clientAppointmentPolicy";
+import type { CancellationPolicy } from "@/lib/payoutPolicy";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +27,10 @@ type PortalDetails = {
   endsAt: Date;
   state: JoinWindowState;
   roomStatus: VideoRoomStatus;
+  providerId: string;
+  serviceId: string;
+  policy: CancellationPolicy;
+  videoReady: boolean;
 };
 
 const supabaseAdmin = createClient(
@@ -31,24 +38,6 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { persistSession: false } }
 );
-
-function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("fr-FR", {
-    timeZone: "Europe/Paris",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(date);
-}
-
-function formatTime(date: Date) {
-  return new Intl.DateTimeFormat("fr-FR", {
-    timeZone: "Europe/Paris",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
 
 function PortalLayout({ children }: { children: ReactNode }) {
   return (
@@ -74,7 +63,6 @@ function ErrorState({ children }: { children: ReactNode }) {
 async function loadPortal(token: string): Promise<
   | { kind: "invalid" }
   | { kind: "unavailable" }
-  | { kind: "preparing" }
   | { kind: "ready"; details: PortalDetails }
 > {
   if (!token || token.length > 200) return { kind: "invalid" };
@@ -82,7 +70,7 @@ async function loadPortal(token: string): Promise<
   const { data: appointment, error } = await supabaseAdmin
     .from("appointments")
     .select(
-      "status, start_datetime, end_datetime, provider_id, product_id, video_provider, video_join_url, video_room_status"
+      "id, status, start_datetime, end_datetime, provider_id, product_id, video_provider, video_join_url, video_room_status"
     )
     .eq("join_token", token)
     .maybeSingle();
@@ -97,14 +85,7 @@ async function loadPortal(token: string): Promise<
   ) {
     return { kind: "unavailable" };
   }
-  if (
-    appointment.video_provider !== "google_meet" ||
-    !isGoogleMeetUrl(appointment.video_join_url)
-  ) {
-    return { kind: "preparing" };
-  }
-
-  const [{ data: profile }, { data: product }] = await Promise.all([
+  const [{ data: profile }, { data: product }, { data: snapshot }] = await Promise.all([
     supabaseAdmin
       .from("profiles")
       .select("full_name, avatar_url")
@@ -115,7 +96,13 @@ async function loadPortal(token: string): Promise<
       .select("title")
       .eq("id", appointment.product_id)
       .maybeSingle(),
+    supabaseAdmin
+      .from("billing_checkout_snapshots")
+      .select("cancellation_policy")
+      .eq("appointment_id", appointment.id)
+      .maybeSingle(),
   ]);
+  if (!snapshot?.cancellation_policy) return { kind: "unavailable" };
 
   const startsAt = new Date(appointment.start_datetime);
   const endsAt = new Date(appointment.end_datetime);
@@ -137,6 +124,10 @@ async function loadPortal(token: string): Promise<
       endsAt,
       state: getJoinWindowState({ startsAt, endsAt }),
       roomStatus: appointment.video_room_status as VideoRoomStatus,
+      providerId: appointment.provider_id,
+      serviceId: appointment.product_id,
+      policy: snapshot.cancellation_policy as CancellationPolicy,
+      videoReady: appointment.video_provider === "google_meet" && isGoogleMeetUrl(appointment.video_join_url),
     },
   };
 }
@@ -151,10 +142,6 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
   if (portal.kind === "unavailable") {
     return <ErrorState>Ce rendez-vous n’est pas disponible.</ErrorState>;
   }
-  if (portal.kind === "preparing") {
-    return <ErrorState>La visioconférence est en cours de préparation.</ErrorState>;
-  }
-
   const { details } = portal;
   const opensAt = details.startsAt.getTime() - 10 * 60_000;
   const closesAt = details.endsAt.getTime() + 30 * 60_000;
@@ -188,7 +175,9 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
       </header>
 
       <div className={styles.content}>
-        {details.roomStatus !== "locked" && details.state === "early" ? (
+        {!details.videoReady ? (
+          <><h1>Votre rendez-vous est confirmé</h1><p>La visioconférence est en cours de préparation.</p></>
+        ) : details.roomStatus !== "locked" && details.state === "early" ? (
           <>
             <h1>Votre visioconférence n’est pas encore disponible</h1>
             <p>
@@ -198,7 +187,7 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
           </>
         ) : null}
 
-        {details.state === "open" && details.roomStatus === "closed" ? (
+        {details.videoReady && details.state === "open" && details.roomStatus === "closed" ? (
           <>
             <h1>Votre rendez-vous va bientôt commencer</h1>
             <p>
@@ -209,7 +198,7 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
           </>
         ) : null}
 
-        {details.state === "open" && details.roomStatus === "open" ? (
+        {details.videoReady && details.state === "open" && details.roomStatus === "open" ? (
           <>
             <h1>Le professionnel est prêt</h1>
             <a
@@ -223,13 +212,13 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
           </>
         ) : null}
 
-        {details.roomStatus === "locked" ? (
+        {details.videoReady && details.roomStatus === "locked" ? (
           <>
             <h1>L’accès à cette visioconférence est fermé</h1>
           </>
         ) : null}
 
-        {details.roomStatus !== "locked" && details.state === "ended" ? (
+        {details.videoReady && details.roomStatus !== "locked" && details.state === "ended" ? (
           <>
             <h1>Cette visioconférence n’est plus disponible</h1>
             <p>Le créneau d’accès est terminé.</p>
@@ -241,22 +230,13 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
         ) : null}
       </div>
 
-      <dl className={styles.details}>
-        <div>
-          <dt>Prestation</dt>
-          <dd>{details.serviceTitle}</dd>
-        </div>
-        <div>
-          <dt>Date</dt>
-          <dd>{formatDate(details.startsAt)}</dd>
-        </div>
-        <div>
-          <dt>Horaire</dt>
-          <dd>
-            {formatTime(details.startsAt)} – {formatTime(details.endsAt)}
-          </dd>
-        </div>
-      </dl>
+      <AppointmentManagement
+        token={token}
+        serviceTitle={details.serviceTitle}
+        initialStart={details.startsAt.toISOString()}
+        initialEnd={details.endsAt.toISOString()}
+        initialPermissions={clientAppointmentPermissions(details.policy, details.startsAt)}
+      />
     </PortalLayout>
   );
 }

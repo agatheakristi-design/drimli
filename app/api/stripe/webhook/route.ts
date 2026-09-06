@@ -381,6 +381,15 @@ export async function POST(req: Request) {
         const charge = typeof intent.latest_charge === "object" ? intent.latest_charge : null;
         const applicationFee = charge && typeof charge.application_fee === "object" ? charge.application_fee : null;
         await supabaseAdmin.from("drimli_payments").update({ refunded_amount: refundedAmount, refunded_application_fee_amount: applicationFee?.amount_refunded ?? 0, status: refundedAmount === 0 ? "paid" : refundedAmount >= payment.amount_paid ? "refunded" : "partially_refunded", updated_at: new Date().toISOString() }).eq("id", payment.id);
+        if (refund.status === "succeeded") {
+          const { error: commitmentError } = await supabaseAdmin.rpc("complete_drimli_payment_refund", {
+            p_payment_id: payment.id,
+            p_refunded_amount: refundedAmount,
+          });
+          if (commitmentError) throw commitmentError;
+        } else if (refund.status === "failed" || refund.status === "canceled") {
+          await supabaseAdmin.rpc("release_drimli_payment_refund", { p_payment_id: payment.id });
+        }
         if (applicationFee) {
           await syncRefundedCommissionMovements({
             admin: supabaseAdmin,
@@ -455,7 +464,7 @@ export async function POST(req: Request) {
     // 1) Charger appointment
     const { data: appt, error: apptErr } = await supabaseAdmin
       .from("appointments")
-      .select("id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, confirmation_email_sent_at, video_provider, video_join_url, video_room_id, join_token")
+      .select("id, provider_id, product_id, client_name, client_email, start_datetime, end_datetime, status, confirmation_email_sent_at, video_provider, video_join_url, video_room_id, join_token, cancellation_policy")
       .eq("id", appointmentId)
       .maybeSingle();
 
@@ -505,6 +514,36 @@ export async function POST(req: Request) {
       updated_at: new Date().toISOString(),
     }, { onConflict: "stripe_checkout_session_id" }).select("id, provider_id, application_fee_amount, currency, paid_at").single();
     if (paymentRecordError || !paymentRecord) throw paymentRecordError || new Error("Payment record missing");
+
+    const { data: payoutProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("drimli_payout_mode")
+      .eq("provider_id", appt.provider_id)
+      .maybeSingle();
+    const controlledPayout =
+      appt.cancellation_policy === "moderate" || payoutProfile?.drimli_payout_mode === "manual";
+    if (controlledPayout) {
+      const eligibleAt = appt.cancellation_policy === "moderate"
+        ? new Date(Date.parse(appt.end_datetime) + 15 * 60 * 1000).toISOString()
+        : paidAt;
+      const { error: commitmentError } = await supabaseAdmin
+        .from("drimli_payout_commitments")
+        .upsert({
+          payment_id: paymentRecord.id,
+          appointment_id: appt.id,
+          provider_id: appt.provider_id,
+          policy_snapshot: appt.cancellation_policy === "moderate" ? "moderate" : "non_refundable",
+          amount_paid: session.amount_total,
+          application_fee_amount: billingSnapshot.application_fee_amount,
+          refunded_amount: 0,
+          payable_amount: session.amount_total - billingSnapshot.application_fee_amount,
+          currency: session.currency.toUpperCase(),
+          eligible_at: eligibleAt,
+          status: "pending",
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "payment_id", ignoreDuplicates: true });
+      if (commitmentError) throw new Error(`Payout commitment failed: ${commitmentError.message}`);
+    }
 
     let joinToken: string;
     try {

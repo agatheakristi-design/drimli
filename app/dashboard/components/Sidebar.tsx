@@ -7,6 +7,7 @@ import {
   Home,
 } from "lucide-react";
 import LogoutButton from "@/app/components/LogoutButton";
+import Logo from "@/app/components/ui/Logo";
 import styles from "./dashboard.module.css";
 
 type SidebarProps = {
@@ -49,7 +50,7 @@ export default function Sidebar({
   return (
     <aside className={styles.sidebar}>
       <Link href="/dashboard" className={styles.brand}>
-        Drimli
+        <Logo />
       </Link>
 
       <nav className={styles.navigation} aria-label="Tableau de bord">

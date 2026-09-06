@@ -145,6 +145,25 @@
   font-weight: 500;
 }
 
+.management { display:grid; gap:var(--space-md); padding:var(--space-lg) var(--space-xl); border-top:1px solid var(--border); }
+.management > p { margin:0; color:var(--muted-foreground); font-size:.875rem; line-height:1.5; }
+.managementActions { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-sm); color:var(--muted-foreground); font-size:.8125rem; }
+.management button { min-height:var(--control-height); padding:0 var(--space-md); border:1px solid var(--border); border-radius:var(--radius-md); background:transparent; color:var(--foreground); font:inherit; font-size:.875rem; font-weight:600; cursor:pointer; }
+.management button:disabled { cursor:not-allowed; opacity:.55; }
+.management button:focus-visible { outline:3px solid var(--focus-ring); outline-offset:2px; }
+.management .textAction { min-height:auto; padding:0; border:0; border-radius:0; background:none; color:var(--muted-foreground); font-size:.8125rem; font-weight:400; text-decoration:underline; text-underline-offset:.16em; }
+.management .textAction:focus-visible { border-radius:2px; outline:2px solid var(--focus-ring); outline-offset:3px; }
+.slotPicker { display:grid; gap:var(--space-md); padding-top:var(--space-sm); }
+.slotPicker label { display:grid; gap:var(--space-xs); color:var(--foreground); font-size:.8125rem; font-weight:600; }
+.slotPicker input { min-height:var(--control-height); padding:0 var(--space-sm); border:1px solid var(--border); border-radius:var(--radius-md); background:transparent; color:var(--foreground); font:inherit; }
+.slotList { display:flex; flex-wrap:wrap; gap:var(--space-xs); }
+.slotList span { color:var(--muted-foreground); font-size:.8125rem; }
+.slotList button[aria-pressed="true"] { border-color:var(--foreground); background:var(--muted); }
+.actionResult { display:grid; gap:var(--space-xs); }
+.actionResult strong { color:var(--foreground); }
+.actionResult span { color:var(--muted-foreground); font-size:.875rem; }
+.management .actionError { color:var(--destructive); }
+
 .messageOnly {
   padding: var(--space-2xl) var(--space-xl);
   text-align: center;
@@ -158,7 +177,8 @@
 
   .header,
   .content,
-  .details {
+  .details,
+  .management {
     padding-inline: var(--space-lg);
   }
 

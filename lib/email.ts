@@ -123,6 +123,85 @@ const html = `
   return data;
 }
 
+function appointmentDateLabels(startIso: string, endIso: string) {
+  return {
+    date: new Date(startIso).toLocaleDateString("fr-FR", {
+      timeZone: "Europe/Paris",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }),
+    start: new Date(startIso).toLocaleTimeString("fr-FR", {
+      timeZone: "Europe/Paris",
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    end: new Date(endIso).toLocaleTimeString("fr-FR", {
+      timeZone: "Europe/Paris",
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  };
+}
+
+export async function sendAppointmentRescheduledEmail(
+  p: AppointmentEmailPayload
+) {
+  const labels = appointmentDateLabels(p.startDateTimeIso, p.endDateTimeIso);
+  const subject = `Votre rendez-vous avec ${p.providerName} a été déplacé`;
+  const text = [
+    "Bonjour,", "", "Votre rendez-vous a bien été déplacé.", "",
+    `Professionnel : ${p.providerName}`,
+    `Prestation : ${p.serviceTitle}`,
+    `Nouvelle date : ${labels.date}`,
+    `Nouvel horaire : ${labels.start} – ${labels.end}`,
+    "", "Accéder à votre rendez-vous :", p.appointmentJoinUrl,
+    "", "—", "Drimli",
+  ].join("\n");
+  const html = `<div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;line-height:1.6;color:#111;">
+    <p>Bonjour,</p><p><strong>Votre rendez-vous a bien été déplacé.</strong></p>
+    <p><strong>Professionnel :</strong> ${escapeHtml(p.providerName)}<br/>
+    <strong>Prestation :</strong> ${escapeHtml(p.serviceTitle)}<br/>
+    <strong>Nouvelle date :</strong> ${escapeHtml(labels.date)}<br/>
+    <strong>Nouvel horaire :</strong> ${escapeHtml(labels.start)} – ${escapeHtml(labels.end)}</p>
+    <p><a href="${escapeHtml(p.appointmentJoinUrl)}" target="_blank" rel="noreferrer">Accéder à votre rendez-vous</a></p>
+    <p style="opacity:.7;">—<br/>Drimli</p></div>`;
+  const { data, error } = await resend.emails.send({ from: FROM, to: p.to, subject, text, html }, {
+    idempotencyKey: `appointment-rescheduled/${p.appointmentId}/${p.startDateTimeIso}`,
+  });
+  if (error) throw new Error(error.message || "Resend send failed");
+  return data;
+}
+
+export async function sendAppointmentCancelledEmail(p: {
+  appointmentId: string;
+  refundId: string;
+  to: string;
+  providerName: string;
+  serviceTitle: string;
+}) {
+  const subject = `Votre rendez-vous avec ${p.providerName} est annulé`;
+  const text = [
+    "Bonjour,", "", "Votre rendez-vous a bien été annulé.",
+    "Vous avez été remboursé intégralement.", "",
+    `Professionnel : ${p.providerName}`,
+    `Prestation : ${p.serviceTitle}`,
+    "", "—", "Drimli",
+  ].join("\n");
+  const html = `<div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;line-height:1.6;color:#111;">
+    <p>Bonjour,</p><p><strong>Votre rendez-vous a bien été annulé.</strong></p>
+    <p>Vous avez été remboursé intégralement.</p>
+    <p><strong>Professionnel :</strong> ${escapeHtml(p.providerName)}<br/>
+    <strong>Prestation :</strong> ${escapeHtml(p.serviceTitle)}</p>
+    <p style="opacity:.7;">—<br/>Drimli</p></div>`;
+  const { data, error } = await resend.emails.send({ from: FROM, to: p.to, subject, text, html }, {
+    idempotencyKey: `appointment-cancelled/${p.appointmentId}/${p.refundId}`,
+  });
+  if (error) throw new Error(error.message || "Resend send failed");
+  return data;
+}
+
 export async function sendGoogleReviewRequestEmail(
   p: GoogleReviewRequestEmailPayload
 ) {

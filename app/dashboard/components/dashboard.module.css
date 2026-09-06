@@ -18,6 +18,12 @@
   letter-spacing: -.02em;
 }
 
+.brand img {
+  display: block;
+  width: 112px;
+  height: auto;
+}
+
 .navigation {
   display: grid;
   gap: 7px;

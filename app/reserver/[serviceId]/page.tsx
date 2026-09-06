@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabaseClient";
 import Container from "@/app/components/ui/Container";
 import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
+import Logo from "@/app/components/ui/Logo";
 import styles from "./page.module.css";
 
 function isUuid(v: string) {
@@ -36,8 +37,8 @@ type ProfileRow = {
 
 function cancellationPolicyLabel(policy: ProfileRow["cancellation_policy"]) {
   if (policy === "moderate") return "Remboursement possible jusqu’à 48 h avant le rendez-vous";
-  if (policy === "non_refundable") return "Réservation non remboursable après paiement";
-  return "Remboursement possible jusqu’à 24 h avant le rendez-vous";
+  if (policy === "flexible") return "Remboursement possible jusqu’à 24 h avant le rendez-vous";
+  return "Sans remboursement";
 }
 
 function formatParisTime(iso: string) {
@@ -337,7 +338,7 @@ export default function Page() {
     return (
       <div className={styles.page}>
         <header className={styles.header}>
-          <Container className={styles.headerInner}>Drimli</Container>
+          <Container className={styles.headerInner}><Logo /></Container>
         </header>
         <Container className={styles.stateContainer}>
           <Card>Chargement…</Card>
@@ -350,7 +351,7 @@ export default function Page() {
     return (
       <div className={styles.page}>
         <header className={styles.header}>
-          <Container className={styles.headerInner}>Drimli</Container>
+          <Container className={styles.headerInner}><Logo /></Container>
         </header>
         <Container className={styles.stateContainer}>
           <Card>{errorText}</Card>
@@ -362,7 +363,7 @@ export default function Page() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <Container className={styles.headerInner}>Drimli</Container>
+        <Container className={styles.headerInner}><Logo /></Container>
       </header>
 
       <Container className={styles.content}>

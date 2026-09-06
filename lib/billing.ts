@@ -43,7 +43,6 @@ export function refundDestinationChargePolicy(amount: number) {
   return {
     amount,
     reverse_transfer: true as const,
-    refund_application_fee: true as const,
   };
 }
 
