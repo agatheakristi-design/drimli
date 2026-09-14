@@ -1,0 +1,66 @@
+name: Supabase DEV heartbeat
+
+# Activation (after approval): publish on the repository's default branch and
+# create the Actions secret SUPABASE_DEV_ANON_KEY using the existing DEV
+# NEXT_PUBLIC_SUPABASE_ANON_KEY. Never use a Production or service-role key.
+# No checkout, dependency installation, application build or deployment.
+on:
+  schedule:
+    - cron: '37 6 * * *' # Daily at 06:37 UTC; GitHub may delay execution.
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: supabase-dev-heartbeat
+  cancel-in-progress: false
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Read DEV database without returning business data
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://qlxmnroplpuicmpszapf.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_DEV_ANON_KEY }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const project = 'qlxmnroplpuicmpszapf';
+          const expectedUrl = `https://${project}.supabase.co`;
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+          try {
+            if (url !== expectedUrl) throw new Error('Refusing a non-DEV URL.');
+            if (!key) throw new Error('Missing SUPABASE_DEV_ANON_KEY.');
+
+            // Check the existing legacy anon key's project before any request.
+            // Supabase itself verifies the JWT signature.
+            let claims;
+            try {
+              claims = JSON.parse(Buffer.from(key.split('.')[1], 'base64url'));
+            } catch {
+              throw new Error('Expected the existing DEV anon JWT.');
+            }
+            if (claims?.ref !== project || claims?.role !== 'anon') {
+              throw new Error('Refusing a key outside the DEV anon role.');
+            }
+
+            // A real SELECT through PostgREST, limited to one public product.
+            // HEAD returns no rows; no count, write, RPC, retry or redirect.
+            const response = await fetch(`${expectedUrl}/rest/v1/products?select=id&limit=1`, {
+              method: 'HEAD',
+              headers: { apikey: key, Authorization: `Bearer ${key}` },
+              redirect: 'error',
+              cache: 'no-store',
+              signal: AbortSignal.timeout(15_000),
+            });
+            if (!response.ok) throw new Error(`DEV read failed: HTTP ${response.status}.`);
+            console.log(`DRIMLI DEV heartbeat OK (${response.status}).`);
+          } catch (error) {
+            console.error(`DRIMLI DEV heartbeat failed: ${error.message}`);
+            process.exitCode = 1;
+          }
+          NODE
