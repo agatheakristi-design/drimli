@@ -23,6 +23,8 @@ export default function GoogleMeetOnboarding({
   const [status, setStatus] = useState<GoogleStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [notice, setNotice] = useState("");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
 
@@ -70,6 +72,7 @@ export default function GoogleMeetOnboarding({
   async function connectGoogle() {
     setConnecting(true);
     setError("");
+    setNotice("");
 
     try {
       const { data } = await supabase.auth.getSession();
@@ -96,6 +99,39 @@ export default function GoogleMeetOnboarding({
       setError("Impossible de lancer la connexion Google.");
     } finally {
       setConnecting(false);
+    }
+  }
+
+  async function disconnectGoogle() {
+    if (disconnecting) return;
+    setDisconnecting(true);
+    setError("");
+    setNotice("");
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) {
+        setError("Vous devez être connecté.");
+        return;
+      }
+      const response = await fetch("/api/google/disconnect", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setError(result.error || "Impossible de déconnecter Google.");
+        return;
+      }
+      setStatus({ connected: false, reason: "not_connected", email: null });
+      onCompletionChange(false);
+      if (result.remoteRevocation === "unconfirmed") {
+        setNotice("Connexion supprimée de DRIMLI. La révocation Google n’a pas pu être confirmée ; vous pouvez retirer l’accès dans votre compte Google.");
+      }
+    } catch {
+      setError("Impossible de déconnecter Google. Réessayez.");
+    } finally {
+      setDisconnecting(false);
     }
   }
 
@@ -131,7 +167,7 @@ export default function GoogleMeetOnboarding({
         </span>
         <span className={styles.taskCopy}>
           <strong>{loading ? "Vérification de Google Meet…" : label}</strong>
-          <span>{error || description}</span>
+          <span>{error || notice || description}</span>
         </span>
         <ChevronRight className={styles.taskArrow} size={18} />
       </button>
@@ -140,6 +176,16 @@ export default function GoogleMeetOnboarding({
         <div className={styles.inlineEditor}>
           <div className={styles.inlineEditorFooter}>
             <span className={styles.inlineEditorStatus}>{description}</span>
+            {connected ? (
+              <button
+                type="button"
+                className={styles.googleBoosterTextLink}
+                onClick={disconnectGoogle}
+                disabled={disconnecting}
+              >
+                {disconnecting ? "Déconnexion…" : "Déconnecter"}
+              </button>
+            ) : (
             <button
               type="button"
               className={styles.inlinePrimaryButton}
@@ -152,6 +198,7 @@ export default function GoogleMeetOnboarding({
                   ? "Reconnecter"
                   : label}
             </button>
+            )}
           </div>
         </div>
       ) : null}
