@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
+import { hasGoogleCalendarScope } from "@/lib/googleOAuthScopes";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -72,7 +73,7 @@ export async function createGoogleMeetAppointment(params: {
     );
   }
 
-  if (!integration.scope?.includes("googleapis.com/auth/calendar")) {
+  if (!hasGoogleCalendarScope(integration.scope)) {
     throw new GoogleMeetError(
       "calendar_scope_missing",
       "Google Calendar scope missing. Reconnect the Google account."

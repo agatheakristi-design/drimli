@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
+import { GOOGLE_CALENDAR_SCOPE } from "@/lib/googleOAuthScopes";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,8 +65,7 @@ export async function POST(request: Request) {
       scope: [
         "openid",
         "email",
-        "profile",
-        "https://www.googleapis.com/auth/calendar",
+        GOOGLE_CALENDAR_SCOPE,
       ],
     });
 

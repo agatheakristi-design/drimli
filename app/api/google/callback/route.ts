@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
+import { hasGoogleCalendarScope } from "@/lib/googleOAuthScopes";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
 
     const returnedScope = tokens.scope?.trim() ?? "";
 
-    if (!returnedScope.includes("googleapis.com/auth/calendar")) {
+    if (!hasGoogleCalendarScope(returnedScope)) {
       throw new Error(
         "Google Calendar permission was not granted. Reconnect and accept Calendar access."
       );
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!storedIntegration?.scope?.includes("googleapis.com/auth/calendar")) {
+    if (!hasGoogleCalendarScope(storedIntegration?.scope)) {
       throw new Error(
         "Google Calendar permission was granted but could not be stored."
       );

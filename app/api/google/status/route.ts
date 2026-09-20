@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { hasGoogleCalendarScope } from "@/lib/googleOAuthScopes";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,9 +44,7 @@ export async function GET(request: Request) {
     }
 
     const hasRefreshToken = Boolean(data?.refresh_token);
-    const hasCalendarScope = Boolean(
-      data?.scope?.includes("googleapis.com/auth/calendar")
-    );
+    const hasCalendarScope = hasGoogleCalendarScope(data?.scope);
 
     const reason = !data
       ? "not_connected"
