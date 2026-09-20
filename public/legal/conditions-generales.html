@@ -1431,10 +1431,39 @@ body > header::before, body > header::after,
 <p>Stripe demeure responsable de ses propres traitements lorsqu’il agit en qualité de responsable du traitement et agit comme sous-traitant lorsque les conditions contractuelles applicables le prévoient. Cette qualification dépend de l’opération de traitement concernée.</p>
 </section>
 <section class="clause" id="privacy-12-google"><h3>12. Google et services connectés</h3>
-<p>Les services Google ne sont utilisés que pour les fonctionnalités concernées. Lorsque le Professionnel connecte son compte Google, Drimli peut interagir avec Google Calendar et Google Meet afin de créer ou gérer les éléments nécessaires à la Session, notamment les horaires et, lorsque cela est nécessaire au fonctionnement de l’intégration, l’adresse email du Client final.</p>
-<p>Google Places / Google Business Profile peuvent être utilisés pour rechercher et associer la fiche Google du Professionnel et récupérer certaines informations publiques relatives à cette fiche, notamment la note et le nombre d’avis. Google OAuth peut également être utilisé via Supabase lorsque cette option est activée.</p>
-<p>Google exploite une infrastructure mondiale et indique que des données peuvent être traitées dans différents pays selon le service utilisé et ses sous-traitants. Pour ses services professionnels concernés, Google incorpore les Clauses Contractuelles Types de la Commission européenne de 2021 dans ses conditions de traitement lorsque celles-ci sont requises pour des transferts hors EEE. Google indique également participer aux cadres EU-U.S. Data Privacy Framework, UK Extension et Swiss-U.S. Data Privacy Framework pour les entités et traitements couverts.</p>
-<p>L’utilisation d’un service Google peut également entraîner le dépôt ou l’utilisation par Google de cookies ou autres technologies strictement nécessaires à son propre service, selon le contexte d’utilisation et les paramètres du compte concerné.</p>
+<h4>12.1. Connexion à Google Calendar et Google Meet</h4>
+<p>Lorsqu’un Professionnel choisit de connecter son compte Google à Drimli afin d’utiliser Google Calendar et Google Meet, Drimli demande uniquement les autorisations nécessaires au fonctionnement de cette intégration.</p>
+<p>Drimli utilise les autorisations Google permettant d’identifier le compte Google connecté et de créer et gérer les événements nécessaires aux rendez-vous Drimli dans le calendrier principal du Professionnel.</p>
+<p>Dans ce cadre, Drimli peut accéder et traiter notamment :</p>
+<ul>
+<li>l’adresse électronique du compte Google connecté ;</li>
+<li>les autorisations OAuth accordées à Drimli et les jetons techniques nécessaires au maintien de cette connexion ;</li>
+<li>l’identifiant des événements Google Calendar créés pour les rendez-vous Drimli ;</li>
+<li>les informations retournées par Google nécessaires à la création et à la récupération du lien Google Meet associé au rendez-vous.</li>
+</ul>
+<p>Lors de la création d’un rendez-vous utilisant Google Meet, Drimli transmet à Google les informations nécessaires à la création de l’événement, notamment la date et l’heure du rendez-vous, un intitulé générique et l’adresse électronique du Client final afin de l’ajouter comme participant.</p>
+<p>Drimli utilise ces données exclusivement afin de fournir et maintenir les fonctionnalités Google Calendar et Google Meet demandées par le Professionnel, notamment pour créer l’événement correspondant au rendez-vous, générer ou récupérer son lien Google Meet, éviter la création de doublons et vérifier le compte organisateur.</p>
+<p>Drimli n’utilise pas cette autorisation pour consulter l’ensemble de l’agenda du Professionnel, rechercher ses disponibilités dans Google Calendar ou accéder au contenu audio ou vidéo des réunions Google Meet. Drimli n’utilise pas les données obtenues par l’intermédiaire des API Google à des fins de publicité ciblée, de profilage publicitaire, de vente de données ou d’entraînement de modèles d’intelligence artificielle.</p>
+<h4>12.2. Stockage des données liées à Google</h4>
+<p>Afin de maintenir la connexion Google sans demander au Professionnel de s’autoriser à nouveau à chaque connexion à Drimli, Drimli conserve dans son infrastructure les jetons OAuth nécessaires, l’adresse électronique du compte Google connecté, les autorisations accordées et leur expiration.</p>
+<p>Pour les rendez-vous créés avec Google Meet, Drimli conserve également avec le rendez-vous l’identifiant de l’événement Google Calendar et le lien Google Meet correspondant.</p>
+<p>Ces informations sont hébergées par les prestataires techniques utilisés par Drimli dans les conditions décrites aux sections relatives aux destinataires, à la sécurité et aux transferts internationaux de la présente Politique.</p>
+<p>Certaines métadonnées techniques nécessaires au diagnostic et à la sécurité du service peuvent également apparaître temporairement dans les journaux techniques de l’infrastructure de Drimli.</p>
+<h4>12.3. Partage et accès aux données Google</h4>
+<p>Les données obtenues par l’intermédiaire des services Google ne sont utilisées et communiquées que dans la mesure nécessaire à la fourniture et au fonctionnement de l’intégration demandée.</p>
+<p>Les traitements techniques peuvent notamment impliquer Google, Supabase et Vercel dans les conditions décrites dans la présente Politique.</p>
+<p>Le lien Google Meet associé à un rendez-vous est mis à disposition du Professionnel et du Client final concernés afin qu’ils puissent rejoindre la Session.</p>
+<p>Drimli ne vend pas les données utilisateur obtenues par l’intermédiaire des API Google et ne les transmet pas à des tiers à des fins publicitaires.</p>
+<p>L’utilisation par Drimli des informations reçues des API Google respecte la Google API Services User Data Policy, y compris les exigences de Limited Use applicables.</p>
+<h4>12.4. Déconnexion de Google et suppression des autorisations</h4>
+<p>Le Professionnel peut déconnecter volontairement son compte Google depuis la tâche Google Meet disponible dans son espace Drimli.</p>
+<p>Lors de cette déconnexion, Drimli tente de révoquer l’autorisation auprès de Google et supprime de son intégration active les jetons OAuth Google, l’adresse électronique du compte connecté ainsi que les informations techniques d’autorisation associées.</p>
+<p>Si la révocation auprès de Google ne peut pas être confirmée, les informations d’authentification conservées par Drimli sont néanmoins supprimées de l’intégration active. Le Professionnel peut également gérer ou révoquer les autorisations accordées à Drimli directement depuis son compte Google.</p>
+<p>La déconnexion de Google ne supprime pas automatiquement les rendez-vous déjà créés, les événements Google Calendar correspondants ni les liens Google Meet déjà associés à ces rendez-vous. Ces données peuvent être conservées pendant la durée nécessaire à la gestion et à l’historique des rendez-vous concernés, sous réserve des principes et obligations de conservation décrits dans la présente Politique.</p>
+<p>Les personnes concernées peuvent également demander l’accès, la rectification ou, lorsque les conditions légales sont réunies, la suppression de leurs données en contactant support@drimli.io.</p>
+<h4>12.5. Autres services Google</h4>
+<p>Google Places ou Google Business Profile peuvent être utilisés séparément afin de rechercher et d’associer la fiche publique Google d’un Professionnel et de récupérer certaines informations publiques relatives à cette fiche, notamment sa note et son nombre d’avis.</p>
+<p>Google peut traiter certaines données dans différents pays selon le service utilisé et son infrastructure. Les conditions relatives aux transferts internationaux applicables aux services Google sont décrites à la section 14 de la présente Politique.</p>
 </section>
 <section class="clause" id="privacy-13-conservation"><h3>13. Durées de conservation</h3>
 <p>Drimli applique le principe de limitation de la conservation. Les données ne doivent pas être conservées sous une forme permettant l’identification des personnes pendant une durée supérieure à celle nécessaire aux finalités pour lesquelles elles sont traitées, sous réserve des obligations légales, réglementaires, probatoires, comptables, fiscales, de sécurité ou contentieuses applicables.</p>
