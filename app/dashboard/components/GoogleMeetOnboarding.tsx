@@ -148,7 +148,7 @@ export default function GoogleMeetOnboarding({
     ? status?.email || "La visioconférence est opérationnelle."
     : reconnect
       ? "Une nouvelle autorisation Google Calendar est nécessaire."
-      : "Ajoutez la visioconférence à vos rendez-vous.";
+      : "Créez automatiquement un lien Google Meet pour vos rendez-vous.";
 
   return (
     <div
