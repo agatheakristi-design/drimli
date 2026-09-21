@@ -173,9 +173,11 @@ export default function GoogleMeetOnboarding({
       </button>
 
       {open ? (
-        <div className={styles.inlineEditor}>
+        <div className={`${styles.inlineEditor} ${styles.googleMeetEditor}`}>
           <div className={styles.inlineEditorFooter}>
-            <span className={styles.inlineEditorStatus}>{description}</span>
+            {connected || reconnect ? (
+              <span className={styles.inlineEditorStatus}>{description}</span>
+            ) : null}
             {connected ? (
               <button
                 type="button"

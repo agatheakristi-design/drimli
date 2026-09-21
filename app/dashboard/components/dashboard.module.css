@@ -1293,3 +1293,14 @@
     margin: 0 16px 16px;
   }
 }
+
+/* Keep the Google Meet action aligned with the existing task heading. */
+.taskRowExpandedOpen .inlineEditor.googleMeetEditor {
+  margin-left: 68px;
+}
+
+@media (min-width: 641px) {
+  .googleMeetEditor .inlinePrimaryButton {
+    white-space: nowrap;
+  }
+}
