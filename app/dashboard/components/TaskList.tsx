@@ -40,6 +40,8 @@ export default function TaskList({
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoStatus, setPhotoStatus] = useState("");
 
+  const [profession, setProfession] = useState("");
+  const [professionDraft, setProfessionDraft] = useState("");
   const [description, setDescription] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [openTask, setOpenTask] = useState<
@@ -61,13 +63,17 @@ export default function TaskList({
 
       const { data } = await supabase
         .from("profiles")
-        .select("avatar_url, description")
+        .select("avatar_url, profession, description")
         .eq("provider_id", user.id)
         .maybeSingle();
 
       if (cancelled) return;
 
       setPhotoDone(Boolean(data?.avatar_url));
+
+      const savedProfession = data?.profession?.trim() ?? "";
+      setProfession(savedProfession);
+      setProfessionDraft(savedProfession);
 
       const savedDescription = data?.description?.trim() ?? "";
       setDescription(savedDescription);
@@ -212,6 +218,12 @@ export default function TaskList({
       return;
     }
 
+    const savedProfession = professionDraft.trim();
+    if (!savedProfession) {
+      setDescriptionStatus("Merci de renseigner votre métier.");
+      return;
+    }
+
     const value = descriptionDraft.trim();
 
     if (!value) {
@@ -225,6 +237,7 @@ export default function TaskList({
     const { error } = await supabase
       .from("profiles")
       .update({
+        profession: savedProfession,
         description: value,
         updated_at: new Date().toISOString(),
       })
@@ -237,6 +250,8 @@ export default function TaskList({
       return;
     }
 
+    setProfession(savedProfession);
+    setProfessionDraft(savedProfession);
     setDescription(value);
     setDescriptionDraft(value);
     setDescriptionStatus("");
@@ -244,6 +259,7 @@ export default function TaskList({
   }
 
   function cancelDescription() {
+    setProfessionDraft(profession);
     setDescriptionDraft(description);
     setDescriptionStatus("");
     setOpenTask(null);
@@ -409,6 +425,7 @@ export default function TaskList({
                   type="button"
                   className={styles.taskRowHeader}
                   onClick={() => {
+                    setProfessionDraft(profession);
                     setDescriptionDraft(description);
                     setDescriptionStatus("");
                     setOpenTask(
@@ -421,6 +438,16 @@ export default function TaskList({
 
                 {openTask === "description" && (
                   <div className={styles.inlineEditor}>
+                    <label className={styles.inlineField} htmlFor="dashboard-profession">
+                      Métier
+                      <input
+                        id="dashboard-profession"
+                        type="text"
+                        className={styles.inlineInput}
+                        value={professionDraft}
+                        onChange={(event) => setProfessionDraft(event.target.value)}
+                      />
+                    </label>
                     <textarea
                       id="dashboard-description"
                       className={styles.inlineTextarea}
