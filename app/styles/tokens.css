@@ -16,11 +16,7 @@
 
   /* Colors — backgrounds */
   --background: #ffffff;
-  --app-background:
-    radial-gradient(ellipse 62% 82% at 4% 0%, rgb(210 241 229 / 84%), transparent 72%),
-    radial-gradient(ellipse 68% 80% at 50% 0%, rgb(218 231 252 / 85%), transparent 72%),
-    radial-gradient(ellipse 62% 82% at 96% 0%, rgb(247 221 232 / 86%), transparent 72%),
-    var(--background);
+  --app-gradient-opacity: 0.45;
 
   /* Colors — text */
   --foreground: #1d1d1f;
@@ -106,4 +102,14 @@
   --content-max-width: 960px;
   --dashboard-sidebar-width: 230px;
   --header-height: 72px;
+}
+
+/* Resolve the shared gradient on each element so a page can override only
+   --app-gradient-opacity without duplicating colors, positions or proportions. */
+:where(:root, *) {
+  --app-background:
+    radial-gradient(ellipse 62% 82% at 4% 0%, rgb(210 241 229 / var(--app-gradient-opacity)), transparent 72%),
+    radial-gradient(ellipse 68% 80% at 50% 0%, rgb(218 231 252 / var(--app-gradient-opacity)), transparent 72%),
+    radial-gradient(ellipse 62% 82% at 96% 0%, rgb(252 235 216 / var(--app-gradient-opacity)), transparent 72%),
+    var(--background);
 }
