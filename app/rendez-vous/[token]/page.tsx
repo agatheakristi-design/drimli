@@ -164,7 +164,7 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
           />
         ) : (
           <div className={styles.avatarFallback} aria-hidden="true">
-            {details.professionalName.charAt(0).toUpperCase()}
+            {details.professionalName.charAt(0)}
           </div>
         )}
 

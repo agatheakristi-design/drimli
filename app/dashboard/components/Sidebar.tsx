@@ -34,7 +34,7 @@ function getInitials(fullName: string) {
     .trim()
     .split(/\s+/)
     .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
+    .map((part) => part.charAt(0))
     .join("");
 
   return initials || "DR";
