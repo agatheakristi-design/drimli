@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
-import { hasGoogleCalendarScope } from "@/lib/googleOAuthScopes";
+import { GOOGLE_CALENDAR_SCOPE, hasGoogleCalendarScope } from "@/lib/googleOAuthScopes";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,6 +64,14 @@ export async function GET(request: NextRequest) {
     console.info("[GOOGLE_OAUTH_SCOPES]", googleScopeDiagnostic(tokens.scope));
 
     const returnedScope = tokens.scope?.trim() ?? "";
+
+    console.info("[GOOGLE_OAUTH_SCOPE_CHECK]", {
+      requestedScopes: ["openid", "email", GOOGLE_CALENDAR_SCOPE],
+      ...googleScopeDiagnostic(tokens.scope),
+      accessTokenPresent: Boolean(tokens.access_token),
+      refreshTokenPresent: Boolean(tokens.refresh_token),
+      calendarScopeGranted: hasGoogleCalendarScope(returnedScope),
+    });
 
     if (!hasGoogleCalendarScope(returnedScope)) {
       throw new Error(
