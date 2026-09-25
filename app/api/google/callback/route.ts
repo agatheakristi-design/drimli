@@ -1,3 +1,4 @@
+import { googleScopeDiagnostic } from "@/lib/googleOAuthDiagnostics";
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -59,6 +60,8 @@ export async function GET(request: NextRequest) {
     );
 
     const { tokens } = await oauth2Client.getToken(code);
+
+    console.info("[GOOGLE_OAUTH_SCOPES]", googleScopeDiagnostic(tokens.scope));
 
     const returnedScope = tokens.scope?.trim() ?? "";
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, ChevronRight, Plus } from "lucide-react";
+import { googleConnectionError } from "@/lib/googleOAuthDiagnostics";
 import { supabase } from "@/lib/supabaseClient";
 import styles from "./dashboard.module.css";
 
@@ -32,6 +33,7 @@ export default function GoogleMeetOnboarding({
     let cancelled = false;
 
     async function loadStatus() {
+      setError(googleConnectionError(window.location.search));
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
 
