@@ -29,7 +29,7 @@ export default async function Page({
 
   if (error) {
     return (
-      <PublicFlowShell>
+      <PublicFlowShell transparentHeader>
         <p className={styles.state}>Impossible de charger cette page.</p>
       </PublicFlowShell>
     );
@@ -37,7 +37,7 @@ export default async function Page({
 
   if (!profile) {
     return (
-      <PublicFlowShell>
+      <PublicFlowShell transparentHeader>
         <p className={styles.state}>Page introuvable</p>
       </PublicFlowShell>
     );
@@ -45,7 +45,7 @@ export default async function Page({
 
   if (!profile.published) {
     return (
-      <PublicFlowShell>
+      <PublicFlowShell transparentHeader>
         <p className={styles.state}>Profil non publié</p>
       </PublicFlowShell>
     );
@@ -82,7 +82,7 @@ export default async function Page({
     googleReviewsCount >= 0;
 
   return (
-    <PublicFlowShell>
+    <PublicFlowShell transparentHeader>
       <PublicPageViewTracker slug={slug} />
 
       <section className={styles.hero}>

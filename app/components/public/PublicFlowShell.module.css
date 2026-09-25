@@ -43,3 +43,28 @@
     padding: var(--space-xl) var(--space-md);
   }
 }
+
+.transparentHeader {
+  background: transparent;
+}
+
+.transparentHeader .headerInner {
+  width: min(1380px, calc(100% - 80px));
+  padding-inline: 4px;
+}
+
+.transparentHeader .brand img {
+  display: block;
+  width: 126px;
+  height: auto;
+}
+
+@media (max-width: 760px) {
+  .transparentHeader .headerInner {
+    width: calc(100% - 34px);
+  }
+
+  .transparentHeader .brand img {
+    width: 102px;
+  }
+}
