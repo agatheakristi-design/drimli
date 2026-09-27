@@ -15,9 +15,12 @@
   grid-template-columns: 1fr minmax(0, auto) 1fr;
   align-items: center;
   gap: 16px;
+  margin-inline: 24px;
   padding: 20px 24px;
-  border-bottom: 1px solid var(--border);
-  background: var(--card);
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
+  background: var(--app-card-background);
+  box-shadow: var(--app-card-shadow);
 }
 
 .toolbarNavigation,
@@ -55,6 +58,7 @@
   .toolbar {
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 8px;
+    margin-inline: 12px;
     padding-inline: 12px;
   }
 
