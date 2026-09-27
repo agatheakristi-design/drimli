@@ -5,10 +5,9 @@ import { useParams } from "next/navigation";
 import { CalendarDays, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
-import Container from "@/app/components/ui/Container";
+import PublicFlowShell from "@/app/components/public/PublicFlowShell";
 import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
-import Logo from "@/app/components/ui/Logo";
 import styles from "./page.module.css";
 
 function isUuid(v: string) {
@@ -336,38 +335,23 @@ export default function Page() {
 
   if (loading) {
     return (
-      <div className={styles.page}>
-        <header className={styles.header}>
-          <Container className={styles.headerInner}><Logo /></Container>
-        </header>
-        <Container className={styles.stateContainer}>
-          <Card>Chargement…</Card>
-        </Container>
-      </div>
+      <PublicFlowShell transparentHeader>
+        <Card>Chargement…</Card>
+      </PublicFlowShell>
     );
   }
 
   if (errorText && !service) {
     return (
-      <div className={styles.page}>
-        <header className={styles.header}>
-          <Container className={styles.headerInner}><Logo /></Container>
-        </header>
-        <Container className={styles.stateContainer}>
-          <Card>{errorText}</Card>
-        </Container>
-      </div>
+      <PublicFlowShell transparentHeader>
+        <Card>{errorText}</Card>
+      </PublicFlowShell>
     );
   }
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <Container className={styles.headerInner}><Logo /></Container>
-      </header>
-
-      <Container className={styles.content}>
-        <main className={styles.layout}>
+    <PublicFlowShell transparentHeader>
+        <div className={styles.layout}>
           <section className={styles.professional} aria-label="Professionnel">
               {profile?.avatar_url ? (
                 <img
@@ -560,8 +544,7 @@ export default function Page() {
               </div>
             </Card>
           </aside>
-        </main>
-      </Container>
-    </div>
+        </div>
+    </PublicFlowShell>
   );
 }

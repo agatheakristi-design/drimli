@@ -1,40 +1,3 @@
-.page {
-  min-height: 100svh;
-  background: transparent;
-  color: var(--foreground);
-}
-
-.header {
-  min-height: var(--header-height);
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid var(--border);
-  background: var(--card);
-}
-
-.headerInner {
-  display: flex;
-  align-items: center;
-  color: var(--foreground);
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-}
-
-.headerInner img {
-  display: block;
-  width: 112px;
-  height: auto;
-}
-
-.stateContainer {
-  padding-block: var(--space-2xl);
-}
-
-.content {
-  padding-block: var(--space-2xl);
-}
-
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.55fr);
@@ -59,7 +22,7 @@
   width: calc(var(--space-2xl) * 2);
   height: calc(var(--space-2xl) * 2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--app-card-radius);
 }
 
 .avatar {
@@ -309,10 +272,6 @@
 }
 
 @media (max-width: 48rem) {
-  .content {
-    padding-block: var(--space-xl);
-  }
-
   .layout {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
