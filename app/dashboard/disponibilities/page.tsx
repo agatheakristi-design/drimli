@@ -162,7 +162,7 @@ export default function DisponibilitesPage() {
             onChange={(e) =>
               setAvailability((prev) => ({ ...prev, slot_minutes: Number(e.target.value) }))
             }
-            style={{ padding: 12, borderRadius: 10, border: "1px solid var(--border)" }}
+            style={{ padding: 12, borderRadius: "var(--app-field-radius)", border: "1px solid var(--border)" }}
           >
             <option value={15}>15 min</option>
             <option value={30}>30 min</option>
@@ -182,7 +182,7 @@ export default function DisponibilitesPage() {
                     onClick={() => addRange(d.key)}
                     style={{
                       padding: "8px 12px",
-                      borderRadius: 10,
+                      borderRadius: "var(--app-button-radius)",
                       border: "1px solid var(--border)",
                       background: "transparent",
                       cursor: "pointer",
@@ -212,19 +212,19 @@ export default function DisponibilitesPage() {
                           type="time"
                           value={r.start}
                           onChange={(e) => updateRange(d.key, idx, "start", e.target.value)}
-                          style={{ padding: 10, borderRadius: 10, border: "1px solid var(--border)" }}
+                          style={{ padding: 10, borderRadius: "var(--app-field-radius)", border: "1px solid var(--border)" }}
                         />
                         <input
                           type="time"
                           value={r.end}
                           onChange={(e) => updateRange(d.key, idx, "end", e.target.value)}
-                          style={{ padding: 10, borderRadius: 10, border: "1px solid var(--border)" }}
+                          style={{ padding: 10, borderRadius: "var(--app-field-radius)", border: "1px solid var(--border)" }}
                         />
                         <button
                           onClick={() => removeRange(d.key, idx)}
                           style={{
                             padding: "8px 10px",
-                            borderRadius: 10,
+                            borderRadius: "var(--app-button-radius)",
                             border: "1px solid var(--border)",
                             background: "transparent",
                             cursor: "pointer",
@@ -248,7 +248,7 @@ export default function DisponibilitesPage() {
             disabled={saving}
             style={{
               padding: "12px 16px",
-              borderRadius: 12,
+              borderRadius: "var(--app-button-radius)",
               border: "none",
               background: "var(--primary)",
               color: "var(--primary-foreground)",

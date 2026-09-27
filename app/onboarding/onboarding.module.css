@@ -105,7 +105,7 @@
   height: 56px;
   padding: 0 16px;
   border: 1px solid transparent;
-  border-radius: 17px;
+  border-radius: var(--app-field-radius);
   background: var(--muted);
   color: var(--foreground);
   font: inherit;
@@ -173,7 +173,7 @@
   width: 100%;
   min-height: 58px;
   margin-top: 14px;
-  border-radius: 17px;
+  border-radius: var(--app-button-radius);
   box-shadow: var(--shadow-md);
 }
 
@@ -270,7 +270,7 @@
 
   border: 1px solid var(--border);
 
-  border-radius: 14px;
+  border-radius: var(--app-field-radius);
 
   background: var(--card);
 

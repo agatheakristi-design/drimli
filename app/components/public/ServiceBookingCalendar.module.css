@@ -71,7 +71,7 @@
   height: 2.5rem;
   display: grid;
   place-items: center;
-  border-radius: var(--radius-sm);
+  border-radius: var(--app-button-radius);
   background: transparent;
   color: var(--muted-foreground);
 }
@@ -140,7 +140,7 @@
   min-height: 3rem;
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--app-button-radius);
   background: var(--muted);
   color: var(--foreground);
 }

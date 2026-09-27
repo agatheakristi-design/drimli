@@ -74,7 +74,7 @@
   width: 100%;
   padding: 8px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--app-button-radius);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -269,7 +269,7 @@
   min-height: 48px;
   padding: 0 20px;
   border: 0;
-  border-radius: 15px;
+  border-radius: var(--app-button-radius);
   background: var(--primary);
   color: var(--primary-foreground);
   font: inherit;
@@ -416,7 +416,7 @@
   min-height: 43px;
   padding: 0 17px;
   border: 0;
-  border-radius: 13px;
+  border-radius: var(--app-button-radius);
   background: var(--primary);
   color: var(--primary-foreground);
   font: inherit;
@@ -674,7 +674,7 @@
   resize: vertical;
   padding: 12px var(--control-padding-x);
   border: 1px solid var(--task-field-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--app-field-radius);
   background: transparent;
   color: var(--foreground);
   font: inherit;
@@ -716,7 +716,7 @@
   min-height: var(--control-height);
   padding: 0 var(--control-padding-x);
   border: 1px solid var(--task-field-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--app-field-radius);
   background: transparent;
   color: var(--foreground);
   font: inherit;
@@ -917,7 +917,7 @@
   width: 100%;
   padding: var(--space-md);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--app-button-radius);
   background: var(--card);
   color: var(--muted-foreground);
   font: inherit;
@@ -998,7 +998,7 @@
 .inlinePrimaryButton {
   min-height: 40px;
   padding: 0 15px;
-  border-radius: var(--radius-md);
+  border-radius: var(--app-button-radius);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -1058,7 +1058,7 @@
   width: 40px;
   height: 40px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--app-button-radius);
   background: transparent;
   color: var(--foreground);
   cursor: pointer;

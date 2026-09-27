@@ -64,7 +64,7 @@ a {
 .textarea {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--app-field-radius);
   background: var(--card);
   color: var(--foreground);
   transition:
@@ -120,7 +120,7 @@ a {
   justify-content: center;
   gap: 8px;
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--app-button-radius);
   font-weight: 600;
   white-space: nowrap;
   user-select: none;

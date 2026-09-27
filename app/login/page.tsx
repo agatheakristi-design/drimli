@@ -10,7 +10,7 @@ import Button from "@/app/components/ui/Button";
 import styles from "./auth.module.css";
 
 const fieldClass =
-  "w-full rounded-xl border border-border bg-background px-4 py-3 text-base outline-none";
+  "w-full rounded-[var(--app-field-radius)] border border-border bg-background px-4 py-3 text-base outline-none";
 
 export default function LoginPage() {
   const router = useRouter();

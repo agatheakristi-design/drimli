@@ -17,7 +17,7 @@ function slugify(value: string) {
 }
 
 const fieldClass =
-  "w-full rounded-xl border border-border bg-background px-4 py-3 text-base outline-none";
+  "w-full rounded-[var(--app-field-radius)] border border-border bg-background px-4 py-3 text-base outline-none";
 
 export default function SignupPage() {
   const router = useRouter();

@@ -58,7 +58,7 @@ export default function OnboardingBanner() {
 
         <Link
           href={status.next}
-          className="inline-flex items-center justify-center rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold hover:bg-muted transition"
+          className="inline-flex items-center justify-center rounded-[var(--app-button-radius)] border border-border bg-background px-4 py-2 text-sm font-semibold hover:bg-muted transition"
         >
           Compléter maintenant
         </Link>

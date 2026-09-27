@@ -76,7 +76,7 @@
   min-height: var(--control-height);
   padding: 0 var(--control-padding-x);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--app-button-radius);
   background: color-mix(in srgb, var(--card) 72%, transparent);
   color: var(--foreground);
   display: inline-flex;

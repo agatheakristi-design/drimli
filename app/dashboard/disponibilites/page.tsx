@@ -278,7 +278,7 @@ export default function DisponibilitesPage() {
                 {slot ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <input
-                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      className="h-10 rounded-[var(--app-field-radius)] border border-input bg-background px-3 text-sm"
                       type="time"
                       value={slot.start}
                       onChange={(e) =>
@@ -290,7 +290,7 @@ export default function DisponibilitesPage() {
                     />
                     <span className="text-muted-foreground">–</span>
                     <input
-                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      className="h-10 rounded-[var(--app-field-radius)] border border-input bg-background px-3 text-sm"
                       type="time"
                       value={slot.end}
                       onChange={(e) =>
@@ -344,7 +344,7 @@ export default function DisponibilitesPage() {
             <label className="space-y-1">
               <div className="text-sm font-semibold">Date</div>
               <input
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="h-10 w-full rounded-[var(--app-field-radius)] border border-input bg-background px-3 text-sm"
                 type="date"
                 value={blockDate}
                 min={todayParis}
@@ -355,7 +355,7 @@ export default function DisponibilitesPage() {
             <label className="space-y-1">
               <div className="text-sm font-semibold">Raison (optionnel)</div>
               <input
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="h-10 w-full rounded-[var(--app-field-radius)] border border-input bg-background px-3 text-sm"
                 type="text"
                 value={blockReason}
                 onChange={(e) => setBlockReason(e.target.value)}
@@ -368,7 +368,7 @@ export default function DisponibilitesPage() {
             <label className="space-y-1">
               <div className="text-sm font-semibold">De</div>
               <input
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="h-10 w-full rounded-[var(--app-field-radius)] border border-input bg-background px-3 text-sm"
                 type="time"
                 value={blockStart}
                 onChange={(e) => setBlockStart(e.target.value)}
@@ -378,7 +378,7 @@ export default function DisponibilitesPage() {
             <label className="space-y-1">
               <div className="text-sm font-semibold">À</div>
               <input
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="h-10 w-full rounded-[var(--app-field-radius)] border border-input bg-background px-3 text-sm"
                 type="time"
                 value={blockEnd}
                 onChange={(e) => setBlockEnd(e.target.value)}

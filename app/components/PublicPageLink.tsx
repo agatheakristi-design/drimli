@@ -105,7 +105,7 @@ export default function PublicPageLink() {
             rel="noreferrer"
             style={{
               padding: "8px 12px",
-              borderRadius: 10,
+              borderRadius: "var(--app-button-radius)",
               border: "1px solid var(--border)",
               textDecoration: "none",
             }}
@@ -117,7 +117,7 @@ export default function PublicPageLink() {
             onClick={copy}
             style={{
               padding: "8px 12px",
-              borderRadius: 10,
+              borderRadius: "var(--app-button-radius)",
               border: "1px solid var(--border)",
               background: "var(--card)",
               cursor: "pointer",

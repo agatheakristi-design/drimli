@@ -184,7 +184,7 @@
   min-height: var(--control-height);
   padding-inline: var(--control-padding-x);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--app-button-radius);
   background: var(--card);
   color: var(--foreground);
   font-weight: 600;
