@@ -1,6 +1,6 @@
 .hero {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-xl);
   padding-bottom: var(--space-2xl);
   border-bottom: 1px solid var(--border);
