@@ -53,9 +53,9 @@ export default function DashboardPage() {
 
   return (
     <>
-      <TopBar slug={slug} published={published} />
+      <TopBar />
 
-      <WelcomeCard fullName={fullName} />
+      <WelcomeCard fullName={fullName} slug={slug} published={published} />
 
       <div className={styles.metaGrid}>
         <ProgressCard completedTasks={completedTasks} />

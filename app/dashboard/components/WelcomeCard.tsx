@@ -2,9 +2,11 @@ import styles from "./dashboard.module.css";
 
 type WelcomeCardProps = {
   fullName: string;
+  slug?: string | null;
+  published?: boolean;
 };
 
-export default function WelcomeCard({ fullName }: WelcomeCardProps) {
+export default function WelcomeCard({ fullName, slug, published = false }: WelcomeCardProps) {
   const firstName =
     !fullName || fullName === "Professionnel"
       ? ""
@@ -20,7 +22,13 @@ export default function WelcomeCard({ fullName }: WelcomeCardProps) {
         </h1>
 
         <p className={styles.welcomeText}>
-          Votre <strong>page Drimli</strong> est en ligne.
+          {slug && published ? (
+            <a href={`/${slug}`} target="_blank" rel="noreferrer">
+              Voir ma <strong>page Drimli</strong> en ligne
+            </a>
+          ) : (
+            <>Voir ma <strong>page Drimli</strong> en ligne</>
+          )}
         </p>
       </div>
 
@@ -29,9 +37,6 @@ export default function WelcomeCard({ fullName }: WelcomeCardProps) {
           Partager ma page
         </button>
 
-        <button className={styles.textButton}>
-          Aperçu
-        </button>
       </div>
     </section>
   );
