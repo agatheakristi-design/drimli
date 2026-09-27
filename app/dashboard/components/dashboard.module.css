@@ -218,10 +218,10 @@
   align-items: end;
   gap: 34px;
   padding: clamp(34px, 4.6vw, 58px);
-  border: 1px solid var(--border);
-  border-radius: 30px;
-  background: color-mix(in srgb, var(--card) 92%, transparent);
-  box-shadow: var(--shadow-md);
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
+  background: var(--app-card-background);
+  box-shadow: var(--app-card-shadow);
 }
 
 .welcomeCopy {
@@ -239,17 +239,17 @@
 
 .welcomeTitle {
   margin: 0;
-  font-size: clamp(44px, 5vw, 68px);
-  line-height: 0.95;
-  letter-spacing: -0.04em;
-  font-weight: 600;
+  font-size: var(--app-page-title-size);
+  line-height: var(--app-page-title-leading);
+  letter-spacing: var(--app-page-title-tracking);
+  font-weight: var(--app-heading-weight);
 }
 
 .welcomeText {
   margin: 20px 0 0;
   color: var(--muted-foreground);
-  font-size: 16px;
-  line-height: 1.55;
+  font-size: var(--app-body-size);
+  line-height: var(--app-body-leading);
 }
 
 .welcomeText strong {
@@ -311,11 +311,11 @@
   .welcomeCard {
     min-height: 0;
     padding: 28px 22px;
-    border-radius: var(--radius-xl);
+    border-radius: var(--app-card-radius);
   }
 
   .welcomeTitle {
-    font-size: 46px;
+    font-size: var(--app-page-title-size);
   }
 
   .heroActions {
@@ -330,9 +330,10 @@
   justify-content: space-between;
   min-height: 185px;
   padding: 25px 27px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--card) 92%, transparent);
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
+  background: var(--app-card-background);
+  box-shadow: var(--app-card-shadow);
 }
 
 .progressLabel {
@@ -379,9 +380,10 @@
   gap: 22px;
   min-height: 185px;
   padding: 26px 27px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--card) 92%, transparent);
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
+  background: var(--app-card-background);
+  box-shadow: var(--app-card-shadow);
 }
 
 .linkCopy {
@@ -492,10 +494,11 @@
 }
 
 .tasksPanel {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 22px;
+  background: var(--app-card-background);
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
   padding: 22px;
+  box-shadow: var(--app-card-shadow);
 }
 
 .sectionHeading {
@@ -507,13 +510,15 @@
 
 .sectionHeading h2 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: var(--app-section-title-size);
+  font-weight: var(--app-heading-weight);
   color: var(--foreground);
+  line-height: var(--app-section-title-leading);
+  letter-spacing: var(--app-section-title-tracking);
 }
 
 .sectionHeading span {
-  font-size: 13px;
+  font-size: var(--app-secondary-size);
   font-weight: 500;
   color: var(--muted-foreground);
 }
@@ -529,13 +534,14 @@
   gap: 14px;
   width: 100%;
   padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--card);
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
+  background: var(--app-card-background);
   cursor: pointer;
   transition: border-color .15s ease, box-shadow .15s ease,
     transform .15s ease;
   text-align: left;
+  box-shadow: var(--app-card-shadow);
 }
 
 .taskRow:hover {
@@ -574,7 +580,7 @@
 }
 
 .taskCopy span {
-  font-size: 13px;
+  font-size: var(--app-secondary-size);
   color: var(--muted-foreground);
 }
 
@@ -595,13 +601,14 @@
   flex-direction: column;
   gap: 10px;
   padding: 22px;
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  background: var(--card);
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
+  background: var(--app-card-background);
+  box-shadow: var(--app-card-shadow);
 }
 
 .statsLabel {
-  font-size: 13px;
+  font-size: var(--app-secondary-size);
   font-weight: 500;
   color: var(--muted-foreground);
 }

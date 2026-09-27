@@ -30,6 +30,25 @@
   --surface-hover: var(--surface-subtle);
   --card: var(--surface);
   --card-foreground: var(--foreground);
+
+  /* Shared application cards; independent of control and homepage radii. */
+  --app-card-background: var(--surface);
+  --app-card-border: 1px solid var(--border);
+  --app-card-radius: 10px;
+  --app-card-shadow: 0 2px 8px rgb(0 0 0 / 4%);
+
+  /* Application typography roles. */
+  --app-page-title-size: clamp(2rem, 4vw, 2.75rem);
+  --app-page-title-leading: 1.08;
+  --app-page-title-tracking: -0.035em;
+  --app-heading-weight: 600;
+  --app-section-title-size: var(--text-xl);
+  --app-section-title-leading: 1.3;
+  --app-section-title-tracking: -0.01em;
+  --app-body-size: var(--text-base);
+  --app-body-leading: 1.6;
+  --app-secondary-size: var(--text-sm);
+  --app-label-size: var(--text-xs);
   --muted: var(--surface-subtle);
 
   /* Colors — borders */

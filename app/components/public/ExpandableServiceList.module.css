@@ -5,10 +5,10 @@
 
 .card {
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--card);
-  box-shadow: var(--shadow-sm);
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
+  background: var(--app-card-background);
+  box-shadow: var(--app-card-shadow);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease;
@@ -16,7 +16,7 @@
 
 .cardOpen {
   border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--app-card-shadow);
 }
 
 .trigger {
@@ -26,14 +26,14 @@
   align-items: flex-start;
   gap: var(--space-md);
   border: 0;
-  background: var(--card);
+  background: var(--app-card-background);
   color: var(--foreground);
   text-align: left;
   cursor: pointer;
 }
 
 .trigger:hover {
-  background: color-mix(in srgb, var(--card) 76%, var(--muted));
+  background: color-mix(in srgb, var(--app-card-background) 76%, var(--muted));
 }
 
 .trigger:focus-visible {
@@ -59,9 +59,9 @@
 
 .titleRow strong,
 .price {
-  font-size: 1.125rem;
-  line-height: 1.35;
-  font-weight: 600;
+  font-size: var(--app-section-title-size);
+  line-height: var(--app-section-title-leading);
+  font-weight: var(--app-heading-weight);
 }
 
 .price {
@@ -74,15 +74,15 @@
   overflow: hidden;
   display: -webkit-box;
   color: var(--muted-foreground);
-  font-size: 0.875rem;
-  line-height: 1.55;
+  font-size: var(--app-body-size);
+  line-height: var(--app-body-leading);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
 .duration {
   color: var(--muted-foreground);
-  font-size: 0.75rem;
+  font-size: var(--app-label-size);
   font-weight: 500;
 }
 

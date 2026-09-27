@@ -315,7 +315,12 @@ export default function ServicesManager({
   return (
     <div className="space-y-4">
       {!embedded ? (
-          <h1 style={{ fontSize: 32, fontWeight: 900 }}>
+          <h1 style={{
+            fontSize: "var(--app-page-title-size)",
+            fontWeight: "var(--app-heading-weight)",
+            lineHeight: "var(--app-page-title-leading)",
+            letterSpacing: "var(--app-page-title-tracking)",
+          }}>
             {isOnboarding ? "Créer un service" : "Mes services"}
           </h1>
       ) : null}
@@ -341,12 +346,14 @@ export default function ServicesManager({
               style={{
                 marginTop: 24,
                 padding: 32,
-                border: "2px dashed var(--border)",
-                borderRadius: 16,
+                border: "var(--app-card-border)",
+                borderRadius: "var(--app-card-radius)",
+                background: "var(--app-card-background)",
+                boxShadow: "var(--app-card-shadow)",
                 textAlign: "center",
               }}
             >
-              <h3 style={{ fontSize: 20, fontWeight: 800 }}>Vous n’avez encore aucun service</h3>
+              <h3 style={{ fontSize: "var(--app-section-title-size)", fontWeight: "var(--app-heading-weight)" }}>Vous n’avez encore aucun service</h3>
               <p style={{ marginTop: 8, opacity: 0.8 }}>
                 Créez votre premier service pour commencer à recevoir des réservations et des paiements.
               </p>
@@ -382,8 +389,10 @@ export default function ServicesManager({
                     ? undefined
                     : {
                         marginTop: 20,
-                        border: "1px solid var(--border)",
-                        borderRadius: 14,
+                        border: "var(--app-card-border)",
+                        borderRadius: "var(--app-card-radius)",
+                        background: "var(--app-card-background)",
+                        boxShadow: "var(--app-card-shadow)",
                         padding: 16,
                       }
                 }
@@ -473,8 +482,10 @@ export default function ServicesManager({
                       <div
                         key={p.id}
                         style={{
-                          border: "1px solid var(--border)",
-                          borderRadius: 14,
+                          border: "var(--app-card-border)",
+                          borderRadius: "var(--app-card-radius)",
+                          background: "var(--app-card-background)",
+                          boxShadow: "var(--app-card-shadow)",
                           padding: 16,
                           display: "flex",
                           justifyContent: "space-between",
