@@ -280,7 +280,15 @@
 }
 
 .appointmentBilling { display:grid; gap:16px; padding-top:4px; }
-.appointmentBilling section { display:grid; gap:8px; padding:16px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--card); }
+.appointmentBilling section {
+  display:grid;
+  gap:8px;
+  padding:16px;
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
+  background: var(--app-card-background);
+  box-shadow: var(--app-card-shadow);
+}
 .appointmentBilling h4,.appointmentBilling p { margin:0; }
 .appointmentBilling section > span { color:var(--muted-foreground); font-size:13px; }
 .appointmentBilling dl { display:grid; gap:6px; margin:4px 0 0; }
@@ -297,7 +305,15 @@
 .refundDocumentLink:hover { color:var(--muted-foreground); }
 .refundDocumentLink:focus-visible { outline:3px solid var(--focus-ring); outline-offset:3px; }
 .refundsState { margin:0; color:var(--muted-foreground); font-size:13px; }
-.appointmentCancellation { display:grid; gap:12px; padding:16px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--card); }
+.appointmentCancellation {
+  display:grid;
+  gap:12px;
+  padding:16px;
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
+  background: var(--app-card-background);
+  box-shadow: var(--app-card-shadow);
+}
 .appointmentCancellation > p { margin:0; color:var(--muted-foreground); font-size:13px; line-height:1.5; }
 .appointmentCancellationChoices { display:grid; gap:10px; padding-top:4px; }
 .appointmentCancellationChoices label { display:grid; gap:6px; color:var(--foreground); font-size:13px; font-weight:600; }
@@ -337,10 +353,11 @@
 .appointmentDetailsList {
   display: grid;
   margin: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--card);
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
+  background: var(--app-card-background);
   overflow: hidden;
+  box-shadow: var(--app-card-shadow);
 }
 
 .appointmentDetailsRow {
@@ -390,7 +407,7 @@
 .appointmentEmptyState {
   margin: 0;
   padding: 14px;
-  border-radius: var(--radius-md);
+  border-radius: var(--app-card-radius);
   background: var(--muted);
   color: var(--muted-foreground);
   font-size: 13px;
@@ -413,12 +430,13 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-left: 1px solid var(--border);
-  background: var(--card);
+  border: var(--app-card-border);
+  background: var(--app-card-background);
   transform: translateX(100%);
   transition: transform 220ms ease;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--app-card-shadow);
   pointer-events: none;
+  border-radius: var(--app-card-radius);
 }
 
 .calendarPanelOpen {
@@ -483,9 +501,10 @@
 
 .settingsDay {
   padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--card);
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
+  background: var(--app-card-background);
+  box-shadow: var(--app-card-shadow);
 }
 
 .settingsDayHeader {
@@ -553,7 +572,7 @@
   margin: 0;
   padding: 16px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--app-card-radius);
   background: var(--muted);
   color: var(--foreground);
   font-size: 14px;
@@ -631,9 +650,10 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--card);
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
+  background: var(--app-card-background);
+  box-shadow: var(--app-card-shadow);
 }
 
 .settingsBlockSelected {

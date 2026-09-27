@@ -1,7 +1,8 @@
 .accordion {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--card);
+  border: var(--app-card-border);
+  border-radius: var(--app-card-radius);
+  background: var(--app-card-background);
+  box-shadow: var(--app-card-shadow);
   overflow: hidden;
 }
 
@@ -21,7 +22,7 @@
   gap: 16px;
   padding: 16px;
   border: 0;
-  background: var(--card);
+  background: var(--app-card-background);
   color: var(--foreground);
   font-weight: 600;
   text-align: left;

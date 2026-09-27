@@ -89,9 +89,10 @@ export default function PublicPageLink() {
         alignItems: "center",
         flexWrap: "wrap",
         padding: 12,
-        border: "1px solid var(--border)",
-        borderRadius: 14,
-        background: "var(--card)",
+        border: "var(--app-card-border)",
+        borderRadius: "var(--app-card-radius)",
+        background: "var(--app-card-background)",
+        boxShadow: "var(--app-card-shadow)",
         marginBottom: 16,
       }}
     >
