@@ -207,7 +207,7 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              Rejoindre la visioconférence
+              Rejoindre {details.professionalName}
             </a>
           </>
         ) : null}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "@/app/components/ui/Button";
 import { supabase } from "@/lib/supabaseClient";
 import type { CalendarAppointment } from "./types";
@@ -67,7 +67,7 @@ export default function AppointmentDetails({
   onAppointmentChanged,
 }: AppointmentDetailsProps) {
   const [roomStatus, setRoomStatus] = useState(appointment.videoRoomStatus);
-  const [meetingStarted, setMeetingStarted] = useState(false);
+  const joiningMeeting = useRef(false);
   const [updating, setUpdating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -78,7 +78,6 @@ export default function AppointmentDetails({
 
   useEffect(() => {
     setRoomStatus(appointment.videoRoomStatus);
-    setMeetingStarted(false);
     setStatusMessage("");
     setCancellationResult(null);
   }, [appointment.id, appointment.videoRoomStatus]);
@@ -95,10 +94,14 @@ export default function AppointmentDetails({
     return () => { cancelled = true; };
   }, [appointment.id]);
 
-  function openProfessionalMeeting() {
-    if (!appointment.videoJoinUrl) return;
-    window.open(appointment.videoJoinUrl, "_blank", "noopener,noreferrer");
-    setMeetingStarted(true);
+  async function openProfessionalMeeting() {
+    if (!appointment.videoJoinUrl || roomStatus === "locked" || updating || joiningMeeting.current) return;
+    joiningMeeting.current = true;
+    const opened = roomStatus === "open" || await updateRoomStatus("open");
+    joiningMeeting.current = false;
+    if (!opened) return;
+    // Navigate only after access is confirmed; same-tab navigation avoids popup blockers.
+    window.location.assign(appointment.videoJoinUrl);
   }
 
   async function updateRoomStatus(nextStatus: VideoRoomStatus) {
@@ -137,10 +140,13 @@ export default function AppointmentDetails({
           : "L’accès vidéo est verrouillé."
       );
       onAppointmentChanged?.();
+      return true;
     } catch (error: unknown) {
-      setStatusMessage(
-        error instanceof Error ? error.message : "Mise à jour impossible."
-      );
+      const message = error instanceof Error ? error.message : "Mise à jour impossible.";
+      setStatusMessage(nextStatus === "open"
+        ? `Impossible d’ouvrir l’accès client. Google Meet n’a pas été ouvert. ${message} Réessayez.`
+        : message);
+      return false;
     } finally {
       setUpdating(false);
     }
@@ -302,29 +308,17 @@ export default function AppointmentDetails({
         <>
           <p className={styles.appointmentEmptyState}>
             {roomStatus === "closed"
-              ? "Démarrez la visioconférence avant d’ouvrir la salle aux clients."
+              ? "Rejoindre la visio ouvre aussi l’accès aux clients."
               : "Les clients peuvent désormais rejoindre la visioconférence."}
           </p>
           <div className={styles.appointmentActions}>
             <Button
               className={styles.appointmentPrimaryAction}
+              disabled={updating}
               onClick={openProfessionalMeeting}
             >
-              {roomStatus === "closed"
-                ? "Démarrer la visioconférence"
-                : "Rejoindre la visioconférence"}
+              Rejoindre la visio
             </Button>
-
-            {roomStatus === "closed" && meetingStarted ? (
-              <Button
-                variant="secondary"
-                className={styles.appointmentPrimaryAction}
-                disabled={updating}
-                onClick={() => updateRoomStatus("open")}
-              >
-                Ouvrir la salle aux clients
-              </Button>
-            ) : null}
 
             {roomStatus === "open" ? (
               <Button
