@@ -306,11 +306,11 @@ export default function AppointmentDetails({
         </p>
       ) : appointment.videoJoinUrl && roomStatus !== "locked" ? (
         <>
-          <p className={styles.appointmentEmptyState}>
-            {roomStatus === "closed"
-              ? "Rejoindre la visio ouvre aussi l’accès aux clients."
-              : "Les clients peuvent désormais rejoindre la visioconférence."}
-          </p>
+          {roomStatus === "closed" ? (
+            <p className={styles.appointmentEmptyState}>
+              Rejoindre la visio ouvre aussi l’accès aux clients.
+            </p>
+          ) : null}
           <div className={styles.appointmentActions}>
             <Button
               className={styles.appointmentPrimaryAction}
@@ -320,16 +320,6 @@ export default function AppointmentDetails({
               Rejoindre la visio
             </Button>
 
-            {roomStatus === "open" ? (
-              <Button
-                variant="danger"
-                className={styles.appointmentPrimaryAction}
-                disabled={updating}
-                onClick={() => updateRoomStatus("locked")}
-              >
-                Verrouiller l’accès vidéo
-              </Button>
-            ) : null}
           </div>
         </>
       ) : roomStatus === "locked" ? (
