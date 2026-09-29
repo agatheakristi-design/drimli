@@ -16,7 +16,8 @@
 
   /* Colors — backgrounds */
   --background: #ffffff;
-  --app-gradient-opacity: 0.45;
+  /* Dégradé global : 0.23 = actif ; 0 = fond uni sur toutes les pages. */
+  --app-gradient-opacity: 0.23;
 
   /* Colors — text */
   --foreground: #1d1d1f;
@@ -129,8 +130,8 @@
    --app-gradient-opacity without duplicating colors, positions or proportions. */
 :where(:root, *) {
   --app-background:
-    radial-gradient(ellipse 62% 82% at 4% 0%, rgb(210 241 229 / var(--app-gradient-opacity)), transparent 72%),
-    radial-gradient(ellipse 68% 80% at 50% 0%, rgb(218 231 252 / var(--app-gradient-opacity)), transparent 72%),
-    radial-gradient(ellipse 62% 82% at 96% 0%, rgb(252 235 216 / var(--app-gradient-opacity)), transparent 72%),
+    radial-gradient(ellipse 74% 150% at -3% -8%, rgb(118 165 149 / var(--app-gradient-opacity)), transparent 72%),
+    radial-gradient(ellipse 68% 80% at 50% 51%, rgb(205 238 224 / var(--app-gradient-opacity)), transparent 72%),
+    radial-gradient(ellipse 62% 82% at 96% 0%, rgb(255 255 246 / var(--app-gradient-opacity)), transparent 72%),
     var(--background);
 }

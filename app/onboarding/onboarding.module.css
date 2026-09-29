@@ -1,12 +1,6 @@
 .screen {
   min-height: 100svh;
-  background:
-    radial-gradient(
-      circle at 50% 16%,
-      rgb(0 0 0 / 1.8%),
-      transparent 34%
-    ),
-    var(--background);
+  background: transparent;
   color: var(--foreground);
 }
 
