@@ -265,9 +265,13 @@ export default function TaskList({
     setOpenTask(null);
   }
 
-  const completedTasks = tasks.filter((task) =>
-    isTaskDone(task.label, task.done)
-  ).length;
+const progressTasks = tasks.filter(
+  (task) => task.countInProgress !== false
+);
+
+const completedTasks = progressTasks.filter((task) =>
+  isTaskDone(task.label, task.done)
+).length;
 
   useEffect(() => {
     onCompletedTasksChange(completedTasks);
@@ -278,7 +282,7 @@ export default function TaskList({
       <div className={styles.sectionHeading}>
         <h2>Complétez votre page</h2>
         <span>
-          {completedTasks} sur {tasks.length}
+          {completedTasks} sur {progressTasks.length}
         </span>
       </div>
 

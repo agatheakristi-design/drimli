@@ -10,6 +10,7 @@ export const tasks = [
     description: "Proposez davantage de prestations.",
     href: null,
     done: false,
+    countInProgress: false,
   },
   {
     label: "Ajouter une photo",

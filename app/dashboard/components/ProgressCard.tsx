@@ -6,7 +6,13 @@ export default function ProgressCard({
 }: {
   completedTasks: number;
 }) {
-  const progress = Math.round((completedTasks / tasks.length) * 100);
+  const progressTasks = tasks.filter(
+    (task) => task.countInProgress !== false
+  );
+
+  const progress = Math.round(
+    (completedTasks / progressTasks.length) * 100
+  );
 
   return (
     <aside className={styles.progressCard}>
@@ -26,7 +32,7 @@ export default function ProgressCard({
       </div>
 
       <div className={styles.progressNote}>
-        {completedTasks} tâches sur {tasks.length} terminées.
+        {completedTasks} tâches sur {progressTasks.length} terminées.
       </div>
     </aside>
   );
