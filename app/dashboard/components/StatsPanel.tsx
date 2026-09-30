@@ -13,6 +13,8 @@ export default function StatsPanel() {
   const [sales, setSales] = useState(0);
   const [revenueCents, setRevenueCents] = useState(0);
   const [views, setViews] = useState(0);
+  const [googleReviewsCount, setGoogleReviewsCount] = useState<number | null>(null);
+  const [googleReviewsConnected, setGoogleReviewsConnected] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,6 +48,21 @@ export default function StatsPanel() {
       if (!cancelled) {
         setRevenueCents(response.ok ? Number(payload?.grossRevenue || 0) : 0);
         setSales(response.ok ? Number(payload?.salesCount || 0) : 0);
+      }
+
+      const { data: googleProfile, error: googleProfileError } = await supabase
+        .from("google_business_profiles")
+        .select("google_reviews_count, google_reviews_enabled")
+        .eq("provider_id", user.id)
+        .maybeSingle<{
+          google_reviews_count: number | null;
+          google_reviews_enabled: boolean;
+        }>();
+
+      if (!cancelled && !googleProfileError) {
+        const connected = Boolean(googleProfile?.google_reviews_enabled);
+        setGoogleReviewsConnected(connected);
+        setGoogleReviewsCount(connected ? googleProfile?.google_reviews_count ?? null : 0);
       }
     }
 
@@ -95,10 +112,12 @@ export default function StatsPanel() {
 
       <div className={styles.statsCard}>
         <span className={styles.statsLabel}>Avis Google</span>
-        <strong className={styles.statsValue}>DRIMLI Pro</strong>
+        <strong className={styles.statsValue}>
+          {googleReviewsCount?.toLocaleString("fr-FR") ?? "—"}
+        </strong>
         <span className={styles.statsDelta}>
           <Star size={14} />
-          Bientôt disponible
+          {googleReviewsConnected ? "Depuis votre inscription" : "Booster vos avis Google"}
         </span>
       </div>
     </aside>
