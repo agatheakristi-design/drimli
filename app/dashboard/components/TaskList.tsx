@@ -63,13 +63,14 @@ export default function TaskList({
 
       const { data } = await supabase
         .from("profiles")
-        .select("avatar_url, profession, description")
+        .select("avatar_url, profession, description, billing_information_validated_at")
         .eq("provider_id", user.id)
         .maybeSingle();
 
       if (cancelled) return;
 
       setPhotoDone(Boolean(data?.avatar_url));
+      setBillingReady(Boolean(data?.billing_information_validated_at));
 
       const savedProfession = data?.profession?.trim() ?? "";
       setProfession(savedProfession);
