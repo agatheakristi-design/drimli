@@ -19,6 +19,7 @@ export async function reschedulePaidAppointment(params: {
   appointment: ReschedulableAppointment;
   newStartIso: string;
   now?: Date;
+  actor?: "client" | "professional";
 }) {
   const { admin, appointment, newStartIso, now = new Date() } = params;
   if (appointment.status !== "confirmed") {
@@ -45,13 +46,14 @@ export async function reschedulePaidAppointment(params: {
     throw new AppointmentRescheduleError("Ce créneau n’est pas disponible.");
   }
 
-  const { data, error } = await admin.rpc("reschedule_paid_appointment_guarded", {
+  const { data, error } = await admin.rpc("reschedule_appointment_with_alert", {
     p_appointment_id: appointment.id,
     p_provider_id: appointment.provider_id,
     p_expected_start: appointment.start_datetime,
     p_new_start: newStart.toISOString(),
     p_new_end: newEnd.toISOString(),
     p_now: now.toISOString(),
+    p_actor: params.actor ?? "professional",
   });
   if (error || !data) {
     const message = error?.message.includes("holding limit")

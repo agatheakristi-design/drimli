@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import AppointmentAlertBadge from "./AppointmentAlertBadge";
 import { usePathname } from "next/navigation";
 import {
   CalendarDays,
@@ -70,6 +71,7 @@ export default function Sidebar({
             >
               <Icon className={styles.navigationIcon} aria-hidden="true" />
               <span>{label}</span>
+              {href === "/dashboard/calendrier" ? <AppointmentAlertBadge /> : null}
             </Link>
           );
         })}

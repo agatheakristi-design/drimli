@@ -1,3 +1,4 @@
+import { notifyProfessionalAppointment } from "@/lib/professionalAppointmentAlerts";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { clientAppointmentPermissions } from "@/lib/clientAppointmentPolicy";
@@ -121,7 +122,11 @@ export async function POST(request: Request, context: { params: Promise<{ token:
       admin,
       appointment,
       newStartIso: requestedStart.toISOString(),
+      actor: "client",
     });
+    if (moved.reschedule_event_id) {
+      await notifyProfessionalAppointment(admin, "rescheduled", moved.reschedule_event_id);
+    }
     const [{ data: profile }, { data: product }] = await Promise.all([
       admin.from("profiles").select("full_name").eq("provider_id", appointment.provider_id).maybeSingle(),
       admin.from("products").select("title").eq("id", appointment.product_id).maybeSingle(),

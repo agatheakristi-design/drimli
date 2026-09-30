@@ -1325,3 +1325,19 @@
     white-space: nowrap;
   }
 }
+
+.appointmentAlertBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  margin-left: auto;
+  border-radius: var(--radius-pill);
+  background: #15803d;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}

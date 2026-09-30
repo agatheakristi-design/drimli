@@ -1,3 +1,4 @@
+import { notifyClientCancellation } from "@/lib/professionalAppointmentAlerts";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
@@ -33,9 +34,10 @@ export async function POST(_request: Request, context: { params: Promise<{ token
 
   try {
     const result = await refundAppointmentInFull({
-      admin, stripe, appointmentId: appointment.id, providerId: appointment.provider_id,
+      admin, stripe, appointmentId: appointment.id, providerId: appointment.provider_id, cancelledBy: "client",
     });
     if (!result.refunded) throw new AppointmentRefundError("Le remboursement n’a pas abouti.", 500);
+    await notifyClientCancellation(admin, appointment.id, appointment.provider_id, result.refundId);
     const [{ data: profile }, { data: product }] = await Promise.all([
       admin.from("profiles").select("full_name").eq("provider_id", appointment.provider_id).maybeSingle(),
       admin.from("products").select("title").eq("id", appointment.product_id).maybeSingle(),

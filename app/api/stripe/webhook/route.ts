@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { notifyProfessionalAppointment } from "@/lib/professionalAppointmentAlerts";
 import { sendAppointmentConfirmationEmail } from "@/lib/email";
 import {
   createGoogleMeetAppointment,
@@ -495,6 +496,8 @@ export async function POST(req: Request) {
     if (upErr) {
       throw new Error(`Failed to record paid appointment: ${upErr.message}`);
     }
+
+    await notifyProfessionalAppointment(supabaseAdmin, "confirmed", appt.id);
 
     const paidAt = new Date(
       typeof paymentIntent.latest_charge === "object" && paymentIntent.latest_charge

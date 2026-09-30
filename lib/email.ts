@@ -331,3 +331,45 @@ function escapeHtml(s: string) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+// Same restrained text/HTML presentation as the existing appointment emails.
+export async function sendProfessionalAppointmentEmail(
+  p: import("@/lib/professionalAppointmentAlerts").AppointmentAlertPayload,
+  eventId: string
+) {
+  const headings = {
+    confirmed: "Nouveau rendez-vous confirmé",
+    rescheduled: "Rendez-vous replanifié par le client",
+    cancelled: "Rendez-vous annulé par le client",
+  };
+  const slot = (start: string, end: string) => {
+    const labels = appointmentDateLabels(start, end);
+    return `${labels.date}, ${labels.start} – ${labels.end}`;
+  };
+  const lines = [
+    `Client : ${p.client_name?.trim() || "Client"}`,
+    `Prestation : ${p.service_title}`,
+    ...(p.kind === "rescheduled" && p.old_start && p.old_end
+      ? [`Ancien créneau : ${slot(p.old_start, p.old_end)}`] : []),
+    `${p.kind === "rescheduled" ? "Nouveau créneau" : p.kind === "cancelled" ? "Rendez-vous annulé" : "Date et heure"} : ${slot(p.start, p.end)}`,
+  ];
+  const base = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  const url = new URL("/dashboard/calendrier", base);
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && url.hostname === "localhost")) {
+    throw new Error("Invalid application URL");
+  }
+  if (!p.recipient) throw new Error("Missing professional email");
+  const subject = headings[p.kind];
+  const greeting = `Bonjour ${p.provider_name},`;
+  const text = [greeting, "", subject, "", ...lines, "", "Consulter mes rendez-vous :", url.toString(), "", "—", "Drimli"].join("\n");
+  const html = `<div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;line-height:1.6;color:#111;">
+    <p>${escapeHtml(greeting)}</p><p><strong>${escapeHtml(subject)}</strong></p>
+    <p>${lines.map(escapeHtml).join("<br/>")}</p>
+    <p><a href="${escapeHtml(url.toString())}" target="_blank" rel="noreferrer">Consulter mes rendez-vous</a></p>
+    <p style="opacity:.7;">—<br/>Drimli</p></div>`;
+  const { data, error } = await resend.emails.send({ from: FROM, to: p.recipient, subject, text, html }, {
+    idempotencyKey: `professional-appointment/${p.kind}/${eventId}`,
+  });
+  if (error) throw new Error("Professional appointment email failed");
+  return data;
+}

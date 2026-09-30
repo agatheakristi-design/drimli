@@ -15,6 +15,7 @@ export async function refundAppointmentInFull(params: {
   stripe: Stripe;
   appointmentId: string;
   providerId: string;
+  cancelledBy?: "client" | "professional";
 }) {
   const { admin, stripe, appointmentId, providerId } = params;
   const { data: payment, error } = await admin
@@ -105,11 +106,15 @@ export async function refundAppointmentInFull(params: {
         p_refunded_amount: refundedAmount,
       });
       if (commitmentError) throw new Error("Refund payout state update failed");
-      const { error: appointmentUpdateError } = await admin
-        .from("appointments")
-        .update({ status: "cancelled_by_provider" })
-        .eq("id", appointmentId)
-        .eq("provider_id", payment.provider_id);
+      const { error: appointmentUpdateError } = params.cancelledBy === "client"
+        ? await admin.rpc("complete_client_cancellation_with_alert", {
+            p_id: appointmentId, p_provider_id: payment.provider_id, p_refund_id: refund.id,
+          })
+        : await admin
+            .from("appointments")
+            .update({ status: "cancelled_by_provider" })
+            .eq("id", appointmentId)
+            .eq("provider_id", payment.provider_id);
       if (appointmentUpdateError) throw new Error("Appointment cancellation state update failed");
 
       try {
