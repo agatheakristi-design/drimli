@@ -46,7 +46,10 @@ export async function GET(request: Request) {
     vat_regime: text(profile.vat_regime) || "franchise_base",
     vat_number: text(profile.vat_number),
     vat_rate: profile.vat_rate == null ? "" : String(Number(profile.vat_rate) * 100),
-    cancellation_policy: text(profile.cancellation_policy) || "non_refundable",
+    cancellation_policy:
+      !profile.billing_information_validated_at && text(profile.cancellation_policy) === "flexible"
+        ? "non_refundable"
+        : text(profile.cancellation_policy) || "non_refundable",
   };
 
   const resolved = resolveStripeAccountId(profile);
