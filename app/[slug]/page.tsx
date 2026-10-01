@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { cache } from "react";
-import { professionalMetadata } from "@/lib/professionalSeo";
+import { professionalJsonLd, professionalMetadata, serializeProfessionalJsonLd } from "@/lib/professionalSeo";
 import { createClient } from "@supabase/supabase-js";
 import styles from "./page.module.css";
 import PublicFlowShell from "@/app/components/public/PublicFlowShell";
@@ -86,6 +86,8 @@ export default async function Page({
     .eq("google_reviews_enabled", true)
     .maybeSingle();
 
+  const jsonLd = professionalJsonLd(profile);
+
   const googleRating = Number(googleBusinessProfile?.google_rating);
   const googleReviewsCount = Number(
     googleBusinessProfile?.google_reviews_count
@@ -102,6 +104,12 @@ export default async function Page({
 
   return (
     <PublicFlowShell transparentHeader>
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeProfessionalJsonLd(jsonLd) }}
+        />
+      )}
       <PublicPageViewTracker slug={slug} />
 
       <section className={styles.hero}>

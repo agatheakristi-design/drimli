@@ -64,11 +64,40 @@ export function representativeService(services: readonly SeoService[]) {
   })[0];
 }
 
-export function professionalMetadata(profile: SeoProfile, services: readonly SeoService[]): Metadata {
+function professionalIdentity(profile: SeoProfile) {
   const first = clean(profile.first_name);
   const last = clean(profile.last_name);
   const name = first && last ? `${first} ${last}` : clean(profile.full_name) || first || last;
   const profession = clean(profile.profession);
+  const url = `https://www.drimli.io/${profile.slug}`;
+  return { name, profession, url };
+}
+
+export function professionalJsonLd(profile: SeoProfile) {
+  const { name, profession, url } = professionalIdentity(profile);
+  if (!name) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    "@id": `${url}#profile`,
+    url,
+    mainEntity: {
+      "@type": "Person",
+      "@id": `${url}#person`,
+      name,
+      ...(profession ? { jobTitle: profession } : {}),
+      url,
+    },
+  };
+}
+
+export function serializeProfessionalJsonLd(data: NonNullable<ReturnType<typeof professionalJsonLd>>) {
+  // Prevent user-controlled text from closing the HTML script element.
+  return JSON.stringify(data).replace(/</g, "\\u003c");
+}
+
+export function professionalMetadata(profile: SeoProfile, services: readonly SeoService[]): Metadata {
+  const { name, profession, url } = professionalIdentity(profile);
   const identity = [name, profession].filter(Boolean).join(", ");
   const heading = [name, profession].filter(Boolean).join(" – ");
   const service = representativeService(services);
@@ -94,7 +123,6 @@ export function professionalMetadata(profile: SeoProfile, services: readonly Seo
       : "";
     description = `${intro} ${details}Consultez ses disponibilités et réservez votre créneau sur Drimli.`;
   }
-  const url = `https://www.drimli.io/${profile.slug}`;
   return {
     title: heading ? `${heading} | Drimli` : "Drimli",
     description,
