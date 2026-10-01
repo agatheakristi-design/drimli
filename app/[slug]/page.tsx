@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import { cache } from "react";
+import { professionalMetadata } from "@/lib/professionalSeo";
 import { createClient } from "@supabase/supabase-js";
 import styles from "./page.module.css";
 import PublicFlowShell from "@/app/components/public/PublicFlowShell";
@@ -11,6 +14,35 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const loadProfile = cache(async (slug: string) => {
+  return supabase
+    .from("profiles")
+    .select(
+      "provider_id, slug, first_name, last_name, full_name, profession, country, description, avatar_url, published"
+    )
+    .eq("slug", slug)
+    .maybeSingle();
+});
+
+const loadProducts = cache(async (providerId: string) => {
+  return supabase
+    .from("products")
+    .select(
+      "id, title, description, duration_minutes, price_cents, active, created_at"
+    )
+    .eq("provider_id", providerId)
+    .eq("active", true)
+    .order("created_at", { ascending: false });
+});
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const { data: profile, error } = await loadProfile(slug);
+  if (error || !profile?.published) return {};
+  const { data: products } = await loadProducts(profile.provider_id);
+  return professionalMetadata(profile, products ?? []);
+}
+
 export default async function Page({
   params,
 }: {
@@ -19,13 +51,7 @@ export default async function Page({
   const resolvedParams = await params;
   const slug = resolvedParams.slug as string;
 
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select(
-      "provider_id, full_name, profession, country, description, avatar_url, published"
-    )
-    .eq("slug", slug)
-    .maybeSingle();
+  const { data: profile, error } = await loadProfile(slug);
 
   if (error) {
     return (
@@ -51,14 +77,7 @@ export default async function Page({
     );
   }
 
-  const { data: products } = await supabase
-    .from("products")
-    .select(
-      "id, title, description, duration_minutes, price_cents, active, created_at"
-    )
-    .eq("provider_id", profile.provider_id)
-    .eq("active", true)
-    .order("created_at", { ascending: false });
+  const { data: products } = await loadProducts(profile.provider_id);
 
   const { data: googleBusinessProfile } = await supabase
     .from("google_business_profiles")
