@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cache } from "react";
 import { professionalJsonLd, professionalMetadata, serializeProfessionalJsonLd } from "@/lib/professionalSeo";
 import { createClient } from "@supabase/supabase-js";
+import { notFound } from "next/navigation";
 import styles from "./page.module.css";
 import PublicFlowShell from "@/app/components/public/PublicFlowShell";
 import ExpandableServiceList, {
@@ -61,20 +62,8 @@ export default async function Page({
     );
   }
 
-  if (!profile) {
-    return (
-      <PublicFlowShell transparentHeader>
-        <p className={styles.state}>Page introuvable</p>
-      </PublicFlowShell>
-    );
-  }
-
-  if (!profile.published) {
-    return (
-      <PublicFlowShell transparentHeader>
-        <p className={styles.state}>Profil non publié</p>
-      </PublicFlowShell>
-    );
+  if (!profile || !profile.published) {
+    notFound();
   }
 
   const { data: products } = await loadProducts(profile.provider_id);
