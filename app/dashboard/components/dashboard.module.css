@@ -568,6 +568,11 @@
   background: var(--muted);
 }
 
+.taskRowDone .taskIcon {
+  background: var(--foreground);
+  color: var(--background);
+}
+
 .taskIcon {
   display: grid;
   place-items: center;

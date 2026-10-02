@@ -8,9 +8,13 @@ import {
   useState,
 } from "react";
 import {
+  Camera,
   Check,
   ChevronRight,
+  CreditCard,
+  FileText,
   Plus,
+  Receipt,
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -317,7 +321,12 @@ const completedTasks = progressTasks.filter((task) =>
           const content = (
             <>
               <span className={styles.taskIcon}>
-                {done ? <Check size={16} /> : <Plus size={16} />}
+                {task.label === "Premier service créé" && <Check size={16} />}
+                {task.label === "Ajouter des services" && <Plus size={16} />}
+                {task.label === "Ajouter une photo" && <Camera size={16} />}
+                {task.label === "Écrire une description" && <FileText size={16} />}
+                {task.label === "Connecter les paiements" && <CreditCard size={16} />}
+                {task.label === "Facturation" && <Receipt size={16} />}
               </span>
 
               <span className={styles.taskCopy}>

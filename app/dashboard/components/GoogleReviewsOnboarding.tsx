@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Check, ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Star } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import styles from "./dashboard.module.css";
 
@@ -202,7 +202,7 @@ export default function GoogleReviewsOnboarding({
         aria-expanded={open}
       >
         <span className={styles.taskIcon}>
-          {enabled ? <Check size={16} /> : <Plus size={16} />}
+          <Star size={16} />
         </span>
         <span className={styles.taskCopy}>
           <strong>Booster mes avis Google</strong>

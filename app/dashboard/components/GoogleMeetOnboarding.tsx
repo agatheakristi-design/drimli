@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Video } from "lucide-react";
 import { googleConnectionError } from "@/lib/googleOAuthDiagnostics";
 import { supabase } from "@/lib/supabaseClient";
 import styles from "./dashboard.module.css";
@@ -165,7 +165,7 @@ export default function GoogleMeetOnboarding({
         aria-expanded={open}
       >
         <span className={styles.taskIcon}>
-          {connected ? <Check size={16} /> : <Plus size={16} />}
+          <Video size={16} />
         </span>
         <span className={styles.taskCopy}>
           <strong>{loading ? "Vérification de Google Meet…" : label}</strong>
