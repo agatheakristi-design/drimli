@@ -285,7 +285,11 @@ const completedTasks = progressTasks.filter((task) =>
   return (
     <section className={styles.tasksPanel}>
       <div className={styles.sectionHeading}>
-        <h2>Complétez votre page</h2>
+        <h2>
+          {completedTasks === progressTasks.length
+            ? "Votre page est complète."
+            : "Votre premier service est créé. Complétez votre page."}
+        </h2>
         <span>
           {completedTasks} sur {progressTasks.length}
         </span>
@@ -301,6 +305,13 @@ const completedTasks = progressTasks.filter((task) =>
 
       <div className={styles.tasksList}>
         {tasks.map((task) => {
+          if (
+            task.label === "Premier service créé" &&
+            completedTasks === progressTasks.length
+          ) {
+            return null;
+          }
+
           const done = isTaskDone(task.label, task.done);
 
           const descriptionText =
