@@ -114,7 +114,7 @@ export async function POST(request: Request) {
   for (const key of keys) {
     const { data: profile, error: profileError } = await admin
       .from("profiles")
-      .select("first_name, last_name, full_name, business_name, address, postal_code, city, country, siret, vat_number, billing_information_validated_at")
+      .select("billing_full_name, business_name, address, postal_code, city, country, siret, vat_number, billing_information_validated_at")
       .eq("provider_id", key.providerId)
       .maybeSingle();
     if (profileError || !profile?.billing_information_validated_at) {
@@ -122,9 +122,7 @@ export async function POST(request: Request) {
       continue;
     }
     const customerSnapshot = {
-      firstName: profile.first_name,
-      lastName: profile.last_name,
-      fullName: profile.full_name,
+      fullName: profile.billing_full_name,
       businessName: profile.business_name,
       address: profile.address,
       postalCode: profile.postal_code,

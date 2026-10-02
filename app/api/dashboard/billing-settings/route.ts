@@ -12,7 +12,7 @@ const admin = createClient(
 );
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-const profileFields = "first_name, last_name, full_name, business_name, address, postal_code, city, country, siret, vat_regime, vat_number, vat_rate, cancellation_policy, billing_information_validated_at, stripe_account_id, stripe_connect_account_id, drimli_payout_mode";
+const profileFields = "first_name, last_name, full_name, billing_full_name, business_name, address, postal_code, city, country, siret, vat_regime, vat_number, vat_rate, cancellation_policy, billing_information_validated_at, stripe_account_id, stripe_connect_account_id, drimli_payout_mode";
 
 async function authenticatedProfile(request: Request) {
   const authorization = request.headers.get("authorization") ?? "";
@@ -34,9 +34,7 @@ export async function GET(request: Request) {
 
   const { profile } = authenticated;
   const values = {
-    first_name: text(profile.first_name),
-    last_name: text(profile.last_name),
-    full_name: text(profile.full_name),
+    full_name: text(profile.billing_full_name) || text(profile.full_name),
     business_name: text(profile.business_name),
     address: text(profile.address),
     postal_code: text(profile.postal_code),
@@ -59,9 +57,9 @@ export async function GET(request: Request) {
       const entity = account.business_type === "company" ? account.company : account.individual;
       const address = entity?.address;
       values.business_name ||= text(account.business_profile?.name) || text(account.company?.name);
-      values.first_name ||= text(account.individual?.first_name);
-      values.last_name ||= text(account.individual?.last_name);
-      values.full_name ||= [values.first_name, values.last_name].filter(Boolean).join(" ");
+      values.full_name ||= account.business_type === "company"
+        ? text(account.company?.name)
+        : [text(account.individual?.first_name), text(account.individual?.last_name)].filter(Boolean).join(" ");
       values.address ||= [text(address?.line1), text(address?.line2)].filter(Boolean).join(", ");
       values.postal_code ||= text(address?.postal_code);
       values.city ||= text(address?.city);
@@ -88,7 +86,7 @@ export async function PUT(request: Request) {
   const vatRegime = text(body.vat_regime);
   const policy = text(body.cancellation_policy);
   const vatPercent = body.vat_rate === "" ? null : Number(body.vat_rate);
-  const fullName = text(body.full_name) || [text(body.first_name), text(body.last_name)].filter(Boolean).join(" ");
+  const fullName = text(body.full_name);
   const required = [fullName, text(body.address), text(body.postal_code), text(body.city), text(body.country), text(body.siret)];
   if (required.some((value) => !value)) {
     return NextResponse.json({ error: "Complétez le nom, l’adresse, le code postal, la ville, le pays et le SIRET." }, { status: 400 });
@@ -126,9 +124,7 @@ export async function PUT(request: Request) {
   }
 
   const { error } = await admin.from("profiles").update({
-    first_name: text(body.first_name) || null,
-    last_name: text(body.last_name) || null,
-    full_name: fullName,
+    billing_full_name: fullName,
     business_name: text(body.business_name) || null,
     address: text(body.address),
     postal_code: text(body.postal_code),

@@ -83,7 +83,7 @@ export async function POST(req: Request) {
     // 3) Load provider Stripe Connect account
     const { data: prof, error: profErr } = await supabaseAdmin
       .from("profiles")
-      .select("stripe_account_id, stripe_connect_account_id, full_name, business_name, profession, email, phone, address, city, postal_code, country, siret, vat_number, vat_regime, vat_rate")
+      .select("stripe_account_id, stripe_connect_account_id, full_name, billing_full_name, business_name, profession, email, phone, address, city, postal_code, country, siret, vat_number, vat_regime, vat_rate")
       .eq("provider_id", appt.provider_id)
       .maybeSingle();
 
@@ -136,7 +136,7 @@ export async function POST(req: Request) {
     }
 
     const requiredInvoiceFields: Array<[string, unknown]> = [
-      ["nom complet", prof.full_name],
+      ["nom / raison sociale", prof.billing_full_name],
       ["adresse", prof.address],
       ["ville", prof.city],
       ["pays", prof.country],
@@ -229,7 +229,7 @@ const appUrl = (
         currency: "EUR",
         application_fee_amount: feeCents,
         client_download_token_hash: invoiceTokenHash,
-        issuer_full_name: String(prof.full_name).trim(),
+        issuer_full_name: String(prof.billing_full_name).trim(),
         issuer_business_name: prof.business_name || null,
         issuer_profession: prof.profession || null,
         issuer_email: prof.email || null,

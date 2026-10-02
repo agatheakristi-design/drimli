@@ -5,13 +5,13 @@ import { supabase } from "@/lib/supabaseClient";
 import styles from "./dashboard.module.css";
 
 type Values = {
-  first_name: string; last_name: string; full_name: string; business_name: string;
+  full_name: string; business_name: string;
   address: string; postal_code: string; city: string; country: string; siret: string;
   vat_regime: string; vat_number: string; vat_rate: string; cancellation_policy: string;
 };
 
 const empty: Values = {
-  first_name: "", last_name: "", full_name: "", business_name: "", address: "",
+  full_name: "", business_name: "", address: "",
   postal_code: "", city: "", country: "FR", siret: "", vat_regime: "franchise_base",
   vat_number: "", vat_rate: "", cancellation_policy: "non_refundable",
 };
@@ -71,9 +71,7 @@ export default function BillingSettingsOnboarding({ onCompletionChange }: { onCo
       <section className={styles.billingSection}>
         <div><h3>Informations de facturation</h3><p>Ces informations seront utilisées pour vos futures factures clients.</p></div>
         <div className={styles.inlineFields}>
-          <label className={styles.inlineField}>Prénom<input className={styles.inlineInput} value={values.first_name} onChange={(e) => update("first_name", e.target.value)} /></label>
-          <label className={styles.inlineField}>Nom<input className={styles.inlineInput} value={values.last_name} onChange={(e) => update("last_name", e.target.value)} /></label>
-          <label className={styles.inlineField}>Nom complet ou raison sociale<input className={styles.inlineInput} required value={values.full_name} onChange={(e) => update("full_name", e.target.value)} /></label>
+          <label className={styles.inlineField}>Nom / raison sociale<input className={styles.inlineInput} required value={values.full_name} onChange={(e) => update("full_name", e.target.value)} /></label>
           <label className={styles.inlineField}>Nom commercial <span>(facultatif)</span><input className={styles.inlineInput} value={values.business_name} onChange={(e) => update("business_name", e.target.value)} /></label>
           <label className={`${styles.inlineField} ${styles.billingWide}`}>Adresse<input className={styles.inlineInput} required value={values.address} onChange={(e) => update("address", e.target.value)} /></label>
           <label className={styles.inlineField}>Code postal<input className={styles.inlineInput} required value={values.postal_code} onChange={(e) => update("postal_code", e.target.value)} /></label>
