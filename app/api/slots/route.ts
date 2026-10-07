@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getGoogleCalendarBusy, GoogleCalendarBusyError } from "@/lib/googleCalendarBusy";
 import {
   isSlotStartAllowed,
   providerTimeZone,
@@ -223,6 +224,19 @@ export async function GET(req: Request) {
       (block) => block.start_datetime && block.end_datetime
     );
 
+    let googleBusy: { start: string; end: string }[] = [];
+    try {
+      googleBusy = await getGoogleCalendarBusy({
+        providerId,
+        start: startWindow,
+        end: endWindow,
+      });
+    } catch (error: unknown) {
+      console.warn("[slots] Google availability ignored", {
+        code: error instanceof GoogleCalendarBusyError ? error.code : "unknown",
+      });
+    }
+
     // 6) Ne garder que les slots libres
     const free = slots.filter((s) => {
       const isBusy = busy.some((appointment) =>
@@ -242,7 +256,10 @@ export async function GET(req: Request) {
           block.end_datetime!
         )
       );
-      return !isBlocked;
+      if (isBlocked) return false;
+      return !googleBusy.some((interval) =>
+        overlaps(s.start, s.end, interval.start, interval.end)
+      );
     });
 
     return NextResponse.json(free, { status: 200 });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getGoogleCalendarBusy, GoogleCalendarBusyError } from "@/lib/googleCalendarBusy";
 import {
   dateInTimeZone,
   isSlotStartAllowed,
@@ -192,6 +193,25 @@ export async function POST(req: Request) {
       (blocksResult.data?.length ?? 0) > 0
     ) {
       return slotNoLongerAvailable();
+    }
+
+    try {
+      const googleBusy = await getGoogleCalendarBusy({ providerId, start, end });
+      if (googleBusy.some((interval) =>
+        startMs < Date.parse(interval.end) && Date.parse(interval.start) < endMs
+      )) {
+        return NextResponse.json(
+          {
+            code: "SLOT_NO_LONGER_AVAILABLE",
+            error: "Les disponibilités ont changé. Actualisez la page pour voir les créneaux à jour.",
+          },
+          { status: 409 }
+        );
+      }
+    } catch (error: unknown) {
+      console.warn("[appointments/create] Google availability ignored", {
+        code: error instanceof GoogleCalendarBusyError ? error.code : "unknown",
+      });
     }
 
     const { data, error } = await admin
