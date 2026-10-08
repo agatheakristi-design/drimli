@@ -141,6 +141,9 @@ export default function Page() {
       setLoading(true);
       setErrorText("");
       setService(null);
+      setDate("");
+      setSlots([]);
+      setSelectedSlot(null);
 
       if (!serviceId) {
         setErrorText("❌ Missing serviceId in URL.");
@@ -197,15 +200,24 @@ export default function Page() {
       const requestedStart = query.get("start") ?? "";
       const requestedEnd = query.get("end") ?? "";
 
-      if (requestedDate) {
+      const validDate = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) &&
+        Number.isFinite(Date.parse(requestedDate)) &&
+        new Date(requestedDate).toISOString().slice(0, 10) === requestedDate;
+      const iso = /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/i;
+      const startMs = Date.parse(requestedStart);
+      const endMs = Date.parse(requestedEnd);
+      const validTimestamps = [requestedStart, requestedEnd].every((value) =>
+        iso.test(value) && Number.isFinite(Date.parse(value)) &&
+        new Date(value.slice(0, 10)).toISOString().slice(0, 10) === value.slice(0, 10)
+      );
+      const validSelection = validDate && validTimestamps && startMs < endMs;
+
+      if (validSelection) {
         setDate(requestedDate);
-        await loadSlotsForService(
-          data,
-          requestedDate,
-          requestedStart && requestedEnd
-            ? { start: requestedStart, end: requestedEnd }
-            : null
-        );
+        setSelectedSlot({ start: requestedStart, end: requestedEnd });
+      } else if (validDate) {
+        setDate(requestedDate);
+        await loadSlotsForService(data, requestedDate);
       }
 
       setLoading(false);
