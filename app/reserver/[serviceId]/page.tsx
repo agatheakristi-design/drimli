@@ -27,6 +27,7 @@ type ServiceRow = {
 type Slot = { start: string; end: string };
 
 type ProfileRow = {
+  slug: string | null;
   full_name: string | null;
   profession: string | null;
   description: string | null;
@@ -187,7 +188,7 @@ export default function Page() {
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("full_name, profession, description, avatar_url, cancellation_policy")
+        .select("slug, full_name, profession, description, avatar_url, cancellation_policy")
         .eq("provider_id", data.provider_id)
         .maybeSingle<ProfileRow>();
 
@@ -266,16 +267,15 @@ export default function Page() {
 
     if (!res.ok) {
       if (json?.code === "SLOT_NO_LONGER_AVAILABLE") {
-        setSelectedSlot(null);
-
-        if (date) {
-          await loadSlots(date);
+        if (profile?.slug) {
+          const query = new URLSearchParams({
+            serviceId: service.id,
+            bookingError: "SLOT_NO_LONGER_AVAILABLE",
+          });
+          window.location.assign(`/${encodeURIComponent(profile.slug)}?${query.toString()}`);
+        } else {
+          setErrorText("Ce créneau n'est plus disponible. Veuillez choisir un autre horaire.");
         }
-
-        setErrorText(
-          json.error ||
-            "Ce créneau vient d’être réservé. Choisissez-en un autre."
-        );
         return null;
       }
 

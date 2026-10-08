@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, useSyncExternalStore } from "react";
 import { ChevronDown } from "lucide-react";
 import ServiceBookingCalendar from "./ServiceBookingCalendar";
 import styles from "./ExpandableServiceList.module.css";
@@ -23,6 +23,11 @@ function durationLabel(durationMinutes: number | null) {
   return `${durationMinutes} min`;
 }
 
+function subscribeToLocation(onChange: () => void) {
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
+}
+
 export default function ExpandableServiceList({
   providerId,
   services,
@@ -30,11 +35,24 @@ export default function ExpandableServiceList({
   providerId: string;
   services: PublicService[];
 }) {
-  const [openServiceId, setOpenServiceId] = useState<string | null>(null);
+  const search = useSyncExternalStore(subscribeToLocation, () => window.location.search, () => "");
+  const query = new URLSearchParams(search);
+  const requestedServiceId = query.get("serviceId");
+  const unavailableServiceId = query.get("bookingError") === "SLOT_NO_LONGER_AVAILABLE" &&
+    services.some((service) => service.id === requestedServiceId)
+    ? requestedServiceId
+    : null;
+  const [chosenServiceId, setOpenServiceId] = useState<string | null | undefined>(undefined);
+  const openServiceId = chosenServiceId === undefined ? unavailableServiceId : chosenServiceId;
   const instanceId = useId().replaceAll(":", "");
 
   return (
     <div className={styles.list}>
+      {unavailableServiceId ? (
+        <p role="alert">
+          Ce créneau n&apos;est plus disponible. Veuillez choisir un autre horaire.
+        </p>
+      ) : null}
       {services.map((service, index) => {
         const isOpen = openServiceId === service.id;
         const buttonId = `${instanceId}-service-${index}`;
