@@ -5,6 +5,9 @@ import { useParams } from "next/navigation";
 import { CalendarDays, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
+import BusinessCustomerFields from "@/app/components/booking/BusinessCustomerFields";
+import { validateContact, validateBusinessCustomer, type BusinessCustomer } from "@/lib/bookingCustomer";
+
 import PublicFlowShell from "@/app/components/public/PublicFlowShell";
 import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
@@ -79,6 +82,8 @@ export default function Page() {
   const [lastName, setLastName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientPhone, setClientPhone] = useState("");
+  const [contactErrors, setContactErrors] = useState<{ email?: string; phone?: string }>({});
+  const [businessCustomer, setBusinessCustomer] = useState<BusinessCustomer | null>(null);
 
   const [creating, setCreating] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -258,6 +263,7 @@ export default function Page() {
         client_name: clientName,
         clientEmail: clientEmail.trim(),
         clientPhone: clientPhone.trim(),
+        businessCustomer,
       }),
 
     });
@@ -266,6 +272,9 @@ export default function Page() {
     setCreating(false);
 
     if (!res.ok) {
+      if (json?.code === "INVALID_CONTACT") {
+        setContactErrors(json.fieldErrors ?? {});
+      }
       if (json?.code === "SLOT_NO_LONGER_AVAILABLE") {
         if (profile?.slug) {
           const query = new URLSearchParams({
@@ -308,12 +317,13 @@ export default function Page() {
       setErrorText("❌ Merci d’indiquer votre nom.");
       return;
     }
-    if (!clientEmail.trim()) {
-      setErrorText("❌ Merci d’indiquer votre email.");
-      return;
-    }
-    if (!clientPhone.trim()) {
-      setErrorText("❌ Merci d’indiquer votre téléphone.");
+    const contact = validateContact(clientEmail, clientPhone);
+    setContactErrors(contact.errors);
+    setClientEmail(contact.email);
+    if (!contact.valid) return;
+    const business = validateBusinessCustomer(businessCustomer);
+    if (business.error) {
+      setErrorText(business.error);
       return;
     }
 
@@ -481,11 +491,21 @@ export default function Page() {
                     className="input"
                     type="email"
                     value={clientEmail}
-                    onChange={(event) => setClientEmail(event.target.value)}
+                    onChange={(event) => {
+                      setClientEmail(event.target.value);
+                      if (contactErrors.email) setContactErrors((current) => ({ ...current, email: validateContact(event.target.value, clientPhone).errors.email }));
+                    }}
+                    onBlur={() => {
+                      setClientEmail(clientEmail.trim());
+                      setContactErrors((current) => ({ ...current, email: validateContact(clientEmail, clientPhone).errors.email }));
+                    }}
+                    aria-invalid={Boolean(contactErrors.email)}
+                    aria-describedby={contactErrors.email ? "client-email-error" : undefined}
                     placeholder="vous@email.com"
                     autoComplete="email"
                     required
                   />
+                  {contactErrors.email ? <p id="client-email-error" className={styles.error} role="alert">{contactErrors.email}</p> : null}
                 </div>
 
                 <div className={styles.field}>
@@ -495,12 +515,20 @@ export default function Page() {
                     className="input"
                     type="tel"
                     value={clientPhone}
-                    onChange={(event) => setClientPhone(event.target.value)}
+                    onChange={(event) => {
+                      setClientPhone(event.target.value);
+                      if (contactErrors.phone) setContactErrors((current) => ({ ...current, phone: validateContact(clientEmail, event.target.value).errors.phone }));
+                    }}
+                    onBlur={() => setContactErrors((current) => ({ ...current, phone: validateContact(clientEmail, clientPhone).errors.phone }))}
+                    aria-invalid={Boolean(contactErrors.phone)}
+                    aria-describedby={contactErrors.phone ? "client-phone-error" : undefined}
                     placeholder="06 12 34 56 78"
                     autoComplete="tel"
                     required
                   />
+                  {contactErrors.phone ? <p id="client-phone-error" className={styles.error} role="alert">{contactErrors.phone}</p> : null}
                 </div>
+                <BusinessCustomerFields value={businessCustomer} onChange={setBusinessCustomer} />
               </div>
 
               {errorText ? (

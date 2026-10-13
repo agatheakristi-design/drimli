@@ -176,6 +176,11 @@ async function generatePatientInvoicePdf(params: {
   vatExemptionMention?: string | null;
   clientName: string;
   clientEmail?: string | null;
+  clientBusiness?: {
+    name: string; siren?: string | null; siret?: string | null;
+    address?: string | null; postalCode?: string | null; city?: string | null;
+    country?: string | null; vatNumber?: string | null;
+  } | null;
   serviceTitle: string;
   serviceDescription?: string | null;
   serviceDurationMinutes?: number | null;
@@ -247,7 +252,12 @@ async function generatePatientInvoicePdf(params: {
       </div>
       <div>
         <div class="muted">Client</div>
-        <div><b>${escapeHtml(params.clientName || "Client")}</b></div>
+        ${params.clientBusiness ? `<div><b>${escapeHtml(params.clientBusiness.name)}</b></div>
+        <div>${escapeHtml(params.clientName)}</div>
+        <div class="muted">${escapeHtml(params.clientBusiness.address || "")}, ${escapeHtml([params.clientBusiness.postalCode, params.clientBusiness.city].filter(Boolean).join(" "))}, ${escapeHtml(params.clientBusiness.country || "")}</div>
+        ${params.clientBusiness.siren ? `<div class="muted">SIREN : ${escapeHtml(params.clientBusiness.siren)}</div>` : ""}
+        ${params.clientBusiness.siret ? `<div class="muted">SIRET : ${escapeHtml(params.clientBusiness.siret)}</div>` : ""}
+        ${params.clientBusiness.vatNumber ? `<div class="muted">TVA : ${escapeHtml(params.clientBusiness.vatNumber)}</div>` : ""}` : `<div><b>${escapeHtml(params.clientName || "Client")}</b></div>`}
         ${params.clientEmail ? `<div class="muted">${escapeHtml(params.clientEmail)}</div>` : ""}
       </div>
     </div>
@@ -590,6 +600,12 @@ export async function POST(req: Request) {
           issuer_country: billingSnapshot.issuer_country, issuer_siret: billingSnapshot.issuer_siret,
           issuer_vat_number: billingSnapshot.issuer_vat_number,
           customer_name: billingSnapshot.customer_name, customer_email: billingSnapshot.customer_email,
+          customer_type: billingSnapshot.customer_type,
+          customer_business_name: billingSnapshot.customer_business_name,
+          customer_siren: billingSnapshot.customer_siren, customer_siret: billingSnapshot.customer_siret,
+          customer_address: billingSnapshot.customer_address, customer_postal_code: billingSnapshot.customer_postal_code,
+          customer_city: billingSnapshot.customer_city, customer_country: billingSnapshot.customer_country,
+          customer_vat_number: billingSnapshot.customer_vat_number,
           customer_phone: billingSnapshot.customer_phone, service_title: billingSnapshot.service_title,
           service_description: billingSnapshot.service_description,
           service_duration_minutes: billingSnapshot.service_duration_minutes,
@@ -619,6 +635,12 @@ export async function POST(req: Request) {
         vatExemptionMention: clientInvoice.vat_exemption_mention,
         clientName: clientInvoice.customer_name,
         clientEmail: clientInvoice.customer_email,
+        clientBusiness: clientInvoice.customer_type === "business" ? {
+          name: clientInvoice.customer_business_name, siren: clientInvoice.customer_siren,
+          siret: clientInvoice.customer_siret, address: clientInvoice.customer_address,
+          postalCode: clientInvoice.customer_postal_code, city: clientInvoice.customer_city,
+          country: clientInvoice.customer_country, vatNumber: clientInvoice.customer_vat_number,
+        } : null,
         serviceTitle: clientInvoice.service_title,
         serviceDescription: clientInvoice.service_description,
         serviceDurationMinutes: clientInvoice.service_duration_minutes,

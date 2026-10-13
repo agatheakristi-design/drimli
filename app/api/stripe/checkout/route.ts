@@ -1,3 +1,4 @@
+import { validateBusinessCustomer, businessSnapshot } from "@/lib/bookingCustomer";
 import { NextResponse } from "next/server";
 import { randomBytes, createHash } from "node:crypto";
 import Stripe from "stripe";
@@ -50,12 +51,14 @@ export async function POST(req: Request) {
     // 1) Load appointment
     const { data: appt, error: apptErr } = await supabaseAdmin
       .from("appointments")
-      .select("id, provider_id, product_id, start_datetime, end_datetime, status, client_name, client_email, client_phone, cancellation_policy, cancellation_refund_deadline_hours")
+      .select("id, provider_id, product_id, start_datetime, end_datetime, status, client_name, client_email, client_phone, customer_billing, cancellation_policy, cancellation_refund_deadline_hours")
       .eq("id", appointmentId)
       .maybeSingle();
 
     if (apptErr) return NextResponse.json({ error: apptErr.message }, { status: 400 });
     if (!appt) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+    const business = validateBusinessCustomer(appt.customer_billing);
+    if (business.error) return NextResponse.json({ error: business.error }, { status: 400 });
     if (appt.status !== "pending") {
       return NextResponse.json(
         { error: `Appointment must be pending (current: ${appt.status})` },
@@ -245,6 +248,7 @@ const appUrl = (
         customer_name: appt.client_name,
         customer_email: appt.client_email,
         customer_phone: appt.client_phone || null,
+        ...businessSnapshot(business.data),
         service_title: product.title || "Prestation",
         service_description: product.description || null,
         service_duration_minutes: product.duration_minutes || null,
