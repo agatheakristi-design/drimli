@@ -205,6 +205,13 @@ async function generatePatientInvoicePdf(params: {
   const fmt = (n: number) =>
     new Intl.NumberFormat("fr-FR", { style: "currency", currency: params.currency }).format(n);
 
+  const clientLocality = [params.clientBusiness?.postalCode, params.clientBusiness?.city].filter(Boolean).join(" ");
+  const normalizeAddress = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleUpperCase("fr-FR");
+  const clientAddress = normalizeAddress(params.clientBusiness?.address || "");
+  const locality = normalizeAddress(clientLocality);
+  const clientAddressIncludesLocality = Boolean(params.clientBusiness?.postalCode?.trim() && params.clientBusiness?.city?.trim()) &&
+    (clientAddress === locality || clientAddress.endsWith(` ${locality}`) || clientAddress.endsWith(`,${locality}`));
+
   const html = `<!doctype html>
 <html>
 <head>
@@ -254,7 +261,7 @@ async function generatePatientInvoicePdf(params: {
         <div class="muted">Client</div>
         ${params.clientBusiness ? `<div><b>${escapeHtml(params.clientBusiness.name)}</b></div>
         <div>${escapeHtml(params.clientName)}</div>
-        <div class="muted">${escapeHtml(params.clientBusiness.address || "")}, ${escapeHtml([params.clientBusiness.postalCode, params.clientBusiness.city].filter(Boolean).join(" "))}, ${escapeHtml(params.clientBusiness.country || "")}</div>
+        <div class="muted">${escapeHtml(params.clientBusiness.address || "")}${clientAddressIncludesLocality ? "" : `, ${escapeHtml(clientLocality)}`}, ${escapeHtml(params.clientBusiness.country || "")}</div>
         ${params.clientBusiness.siren ? `<div class="muted">SIREN : ${escapeHtml(params.clientBusiness.siren)}</div>` : ""}
         ${params.clientBusiness.siret ? `<div class="muted">SIRET : ${escapeHtml(params.clientBusiness.siret)}</div>` : ""}
         ${params.clientBusiness.vatNumber ? `<div class="muted">TVA : ${escapeHtml(params.clientBusiness.vatNumber)}</div>` : ""}` : `<div><b>${escapeHtml(params.clientName || "Client")}</b></div>`}
