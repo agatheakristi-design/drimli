@@ -1,3 +1,4 @@
+import { withFacturx } from "@/lib/facturx";
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -166,9 +167,27 @@ async function storeDocument(
   if (error) throw error;
 }
 
+/** In a DRIMLI commission, the invoiced professional is the recipient of the
+ * platform service (BT-70). Use their recorded legal identity; never synthesize
+ * a delivery address/date or use the PDF's generic "Professionnel" fallback.
+ * SIRET is an eligibility check, not a claimed delivery-location ID (BT-71). */
+function commissionServicePeriod(invoice: Pick<InvoiceRow, "period_month" | "customer_snapshot">) {
+  const customer = invoice.customer_snapshot;
+  const declaredName = customer.businessName || customer.fullName;
+  const name = typeof declaredName === "string" ? declaredName.trim() : "";
+  const siret = typeof customer.siret === "string" ? customer.siret.replace(/\s/g, "") : "";
+  if (!name || !/^\d{14}$/.test(siret) || /^0+$/.test(siret) || !/^\d{4}-(0[1-9]|1[0-2])-01$/.test(invoice.period_month)) return {};
+  const start = invoice.period_month;
+  const lastDay = new Date(`${start}T00:00:00Z`);
+  if (!Number.isFinite(lastDay.getTime())) return {};
+  lastDay.setUTCMonth(lastDay.getUTCMonth() + 1);
+  lastDay.setUTCDate(0);
+  return { serviceRecipientName: name, servicePeriod: { start, end: lastDay.toISOString().slice(0, 10) } };
+}
+
 export async function ensureDrimliInvoicePdf(admin: SupabaseClient, invoice: InvoiceRow) {
   if (invoice.file_path) return invoice;
-  const pdf = await renderPdf(
+  const classicPdf = await renderPdf(
     documentHtml({
       title: "Facture",
       number: invoice.invoice_number,
@@ -183,6 +202,15 @@ export async function ensureDrimliInvoicePdf(admin: SupabaseClient, invoice: Inv
       paid: true,
     })
   );
+  const pdf = await withFacturx(classicPdf, {
+    kind: "invoice", number: invoice.invoice_number, issuedAt: invoice.issued_at,
+    ...commissionServicePeriod(invoice),
+    seller: { ...invoice.issuer_snapshot, name: invoice.issuer_snapshot.legalName, vatNumber: invoice.issuer_snapshot.vatNumber },
+    buyer: { ...invoice.customer_snapshot, name: invoice.customer_snapshot.businessName || invoice.customer_snapshot.fullName || "Professionnel" },
+    title: invoice.description, excludingTax: invoice.total_excluding_tax,
+    vatAmount: invoice.vat_amount, includingTax: invoice.total_including_tax,
+    vatRate: 0.2, currency: invoice.currency, settled: true,
+  });
   const month = invoice.period_month.slice(0, 7);
   const path = `providers/${invoice.provider_id}/drimli-invoices/${month}/${invoice.invoice_number}.pdf`;
   await storeDocument(admin, "drimli_commission_invoices", invoice.id, path, pdf);
@@ -196,11 +224,11 @@ export async function ensureDrimliCreditNotePdf(
   if (note.file_path) return note;
   const { data: invoice, error } = await admin
     .from("drimli_commission_invoices")
-    .select("invoice_number, issuer_snapshot, customer_snapshot")
+    .select("invoice_number, period_month, issuer_snapshot, customer_snapshot")
     .eq("id", note.invoice_id)
     .single();
   if (error || !invoice) throw new Error("Original DRIMLI invoice not found");
-  const pdf = await renderPdf(
+  const classicPdf = await renderPdf(
     documentHtml({
       title: "Avoir",
       number: note.credit_note_number,
@@ -216,6 +244,15 @@ export async function ensureDrimliCreditNotePdf(
       paid: false,
     })
   );
+  const pdf = await withFacturx(classicPdf, {
+    kind: "credit_note", number: note.credit_note_number, issuedAt: note.issued_at, originalInvoiceNumber: invoice.invoice_number,
+    ...commissionServicePeriod(invoice),
+    seller: { ...invoice.issuer_snapshot, name: invoice.issuer_snapshot.legalName, vatNumber: invoice.issuer_snapshot.vatNumber },
+    buyer: { ...invoice.customer_snapshot, name: invoice.customer_snapshot.businessName || invoice.customer_snapshot.fullName || "Professionnel" },
+    title: note.reason, excludingTax: note.total_excluding_tax,
+    vatAmount: note.vat_amount, includingTax: note.total_including_tax,
+    vatRate: 0.2, currency: note.currency, settled: false,
+  });
   const month = note.issued_at.slice(0, 7);
   const path = `providers/${note.provider_id}/drimli-credit-notes/${month}/${note.credit_note_number}.pdf`;
   await storeDocument(admin, "drimli_commission_credit_notes", note.id, path, pdf);

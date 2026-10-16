@@ -1,3 +1,4 @@
+import { withFacturx } from "@/lib/facturx";
 import { createHash } from "node:crypto";
 
 export type BillingDocument = {
@@ -32,7 +33,18 @@ body{font-family:Arial,sans-serif;color:#111;margin:40px}.row{display:flex;justi
 <table><tbody><tr><td class="right muted">Total HT</td><td class="right">${money(document.totals.excludingTax)}</td></tr><tr><td class="right muted">TVA (${new Intl.NumberFormat("fr-FR", { style: "percent", maximumFractionDigits: 2 }).format(document.totals.vatRate)})</td><td class="right">${money(document.totals.vatAmount)}</td></tr><tr><td class="right total">Total TTC</td><td class="right total">${money(document.totals.includingTax)}</td></tr></tbody></table>${document.totals.exemptionMention ? `<p class="muted">${escapeHtml(document.totals.exemptionMention)}</p>` : ""}</div>
 <div class="footer">Ce document est émis par le professionnel. Drimli fournit le service technique de génération et d’archivage.</div></body></html>`;
   const browser = await playwrightChromium.launch({ args: chromium.args, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || await chromium.executablePath(), headless: true });
-  try { const page = await browser.newPage(); await page.setContent(html, { waitUntil: "load" }); return Buffer.from(await page.pdf({ format: "A4", printBackground: true, margin: { top: "20mm", right: "15mm", bottom: "20mm", left: "15mm" } })); }
+  try { const page = await browser.newPage(); await page.setContent(html, { waitUntil: "load" }); const classicPdf = Buffer.from(await page.pdf({ format: "A4", printBackground: true, margin: { top: "20mm", right: "15mm", bottom: "20mm", left: "15mm" } }));
+    return withFacturx(classicPdf, {
+      kind: document.kind, number: document.number, issuedAt: document.issuedAt, serviceDate: document.serviceDate,
+      originalInvoiceNumber: document.originalInvoiceNumber,
+      seller: { ...document.issuer, name: document.issuer.businessName || document.issuer.name },
+      buyer: document.customer, title: document.service.title,
+      excludingTax: document.totals.excludingTax, vatAmount: document.totals.vatAmount,
+      includingTax: document.totals.includingTax, vatRate: document.totals.vatRate,
+      exemptionMention: document.totals.exemptionMention,
+      currency: document.totals.currency, settled: document.kind === "invoice",
+    });
+  }
   finally { await browser.close(); }
 }
 

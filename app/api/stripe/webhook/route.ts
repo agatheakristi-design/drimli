@@ -1,3 +1,4 @@
+import { withFacturx } from "@/lib/facturx";
 import Stripe from "stripe";
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
@@ -628,7 +629,7 @@ export async function POST(req: Request) {
     }
 
     if (!clientInvoice.file_path) {
-      const pdf = await generatePatientInvoicePdf({
+      const classicPdf = await generatePatientInvoicePdf({
         invoiceNumber: clientInvoice.invoice_number,
         providerName: clientInvoice.issuer_full_name,
         providerBusinessName: clientInvoice.issuer_business_name,
@@ -657,6 +658,20 @@ export async function POST(req: Request) {
         currency: clientInvoice.currency,
         issuedAtIso: clientInvoice.issued_at,
         serviceDateIso: clientInvoice.service_date,
+      });
+      const pdf = await withFacturx(classicPdf, {
+        kind: "invoice", number: clientInvoice.invoice_number, issuedAt: clientInvoice.issued_at, serviceDate: clientInvoice.service_date,
+        seller: { name: clientInvoice.issuer_business_name || clientInvoice.issuer_full_name,
+          address: clientInvoice.issuer_address, postalCode: clientInvoice.issuer_postal_code,
+          city: clientInvoice.issuer_city, country: clientInvoice.issuer_country, vatNumber: clientInvoice.issuer_vat_number, siret: clientInvoice.issuer_siret },
+        buyer: { name: clientInvoice.customer_type === "business" ? clientInvoice.customer_business_name : clientInvoice.customer_name,
+          address: clientInvoice.customer_address, postalCode: clientInvoice.customer_postal_code,
+          city: clientInvoice.customer_city, country: clientInvoice.customer_country,
+          vatNumber: clientInvoice.customer_type === "business" ? clientInvoice.customer_vat_number : null },
+        title: clientInvoice.service_title, excludingTax: clientInvoice.total_excluding_tax,
+        vatAmount: clientInvoice.vat_amount, includingTax: clientInvoice.total_including_tax,
+        vatRate: Number(clientInvoice.vat_rate), currency: clientInvoice.currency, settled: true,
+        vatRegime: clientInvoice.vat_regime, exemptionMention: clientInvoice.vat_exemption_mention,
       });
       const periodMonth = monthKeyFromIso(clientInvoice.issued_at);
       const filePath = `providers/${appt.provider_id}/invoices/${periodMonth}/patient_invoice_${session.id}.pdf`;
