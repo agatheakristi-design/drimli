@@ -456,7 +456,7 @@ export default function Page() {
 
               <div className={styles.formFields}>
                 <fieldset className={styles.nameGroup}>
-                  <legend>Nom complet</legend>
+                  <legend className="sr-only">Identité du participant</legend>
                   <div className={styles.nameFields}>
                     <div className={styles.field}>
                       <label htmlFor="first-name">Prénom</label>

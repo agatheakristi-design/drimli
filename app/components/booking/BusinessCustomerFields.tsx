@@ -52,7 +52,7 @@ export default function BusinessCustomerFields({ value, onChange }: {
   }
 
   return <div className={styles.field}>
-    <label><input type="checkbox" checked={enabled} onChange={(event) => {
+    <label style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}><input type="checkbox" checked={enabled} onChange={(event) => {
       onChange(event.target.checked ? { ...emptyBusinessCustomer } : null);
       setEditing(false); search("");
     }} /> Je réserve en tant que professionnel</label>
