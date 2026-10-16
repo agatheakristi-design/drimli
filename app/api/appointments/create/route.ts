@@ -1,4 +1,4 @@
-import { validateContact, validateBusinessCustomer } from "@/lib/bookingCustomer";
+import { validateContact, validateBusinessCustomer, normalizeBillingCountry } from "@/lib/bookingCustomer";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getGoogleCalendarBusy, GoogleCalendarBusyError } from "@/lib/googleCalendarBusy";
@@ -46,6 +46,9 @@ export async function POST(req: Request) {
     const clientPhone = contact.phone;
     const business = validateBusinessCustomer(body.businessCustomer);
     if (business.error) return NextResponse.json({ code: "INVALID_BUSINESS_CUSTOMER", error: business.error }, { status: 400 });
+    const individualCountry = business.data ? null : normalizeBillingCountry(body.clientCountry);
+    // Older clients may omit the field; never fill in a country on their behalf.
+    if (!business.data && body.clientCountry != null && !individualCountry) return NextResponse.json({ code: "INVALID_COUNTRY", error: "Choisissez un pays valide." }, { status: 400 });
     const firstName = stringValue(body.first_name ?? body.firstName);
     const lastName = stringValue(body.last_name ?? body.lastName);
     const providedClientName = stringValue(
@@ -230,7 +233,8 @@ export async function POST(req: Request) {
         client_name: clientName,
         client_email: clientEmail,
         client_phone: clientPhone,
-        customer_billing: business.data ? { ...business.data, confirmedAt: new Date().toISOString() } : null,
+        customer_billing: business.data ? { ...business.data, confirmedAt: new Date().toISOString() }
+          : individualCountry ? { customerType: "individual", country: individualCountry } : null,
         cancellation_policy: cancellationPolicy,
         cancellation_refund_deadline_hours: cancellationRefundDeadlineHours,
       })

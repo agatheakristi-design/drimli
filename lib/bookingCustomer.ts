@@ -1,4 +1,5 @@
 import { parsePhoneNumberFromString } from "libphonenumber-js/max";
+export { normalizeBillingCountry } from "./billingCountries.mjs";
 
 export function validateContact(emailValue: unknown, phoneValue: unknown) {
   const email = typeof emailValue === "string" ? emailValue.trim() : "";

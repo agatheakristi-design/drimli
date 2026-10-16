@@ -6,6 +6,7 @@ import { CalendarDays, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 import BusinessCustomerFields from "@/app/components/booking/BusinessCustomerFields";
+import { billingCountryChoices } from "@/lib/billingCountries.mjs";
 import { validateContact, validateBusinessCustomer, type BusinessCustomer } from "@/lib/bookingCustomer";
 
 import PublicFlowShell from "@/app/components/public/PublicFlowShell";
@@ -84,6 +85,7 @@ export default function Page() {
   const [clientPhone, setClientPhone] = useState("");
   const [contactErrors, setContactErrors] = useState<{ email?: string; phone?: string }>({});
   const [businessCustomer, setBusinessCustomer] = useState<BusinessCustomer | null>(null);
+  const [clientCountry, setClientCountry] = useState("FR");
 
   const [creating, setCreating] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -264,6 +266,7 @@ export default function Page() {
         clientEmail: clientEmail.trim(),
         clientPhone: clientPhone.trim(),
         businessCustomer,
+        ...(businessCustomer ? {} : { clientCountry }),
       }),
 
     });
@@ -529,6 +532,14 @@ export default function Page() {
                   {contactErrors.phone ? <p id="client-phone-error" className={styles.error} role="alert">{contactErrors.phone}</p> : null}
                 </div>
                 <BusinessCustomerFields value={businessCustomer} onChange={setBusinessCustomer} />
+                {!businessCustomer ? (
+                  <div className={styles.field}>
+                    <label htmlFor="client-country">Pays</label>
+                    <select id="client-country" className="input" autoComplete="country" value={clientCountry} onChange={(event) => setClientCountry(event.target.value)} required>
+                      {billingCountryChoices.map(({ code, label }) => <option key={code} value={code}>{label}</option>)}
+                    </select>
+                  </div>
+                ) : null}
               </div>
 
               {errorText ? (

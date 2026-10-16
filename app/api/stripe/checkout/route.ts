@@ -1,4 +1,4 @@
-import { validateBusinessCustomer, businessSnapshot } from "@/lib/bookingCustomer";
+import { validateBusinessCustomer, businessSnapshot, normalizeBillingCountry } from "@/lib/bookingCustomer";
 import { NextResponse } from "next/server";
 import { randomBytes, createHash } from "node:crypto";
 import Stripe from "stripe";
@@ -57,7 +57,10 @@ export async function POST(req: Request) {
 
     if (apptErr) return NextResponse.json({ error: apptErr.message }, { status: 400 });
     if (!appt) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
-    const business = validateBusinessCustomer(appt.customer_billing);
+    const isIndividualBilling = appt.customer_billing?.customerType === "individual";
+    const individualCountry = isIndividualBilling ? normalizeBillingCountry(appt.customer_billing.country) : null;
+    if (isIndividualBilling && !individualCountry) return NextResponse.json({ error: "Pays de facturation invalide." }, { status: 400 });
+    const business = validateBusinessCustomer(isIndividualBilling ? null : appt.customer_billing);
     if (business.error) return NextResponse.json({ error: business.error }, { status: 400 });
     if (appt.status !== "pending") {
       return NextResponse.json(
@@ -170,7 +173,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // The 5% total commission includes Stripe processing fees.
+    // The 5% commission is VAT-inclusive. Stripe processing costs are borne by DRIMLI.
     const feeCents = calculateDrimliFee(amount);
     const invoiceToken = randomBytes(32).toString("base64url");
     const invoiceTokenHash = createHash("sha256").update(invoiceToken).digest("hex");
@@ -249,6 +252,7 @@ const appUrl = (
         customer_email: appt.client_email,
         customer_phone: appt.client_phone || null,
         ...businessSnapshot(business.data),
+        ...(individualCountry ? { customer_country: individualCountry } : {}),
         service_title: product.title || "Prestation",
         service_description: product.description || null,
         service_duration_minutes: product.duration_minutes || null,
