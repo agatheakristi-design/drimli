@@ -108,7 +108,6 @@ export default function Settings({
   return (
     <Accordion
       items={items}
-      defaultOpen="availability"
       openItem={openSection}
       onOpenChange={(itemId) =>
         onSectionChange(itemId as CalendarSettingsSection | null)
