@@ -168,8 +168,8 @@ export default function GoogleMeetOnboarding({
           <Video size={16} />
         </span>
         <span className={styles.taskCopy}>
-          <strong>{loading ? "Vérification de Google Meet…" : label}</strong>
-          <span>{error || notice || description}</span>
+          <strong>{loading ? "Vérification de Google Meet…" : connected || !reconnect ? "Connecter Google Meet et synchroniser le calendrier" : label}</strong>
+          <span>{error || notice || (connected ? "Google Meet est activé. Votre calendrier est synchronisé." : description)}</span>
         </span>
         <ChevronRight className={styles.taskArrow} size={18} />
       </button>
