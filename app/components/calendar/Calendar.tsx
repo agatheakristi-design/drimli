@@ -75,7 +75,7 @@ export default function Calendar() {
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [settingsSection, setSettingsSection] =
-    useState<CalendarSettingsSection | null>("availability");
+    useState<CalendarSettingsSection | null>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [selectedAppointment, setSelectedAppointment] =
     useState<CalendarAppointment | null>(null);
@@ -219,7 +219,7 @@ export default function Calendar() {
         }}
         onSettings={() => {
           if (panelMode !== "settings") {
-            setSettingsSection("availability");
+            setSettingsSection(null);
             setSelectedBlockId(null);
             setSelectedAppointment(null);
           }
