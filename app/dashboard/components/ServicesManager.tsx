@@ -58,8 +58,8 @@ export default function ServicesManager({
   const [form, setForm] = useState({
     title: "",
     description: "",
-    duration_minutes: 60,
-    price_euros: 60,
+    duration_minutes: 60 as number | "",
+    price_euros: 60 as number | "",
   });
 
   async function loadProducts(uid: string) {
@@ -188,12 +188,12 @@ export default function ServicesManager({
       return;
     }
 
-    if (form.duration_minutes <= 0) {
+    if (form.duration_minutes === "" || !Number.isFinite(form.duration_minutes) || form.duration_minutes <= 0) {
       setStatus("❌ La durée doit être supérieure à 0.");
       return;
     }
 
-    if (form.price_euros < 0) {
+    if (form.price_euros === "" || !Number.isFinite(form.price_euros) || form.price_euros < 0) {
       setStatus("❌ Le tarif doit être valide.");
       return;
     }
@@ -431,7 +431,7 @@ export default function ServicesManager({
                           type="number"
                           className="input"
                           value={form.duration_minutes}
-                          onChange={(e) => setForm({ ...form, duration_minutes: Number(e.target.value) })}
+                          onChange={(e) => setForm({ ...form, duration_minutes: e.target.value === "" ? "" : Number(e.target.value) })}
                         />
                         <span>min</span>
                       </div>
@@ -444,7 +444,7 @@ export default function ServicesManager({
                           type="number"
                           className="input"
                           value={form.price_euros}
-                          onChange={(e) => setForm({ ...form, price_euros: Number(e.target.value) })}
+                          onChange={(e) => setForm({ ...form, price_euros: e.target.value === "" ? "" : Number(e.target.value) })}
                         />
                         <span>€</span>
                       </div>
