@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import { Resend, type CreateEmailOptions } from "resend";
 
 function requireEnv(name: string): string {
   const v = process.env[name];
@@ -16,6 +16,15 @@ const resend = new Resend(requireEnv("RESEND_API_KEY"));
  * Pour éviter que ça casse, on utilise RESEND_FROM si présent, sinon une valeur dev.
  */
 const FROM = process.env.RESEND_FROM || "Drimli <onboarding@resend.dev>";
+
+/** Used only by the separately gated monthly worker; payload is persisted before sending. */
+export async function sendAccountantMonthlyDocuments(payload: CreateEmailOptions, idempotencyKey: string) {
+  return resend.emails.send(payload, { idempotencyKey });
+}
+
+export async function getAccountantMonthlyEmail(id: string) {
+  return resend.emails.get(id);
+}
 
 export type AppointmentEmailPayload = {
   appointmentId: string;

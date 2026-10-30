@@ -12,7 +12,7 @@ const admin = createClient(
 );
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-const profileFields = "first_name, last_name, full_name, billing_full_name, business_name, address, postal_code, city, country, siret, vat_regime, vat_number, vat_rate, cancellation_policy, billing_information_validated_at, stripe_account_id, stripe_connect_account_id, drimli_payout_mode";
+const profileFields = "first_name, last_name, full_name, billing_full_name, business_name, address, postal_code, city, country, siret, vat_regime, vat_number, vat_rate, cancellation_policy, billing_information_validated_at, stripe_account_id, stripe_connect_account_id, drimli_payout_mode, accountant_email";
 
 async function authenticatedProfile(request: Request) {
   const authorization = request.headers.get("authorization") ?? "";
@@ -44,6 +44,7 @@ export async function GET(request: Request) {
     vat_regime: text(profile.vat_regime) || "franchise_base",
     vat_number: text(profile.vat_number),
     vat_rate: profile.vat_rate == null ? "" : String(Number(profile.vat_rate) * 100),
+    accountant_email: text(profile.accountant_email),
     cancellation_policy:
       !profile.billing_information_validated_at && text(profile.cancellation_policy) === "flexible"
         ? "non_refundable"
@@ -82,6 +83,11 @@ export async function PUT(request: Request) {
   if (!authenticated) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "Données invalides." }, { status: 400 });
+
+  const accountantEmail = text(body.accountant_email);
+  if ((body.accountant_email != null && typeof body.accountant_email !== "string") || (accountantEmail && (accountantEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountantEmail)))) {
+    return NextResponse.json({ error: "Indiquez une adresse e-mail valide pour le comptable." }, { status: 400 });
+  }
 
   const vatRegime = text(body.vat_regime);
   const policy = text(body.cancellation_policy);
@@ -124,6 +130,7 @@ export async function PUT(request: Request) {
   }
 
   const { error } = await admin.from("profiles").update({
+    ...(body.accountant_email !== undefined ? { accountant_email: accountantEmail || null } : {}),
     billing_full_name: fullName,
     business_name: text(body.business_name) || null,
     address: text(body.address),

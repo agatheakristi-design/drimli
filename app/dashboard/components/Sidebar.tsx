@@ -5,6 +5,7 @@ import AppointmentAlertBadge from "./AppointmentAlertBadge";
 import { usePathname } from "next/navigation";
 import {
   CalendarDays,
+  FileText,
   Home,
 } from "lucide-react";
 import LogoutButton from "@/app/components/LogoutButton";
@@ -27,6 +28,11 @@ const navigation = [
     label: "Mes rendez-vous",
     href: "/dashboard/calendrier",
     icon: CalendarDays,
+  },
+  {
+    label: "Factures",
+    href: "/dashboard/factures",
+    icon: FileText,
   },
 ];
 

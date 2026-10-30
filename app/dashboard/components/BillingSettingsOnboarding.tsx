@@ -7,13 +7,13 @@ import styles from "./dashboard.module.css";
 type Values = {
   full_name: string; business_name: string;
   address: string; postal_code: string; city: string; country: string; siret: string;
-  vat_regime: string; vat_number: string; vat_rate: string; cancellation_policy: string;
+  vat_regime: string; vat_number: string; vat_rate: string; cancellation_policy: string; accountant_email: string;
 };
 
 const empty: Values = {
   full_name: "", business_name: "", address: "",
   postal_code: "", city: "", country: "FR", siret: "", vat_regime: "franchise_base",
-  vat_number: "", vat_rate: "", cancellation_policy: "non_refundable",
+  vat_number: "", vat_rate: "", cancellation_policy: "non_refundable", accountant_email: "",
 };
 
 const policies = [
@@ -81,6 +81,13 @@ export default function BillingSettingsOnboarding({ onCompletionChange }: { onCo
           <label className={styles.inlineField}>Régime de TVA<select className={styles.inlineInput} value={values.vat_regime} onChange={(e) => update("vat_regime", e.target.value)}><option value="franchise_base">Franchise en base de TVA</option><option value="standard">Assujetti à la TVA</option></select></label>
           {values.vat_regime === "standard" && <><label className={styles.inlineField}>N° de TVA intracommunautaire<input className={styles.inlineInput} required value={values.vat_number} onChange={(e) => update("vat_number", e.target.value)} /></label><label className={styles.inlineField}>Taux de TVA (%)<input className={styles.inlineInput} type="number" min="0.01" max="100" step="0.01" required value={values.vat_rate} onChange={(e) => update("vat_rate", e.target.value)} /></label></>}
         </div>
+      </section>
+
+      <section className={styles.billingSection}>
+        <label className={`${styles.inlineField} ${styles.billingWide}`}>E-mail du comptable
+          <input className={styles.inlineInput} type="email" maxLength={254} value={values.accountant_email} onChange={(e) => update("accountant_email", e.target.value)} placeholder="Adresse e-mail pour l'envoi mensuel de vos factures" aria-describedby="accountant-email-help" />
+          <span id="accountant-email-help">Vos factures et avoirs seront automatiquement transmis chaque mois à cette adresse.</span>
+        </label>
       </section>
 
       <section className={styles.billingSection}>

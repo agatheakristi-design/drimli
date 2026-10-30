@@ -4,215 +4,138 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Card from "@/app/components/ui/Card";
 import Button from "@/app/components/ui/Button";
+import styles from "./factures.module.css";
+import DocumentsExport from "./DocumentsExport";
+import AccountantMonthlyLinks from "./AccountantMonthlyLinks";
 
-function fmtDate(iso?: string | null) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return new Intl.DateTimeFormat("fr-FR", {
-    timeZone: "Europe/Paris",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
-
-function fmtMoney(amount?: any, currency?: any) {
-  if (amount === null || amount === undefined) return "—";
-  const cur = typeof currency === "string" ? currency.toUpperCase() : "EUR";
-  const value = typeof amount === "number" ? amount : Number(amount);
-  if (Number.isNaN(value)) return "—";
-  // Hypothèse: montant en centimes (si ce n'est pas le cas, on ajustera après)
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: cur }).format(value / 100);
-}
-
-type TryQuery = {
-  filterCol?: string | null; // ex: provider_id
-  orderCol?: string | null;  // ex: issued_at
+type Cursor = { invoiceOffset: number; noteOffset: number };
+type DocumentRow = {
+  id: string; type: "invoice" | "credit_note"; number: string; issuedAt: string;
+  client: string; amount: number; currency: string; downloadable: boolean;
+  refunds: { amount: number; currency: string; status: string }[];
 };
+const first: Cursor = { invoiceOffset: 0, noteOffset: 0 };
+const money = (amount: number, currency: string) => new Intl.NumberFormat("fr-FR", { style: "currency", currency }).format(amount / 100);
+const date = (value: string) => new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", dateStyle: "short" }).format(new Date(value));
+function refundLabel(status: string) {
+  if (status === "succeeded") return "Remboursement réussi";
+  if (status === "pending") return "Remboursement en attente";
+  if (status === "failed") return "Remboursement échoué";
+  if (status === "canceled") return "Remboursement annulé";
+  if (status === "requires_action") return "Remboursement : action requise";
+  return `Remboursement : ${status}`;
+}
+async function accessToken() {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session?.access_token) throw new Error("Session expirée.");
+  return data.session.access_token;
+}
 
 export default function FacturesPage() {
+  const [filters, setFilters] = useState({ search: "", type: "all", from: "", to: "" });
+  const [history, setHistory] = useState<Cursor[]>([first]);
+  const [documents, setDocuments] = useState<DocumentRow[]>([]);
+  const [next, setNext] = useState<Cursor | null>(null);
   const [loading, setLoading] = useState(true);
-  const [errorText, setErrorText] = useState("");
-  const [rows, setRows] = useState<any[]>([]);
+  const [error, setError] = useState("");
+  const [downloadError, setDownloadError] = useState("");
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const cursor = history[history.length - 1];
 
   useEffect(() => {
-    (async () => {
+    const controller = new AbortController();
+    async function load() {
       setLoading(true);
-      setErrorText("");
-
-      const { data: auth } = await supabase.auth.getUser();
-      const user = auth.user;
-
-      if (!user) {
-        setErrorText("❌ Tu dois être connectée.");
-        setLoading(false);
-        return;
+      setError("");
+      setNext(null);
+      try {
+        const token = await accessToken();
+        const params = new URLSearchParams({ ...filters, invoiceOffset: String(cursor.invoiceOffset), noteOffset: String(cursor.noteOffset) });
+        const response = await fetch(`/api/dashboard/client-documents?${params}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: controller.signal });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "Chargement impossible.");
+        if (!controller.signal.aborted) { setDocuments(payload.documents); setNext(payload.next); }
+      } catch (cause) {
+        if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Chargement impossible.");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
+    }
+    const timer = setTimeout(load, 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [filters, cursor]);
 
-      // On essaye plusieurs combinaisons, car le schéma peut varier :
-      // - certaines tables ont provider_id / pro_id
-      // - certaines ont issued_at / date / created_at, etc.
-      const tries: TryQuery[] = [
-        { filterCol: "provider_id", orderCol: "created_at" },
-        { filterCol: "provider_id", orderCol: "issued_at" },
-        { filterCol: "provider_id", orderCol: "date" },
-        { filterCol: "provider_id", orderCol: "start_datetime" },
-        { filterCol: "provider_id", orderCol: null },
-
-        { filterCol: "pro_id", orderCol: "created_at" },
-        { filterCol: "pro_id", orderCol: "issued_at" },
-        { filterCol: "pro_id", orderCol: "date" },
-        { filterCol: "pro_id", orderCol: null },
-
-        // Fallback: sans filtre (au cas où la table n'a pas de colonne pro)
-        { filterCol: null, orderCol: "issued_at" },
-        { filterCol: null, orderCol: "date" },
-        { filterCol: null, orderCol: "created_at" },
-        { filterCol: null, orderCol: null },
-      ];
-
-      let lastErr: any = null;
-      for (const t of tries) {
-        let q = supabase.from("invoices").select("*").limit(50);
-
-        if (t.filterCol) q = q.eq(t.filterCol, user.id);
-        if (t.orderCol) q = q.order(t.orderCol, { ascending: false });
-
-        const { data, error } = await q;
-
-        if (!error) {
-          setRows(data ?? []);
-          setLoading(false);
-          return;
-        }
-
-        lastErr = error;
-        // si colonne inexistante, on tente juste la prochaine combinaison
-        // (on ne spam pas l'utilisateur avec ces détails)
-      }
-
-      setErrorText("❌ Impossible de charger les factures : " + (lastErr?.message ?? "erreur inconnue"));
-      setRows([]);
-      setLoading(false);
-    })();
-  }, []);
-
-  if (loading) {
-    return <div className="py-10 text-sm text-muted-foreground">Chargement…</div>;
+  function filter(key: keyof typeof filters, value: string) {
+    setFilters(previous => ({ ...previous, [key]: value }));
+    setHistory([first]);
   }
 
-  if (errorText) {
-    return (
-      <div className="max-w-2xl space-y-4">
-        <h1 className="text-3xl font-black">Factures</h1>
-        <Card>
-          <p className="text-sm">{errorText}</p>
-        </Card>
-      </div>
-    );
+  async function download(document: DocumentRow) {
+    const key = `${document.type}:${document.id}`;
+    setDownloading(key);
+    setDownloadError("");
+    try {
+      const token = await accessToken();
+      const params = new URLSearchParams({ id: document.id, type: document.type });
+      const response = await fetch(`/api/dashboard/client-documents/download?${params}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Téléchargement impossible.");
+      window.location.assign(payload.url);
+    } catch (cause) {
+      setDownloadError(cause instanceof Error ? cause.message : "Téléchargement impossible.");
+    } finally { setDownloading(null); }
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-black">Factures</h1>
-        <p className="text-muted-foreground">
-          Liste de tes factures générées automatiquement après paiement.
-        </p>
-      </div>
-
+    <div className={styles.page}>
+      <h1 className={styles.title}>Factures</h1>
+      <DocumentsExport />
       <Card>
-        {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucune facture pour le moment.</p>
-        ) : (
-          <div className="space-y-4">
-            {rows.map((inv) => {
-              const id = inv.id ?? inv.invoice_id ?? "—";
-
-              const createdAt =
-                inv.created_at ??
-                inv.issued_at ??
-                inv.date ??
-                inv.created ??
-                inv.inserted_at ??
-                null;
-
-              const number =
-                inv.number ??
-                inv.invoice_number ??
-                inv.sequence ??
-                inv.invoice_no ??
-                null;
-
-              const client =
-                inv.patient_email ??
-                inv.customer_email ??
-                inv.client_email ??
-                inv.patient_name ??
-                inv.customer_name ??
-                null;
-
-              const amount =
-                inv.amount_total ??
-                inv.total_amount ??
-                inv.amount ??
-                inv.total ??
-                null;
-
-              const currency = inv.currency ?? "EUR";
-
-              const pdfUrl =
-                inv.pdf_url ??
-                inv.file_url ??
-                inv.public_url ??
-                inv.download_url ??
-                inv.hosted_invoice_url ??
-                null;
-
-              return (
-                <div
-                  key={String(id)}
-                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="space-y-1">
-                    <div className="font-semibold">
-                      {number ? `Facture ${number}` : "Facture"}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {fmtDate(createdAt)}
-                      {client ? ` • ${client}` : ""}
-                      {amount !== null ? ` • ${fmtMoney(amount, currency)}` : ""}
-                    </div>
-                    <div className="text-xs text-muted-foreground">ID : {String(id)}</div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {pdfUrl ? (
-                      <Button onClick={() => window.open(String(pdfUrl), "_blank", "noopener,noreferrer")}>
-                        Télécharger
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          navigator.clipboard.writeText(String(id)).catch(() => {});
-                        }}
-                      >
-                        Copier l’ID
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+        <div className={styles.content}>
+          <div className={styles.filters}>
+            <label className={styles.field}>Rechercher par client ou numéro
+              <input className="input" type="search" maxLength={120} value={filters.search} onChange={event => filter("search", event.target.value)} />
+            </label>
+            <label className={styles.field}>Type de document
+              <select className="select" value={filters.type} onChange={event => filter("type", event.target.value)}>
+                <option value="all">Tous</option><option value="invoice">Factures</option><option value="credit_note">Avoirs</option>
+              </select>
+            </label>
+            <label className={styles.field}>Émis du
+              <input className="input" type="date" value={filters.from} max={filters.to || undefined} onChange={event => filter("from", event.target.value)} />
+            </label>
+            <label className={styles.field}>Au
+              <input className="input" type="date" value={filters.to} min={filters.from || undefined} onChange={event => filter("to", event.target.value)} />
+            </label>
           </div>
-        )}
+          {downloadError ? <p role="alert">{downloadError}</p> : null}
+          <div aria-live="polite" aria-busy={loading}>
+            {loading ? <p>Chargement…</p> : error ? <p role="alert">{error}</p> : !documents.length ? <p>Aucun document pour cette sélection.</p> : (
+              <ul className={styles.list}>
+                {documents.map(document => (
+                  <li key={`${document.type}:${document.id}`} className={styles.row}>
+                    <div className={styles.details}>
+                      <strong>{document.type === "invoice" ? "Facture" : "Avoir"} {document.number}</strong>
+                      <span>{document.client}</span>
+                      <span className={styles.muted}>{date(document.issuedAt)} · {money(document.amount, document.currency)} TTC</span>
+                      {document.refunds.map((refund, index) => <span className={styles.muted} key={index}>{refundLabel(refund.status)} : {money(refund.amount, refund.currency)}</span>)}
+                    </div>
+                    <Button variant="secondary" disabled={!document.downloadable || downloading !== null} onClick={() => download(document)}>
+                      {!document.downloadable ? "PDF indisponible" : downloading === `${document.type}:${document.id}` ? "Téléchargement…" : "Télécharger"}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <nav className={styles.pagination} aria-label="Pagination des factures">
+            <Button variant="secondary" disabled={loading || history.length === 1} onClick={() => setHistory(previous => previous.slice(0, -1))}>Précédent</Button>
+            <span>Page {history.length}</span>
+            <Button variant="secondary" disabled={loading || Boolean(error) || !next} onClick={() => { if (next) setHistory(previous => [...previous, next]); }}>Suivant</Button>
+          </nav>
+        </div>
       </Card>
-
-      <p className="text-xs text-muted-foreground">
-        Si “Télécharger” n’apparaît pas, c’est que ta table ne stocke pas encore l’URL du PDF (ce n’est pas grave : on peut
-        brancher le téléchargement ensuite sans doublons).
-      </p>
+      <AccountantMonthlyLinks />
     </div>
   );
 }
