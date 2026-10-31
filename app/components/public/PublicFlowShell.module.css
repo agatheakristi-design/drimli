@@ -68,3 +68,81 @@
     width: 102px;
   }
 }
+
+.professionalPage {
+  background: var(--background);
+}
+
+.professionalHeader {
+  background: var(--app-background);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+.professionalHeader .headerInner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-lg);
+}
+
+.professionalHeader .brand {
+  flex-shrink: 0;
+}
+
+.tagline {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: var(--app-body-size);
+  line-height: var(--app-body-leading);
+  text-align: center;
+}
+
+.signup {
+  min-height: 43px;
+  padding: 0 17px;
+  border: 0;
+  border-radius: var(--app-button-radius);
+  font-size: 13px;
+  text-decoration: none;
+  box-shadow: var(--shadow-md);
+}
+
+@media (max-width: 760px) {
+  .professionalHeader .headerInner {
+    grid-template-columns: auto auto;
+    justify-content: space-between;
+    gap: var(--space-sm);
+  }
+
+  .tagline {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .professionalHeader .brand img {
+    width: 80px;
+  }
+
+  .signup {
+    padding-inline: 12px;
+    font-size: 12px;
+  }
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg) var(--space-md) var(--space-2xl);
+  color: var(--subtle-foreground);
+  font-size: var(--app-label-size);
+}
+
+.footerLogo {
+  display: block;
+  width: 56px;
+  height: auto;
+  opacity: 0.6;
+}

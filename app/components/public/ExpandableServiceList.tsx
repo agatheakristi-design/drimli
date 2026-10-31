@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, useSyncExternalStore } from "react";
-import { ChevronDown } from "lucide-react";
+import { ArrowRight, Clock, Video } from "lucide-react";
 import ServiceBookingCalendar from "./ServiceBookingCalendar";
 import styles from "./ExpandableServiceList.module.css";
 
@@ -74,23 +74,33 @@ export default function ExpandableServiceList({
               onClick={() => setOpenServiceId(isOpen ? null : service.id)}
             >
               <span className={styles.triggerContent}>
-                <span className={styles.titleRow}>
-                  <strong>{service.title ?? "Prestation"}</strong>
-                  {price ? <span className={styles.price}>{price}</span> : null}
-                </span>
+                <strong className={styles.title}>{service.title ?? "Prestation"}</strong>
 
                 {service.description ? (
                   <span className={styles.preview}>{service.description}</span>
                 ) : null}
 
-                {duration ? <span className={styles.duration}>{duration}</span> : null}
+                <span className={styles.metadata}>
+                  {duration ? (
+                    <span className={styles.duration}>
+                      <Clock size={16} aria-hidden="true" />
+                      {duration}
+                    </span>
+                  ) : null}
+                  <span className={styles.duration}>
+                    <Video size={16} aria-hidden="true" />
+                    En visioconférence
+                  </span>
+                </span>
               </span>
 
-              <ChevronDown
-                className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ""}`}
-                size={18}
-                aria-hidden="true"
-              />
+              <span className={styles.actions}>
+                {price ? <span className={styles.price}>{price}</span> : null}
+                <span className={`btn btn-primary ${styles.reserve}`}>
+                  Réserver
+                  <ArrowRight size={18} aria-hidden="true" />
+                </span>
+              </span>
             </button>
 
             <div

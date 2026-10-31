@@ -23,7 +23,7 @@
   width: 100%;
   padding: var(--space-lg);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-md);
   border: 0;
   background: var(--app-card-background);
@@ -50,51 +50,59 @@
   gap: var(--space-sm);
 }
 
-.titleRow {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-lg);
-  align-items: flex-start;
-}
-
-.titleRow strong,
+.title,
 .price {
   font-size: var(--app-section-title-size);
   line-height: var(--app-section-title-leading);
   font-weight: var(--app-heading-weight);
 }
 
-.price {
+.title {
+  overflow-wrap: anywhere;
+}
+
+.actions {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.reserve {
+  min-height: 43px;
+  padding: 0 17px;
+  border: 0;
+  border-radius: var(--app-button-radius);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.price {
   white-space: nowrap;
 }
 
 .preview {
   max-width: 42rem;
-  overflow: hidden;
-  display: -webkit-box;
   color: var(--muted-foreground);
   font-size: var(--app-body-size);
   line-height: var(--app-body-leading);
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.metadata {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
 }
 
 .duration {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   color: var(--muted-foreground);
   font-size: var(--app-label-size);
   font-weight: 500;
-}
-
-.chevron {
-  flex: 0 0 auto;
-  margin-top: 0.2rem;
-  color: var(--muted-foreground);
-  transition: transform 180ms ease;
-}
-
-.chevronOpen {
-  transform: rotate(180deg);
 }
 
 .panel {
@@ -128,10 +136,19 @@
 @media (max-width: 40rem) {
   .trigger {
     padding: var(--space-md);
+    flex-wrap: wrap;
   }
 
-  .titleRow {
-    gap: var(--space-md);
+  .triggerContent {
+    flex-basis: 100%;
+  }
+
+  .actions {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
   }
 
   .booking {
@@ -142,7 +159,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .card,
-  .chevron,
   .panel,
   .panelOpen {
     transition: none;

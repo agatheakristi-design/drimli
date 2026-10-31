@@ -8,6 +8,7 @@ import PublicFlowShell from "@/app/components/public/PublicFlowShell";
 import ExpandableServiceList, {
   type PublicService,
 } from "@/app/components/public/ExpandableServiceList";
+import PublicPageShare from "@/app/components/public/PublicPageShare";
 import PublicPageViewTracker from "@/app/components/public/PublicPageViewTracker";
 
 const supabase = createClient(
@@ -56,7 +57,7 @@ export default async function Page({
 
   if (error) {
     return (
-      <PublicFlowShell transparentHeader>
+      <PublicFlowShell transparentHeader professionalHeader>
         <p className={styles.state}>Impossible de charger cette page.</p>
       </PublicFlowShell>
     );
@@ -92,7 +93,7 @@ export default async function Page({
     googleReviewsCount >= 0;
 
   return (
-    <PublicFlowShell transparentHeader>
+    <PublicFlowShell transparentHeader professionalHeader>
       {jsonLd && (
         <script
           type="application/ld+json"
@@ -100,6 +101,8 @@ export default async function Page({
         />
       )}
       <PublicPageViewTracker slug={slug} />
+
+      <PublicPageShare slug={slug} />
 
       <section className={styles.hero}>
         {profile.avatar_url && (
