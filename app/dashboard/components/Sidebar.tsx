@@ -88,7 +88,7 @@ export default function Sidebar({
           type="button"
           className={styles.accountButton}
           onClick={onOpenDrimliInvoices}
-          aria-label="Ouvrir mes factures Drimli"
+          aria-label="Ouvrir mon compte"
         >
           <div className={styles.accountAvatar}>
             {getInitials(fullName)}

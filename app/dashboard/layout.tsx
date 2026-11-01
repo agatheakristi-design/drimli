@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import DashboardGate from "@/app/components/DashboardGate";
 import Sidebar from "./components/Sidebar";
 import DrimliInvoicesPanel from "./components/DrimliInvoicesPanel";
+import { DashboardIdentityContext } from "./components/DashboardIdentityContext";
 import styles from "./components/dashboard.module.css";
 
 export default function DashboardLayout({
@@ -49,22 +50,25 @@ export default function DashboardLayout({
 
   return (
     <DashboardGate>
-      <div className={styles.layout}>
-        <Sidebar
-          fullName={fullName}
-          email={email}
-          onOpenDrimliInvoices={() => setDrimliInvoicesOpen(true)}
-        />
+      <DashboardIdentityContext.Provider value={fullName}>
+        <div className={styles.layout}>
+          <Sidebar
+            fullName={fullName}
+            email={email}
+            onOpenDrimliInvoices={() => setDrimliInvoicesOpen(true)}
+          />
 
-        <main className={styles.main}>
-          {children}
-        </main>
+          <main className={styles.main}>
+            {children}
+          </main>
 
-        <DrimliInvoicesPanel
-          open={drimliInvoicesOpen}
-          onClose={() => setDrimliInvoicesOpen(false)}
-        />
-      </div>
+          <DrimliInvoicesPanel
+            open={drimliInvoicesOpen}
+            onClose={() => setDrimliInvoicesOpen(false)}
+            onProfileSaved={setFullName}
+          />
+        </div>
+      </DashboardIdentityContext.Provider>
     </DashboardGate>
   );
 }

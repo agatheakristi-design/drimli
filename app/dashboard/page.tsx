@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+import { DashboardIdentityContext } from "./components/DashboardIdentityContext";
 import TopBar from "./components/TopBar";
 import WelcomeCard from "./components/WelcomeCard";
 import ProgressCard from "./components/ProgressCard";
@@ -14,7 +15,7 @@ import { tasks } from "./components/tasks";
 import styles from "./components/dashboard.module.css";
 
 export default function DashboardPage() {
-  const [fullName, setFullName] = useState("Professionnel");
+  const fullName = useContext(DashboardIdentityContext);
   const [slug, setSlug] = useState<string | null>(null);
   const [published, setPublished] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -35,13 +36,9 @@ export default function DashboardPage() {
 
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, slug, published")
+        .select("slug, published")
         .eq("provider_id", user.id)
         .maybeSingle();
-
-      if (data?.full_name) {
-        setFullName(data.full_name);
-      }
 
       setSlug(data?.slug ?? null);
       setPublished(Boolean(data?.published));
