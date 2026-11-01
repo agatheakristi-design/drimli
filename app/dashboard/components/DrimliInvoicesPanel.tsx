@@ -116,9 +116,9 @@ export default function DrimliInvoicesPanel({
         <div className={calendarStyles.calendarPanelBody}>
           <Accordion items={[
             { id: "profile", title: "Mon profil", children: <ProfileNameForm onSaved={onProfileSaved} /> },
-            { id: "invoices", title: "Factures Drimli", children: (
+            { id: "invoices", title: "Votre contribution Drimli", children: (
           <section className={calendarStyles.settingsSection}>
-            <p>Commissions mensuelles prélevées sur vos transactions.</p>
+            <p>Drimli est gratuit. Vous ne contribuez que lorsque vous gagnez.</p>
             {status ? <p className={styles.drimliInvoicesEmpty}>{status}</p> : null}
             {!status && documents.length === 0 ? (
               <p className={styles.drimliInvoicesEmpty}>
