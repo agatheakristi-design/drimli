@@ -217,10 +217,21 @@ export default function AppointmentDetails({
   return (
     <section className={styles.appointmentDetails}>
       <header className={styles.appointmentDetailsHeader}>
-        <span className={styles.appointmentEyebrow}>Rendez-vous</span>
         <h3>{appointment.serviceName}</h3>
         <p>{appointment.clientName}</p>
       </header>
+
+      {appointment.status === "confirmed" && appointment.videoJoinUrl && roomStatus !== "locked" ? (
+        <div className={styles.appointmentActions}>
+          <Button
+            className={styles.appointmentPrimaryAction}
+            disabled={updating}
+            onClick={openProfessionalMeeting}
+          >
+            Rejoindre la visio
+          </Button>
+        </div>
+      ) : null}
 
       <dl className={styles.appointmentDetailsList}>
         <div className={styles.appointmentDetailsRow}>
@@ -234,6 +245,12 @@ export default function AppointmentDetails({
             {formatTime(appointment.end_datetime)}
           </dd>
         </div>
+        {appointment.clientPhone ? (
+          <div className={styles.appointmentDetailsRow}>
+            <dt>Téléphone</dt>
+            <dd>{appointment.clientPhone}</dd>
+          </div>
+        ) : null}
         {appointment.clientEmail ? (
           <div className={styles.appointmentDetailsRow}>
             <dt>Email</dt>
@@ -292,7 +309,7 @@ export default function AppointmentDetails({
                 : "Aucun remboursement n’a été effectué."}</span>
             </div>
           ) : appointment.status === "confirmed" ? (
-            <Button variant="danger" disabled={updating} onClick={cancelAppointment}>
+            <Button variant="primary" disabled={updating} onClick={cancelAppointment}>
               {cancelling ? "Annulation en cours…" : "Annuler le rendez-vous"}
             </Button>
           ) : null}
@@ -311,16 +328,6 @@ export default function AppointmentDetails({
               Rejoindre la visio ouvre aussi l’accès aux clients.
             </p>
           ) : null}
-          <div className={styles.appointmentActions}>
-            <Button
-              className={styles.appointmentPrimaryAction}
-              disabled={updating}
-              onClick={openProfessionalMeeting}
-            >
-              Rejoindre la visio
-            </Button>
-
-          </div>
         </>
       ) : roomStatus === "locked" ? (
         <p className={styles.appointmentEmptyState}>

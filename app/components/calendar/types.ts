@@ -17,6 +17,7 @@ export type CalendarAppointment = {
   serviceName: string;
   clientName: string;
   clientEmail: string | null;
+  clientPhone?: string | null;
   start_datetime: string;
   end_datetime: string;
   status: "confirmed" | "cancelled_by_provider" | "cancelled_by_client";

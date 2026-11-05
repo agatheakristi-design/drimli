@@ -25,6 +25,7 @@ type AppointmentRow = {
   product_id: string | null;
   client_name: string | null;
   client_email: string | null;
+  client_phone: string | null;
   start_datetime: string;
   end_datetime: string;
   status: string | null;
@@ -119,7 +120,7 @@ export default function Calendar() {
         supabase
           .from("appointments")
           .select(
-            "id, product_id, client_name, client_email, start_datetime, end_datetime, status, video_provider, video_join_url, video_room_status"
+            "id, product_id, client_name, client_email, client_phone, start_datetime, end_datetime, status, video_provider, video_join_url, video_room_status"
           )
           .eq("provider_id", providerId)
           .eq("status", "confirmed")
@@ -174,6 +175,7 @@ export default function Calendar() {
           clientName:
             appointment.client_name?.trim() || "Client non renseigné",
           clientEmail: appointment.client_email?.trim() || null,
+          clientPhone: appointment.client_phone?.trim() || null,
           start_datetime: appointment.start_datetime,
           end_datetime: appointment.end_datetime,
           status: "confirmed" as const,
