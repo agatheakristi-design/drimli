@@ -44,6 +44,12 @@
   color: var(--foreground);
 }
 
+.toolbarActions .toolbarSettingsButton {
+  padding: 0;
+  background: var(--foreground);
+  color: var(--background);
+}
+
 .toolbarIconButton svg {
   display: block;
 }

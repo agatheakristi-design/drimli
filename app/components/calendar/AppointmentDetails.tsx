@@ -321,15 +321,7 @@ export default function AppointmentDetails({
           Ce rendez-vous est annulé. Son paiement et ses documents restent
           accessibles ci-dessus.
         </p>
-      ) : appointment.videoJoinUrl && roomStatus !== "locked" ? (
-        <>
-          {roomStatus === "closed" ? (
-            <p className={styles.appointmentEmptyState}>
-              Rejoindre la visio ouvre aussi l’accès aux clients.
-            </p>
-          ) : null}
-        </>
-      ) : roomStatus === "locked" ? (
+      ) : appointment.videoJoinUrl && roomStatus !== "locked" ? null : roomStatus === "locked" ? (
         <p className={styles.appointmentEmptyState}>
           L’accès à la visioconférence est verrouillé.
         </p>

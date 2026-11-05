@@ -122,7 +122,7 @@ export default function DrimliInvoicesPanel({
             {status ? <p className={styles.drimliInvoicesEmpty}>{status}</p> : null}
             {!status && documents.length === 0 ? (
               <p className={styles.drimliInvoicesEmpty}>
-                Vos factures mensuelles Drimli apparaîtront ici.
+                Le détail de vos contributions mensuelles apparaîtra ici.
               </p>
             ) : null}
             <div className={styles.drimliInvoicesList}>
