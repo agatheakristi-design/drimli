@@ -12,6 +12,7 @@ const supabaseAdmin = createClient(
 );
 
 export type GoogleMeetFailureStage =
+  | "time_budget"
   | "integration_lookup"
   | "integration_missing"
   | "refresh_token_missing"
@@ -25,6 +26,14 @@ export type GoogleMeetFailureStage =
   | "supabase_write"
   | "appointment_reload"
   | "email_send";
+
+function temporaryGoogleFailure(error: unknown) {
+  const value = error as { code?: unknown; response?: { status?: number; data?: { error?: { errors?: { reason?: string }[] } } } };
+  const status = value?.response?.status ?? value?.code;
+  return [429, 500, 502, 503, 504, "ETIMEDOUT", "ECONNRESET", "EAI_AGAIN", "ENOTFOUND"].includes(status as string | number) ||
+    (status === 403 && Boolean(value.response?.data?.error?.errors?.some(item =>
+      item.reason === "rateLimitExceeded" || item.reason === "userRateLimitExceeded")));
+}
 
 export class GoogleMeetError extends Error {
   constructor(
@@ -44,12 +53,21 @@ export async function createGoogleMeetAppointment(params: {
   start: string;
   end: string;
   attendeeEmail?: string | null;
+  deadlineMs?: number;
 }) {
+  const deadline = Math.min(params.deadlineMs ?? Infinity, Date.now() + 12_000);
+  const options = () => {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw new GoogleMeetError("time_budget", "Google Meet time budget exhausted.");
+    return { timeout: Math.min(2_000, remaining), retry: false as const, signal: AbortSignal.timeout(remaining) };
+  };
+  const signal = options().signal;
   const { data: integration, error } = await supabaseAdmin
     .from("integrations")
     .select("account_email, access_token, refresh_token, expires_at, scope")
     .eq("provider_id", params.providerId)
     .eq("provider", "google")
+    .abortSignal(signal)
     .maybeSingle();
 
   if (error) {
@@ -80,11 +98,12 @@ export async function createGoogleMeetAppointment(params: {
     );
   }
 
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
-  );
+  const oauth2Client = new google.auth.OAuth2({
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    redirectUri: process.env.GOOGLE_REDIRECT_URI,
+    transporterOptions: options(),
+  });
 
   oauth2Client.setCredentials({
     access_token: integration.access_token,
@@ -94,14 +113,17 @@ export async function createGoogleMeetAppointment(params: {
       : undefined,
   });
 
-  try {
-    await oauth2Client.getAccessToken();
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    throw new GoogleMeetError(
-      "oauth_refresh",
-      `Google OAuth refresh failed: ${message}`
-    );
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      options();
+      await oauth2Client.getAccessToken();
+      break;
+    } catch (error: unknown) {
+      if (!temporaryGoogleFailure(error) || attempt === 2 || Date.now() + 250 >= deadline) {
+        throw new GoogleMeetError("oauth_refresh", "Google OAuth refresh failed.");
+      }
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
   }
 
   const refreshedCredentials = oauth2Client.credentials;
@@ -119,7 +141,8 @@ export async function createGoogleMeetAppointment(params: {
           : null,
       })
       .eq("provider_id", params.providerId)
-      .eq("provider", "google");
+      .eq("provider", "google")
+      .abortSignal(signal);
 
     if (tokenUpdateError) {
       throw new GoogleMeetError(
@@ -139,69 +162,68 @@ export async function createGoogleMeetAppointment(params: {
     .update(params.appointmentId)
     .digest("hex")
     .slice(0, 40)}`;
-  let event;
-
-  try {
-    const response = await calendar.events.insert({
-      calendarId: "primary",
-      conferenceDataVersion: 1,
-      requestBody: {
-        id: calendarEventId,
-        summary: params.title,
-        description: params.description,
-        start: {
-          dateTime: params.start,
-        },
-        end: {
-          dateTime: params.end,
-        },
-        attendees: params.attendeeEmail
-          ? [{ email: params.attendeeEmail }]
-          : undefined,
-        conferenceData: {
-          createRequest: {
-            requestId: `meet-${params.appointmentId}`,
-            conferenceSolutionKey: {
-              type: "hangoutsMeet",
+  let event: import("googleapis").calendar_v3.Schema$Event | undefined;
+  let creationUncertain = false;
+  for (let attempt = 0; attempt < 3 && !event; attempt += 1) {
+    if (attempt > 0) {
+      const delay = attempt * 250;
+      if (Date.now() + delay >= deadline) break;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    try {
+      try {
+        const existing = await calendar.events.get({ calendarId: "primary", eventId: calendarEventId }, options());
+        event = existing.data;
+        break;
+      } catch (error: unknown) {
+        const status = (error as { code?: number; response?: { status?: number } })?.response?.status ?? (error as { code?: number })?.code;
+        if (status !== 404) throw error;
+        // After an uncertain insert, a 404 is not enough to risk a second meeting.
+        if (creationUncertain) continue;
+      }
+      try {
+        const response = await calendar.events.insert({
+          calendarId: "primary",
+          conferenceDataVersion: 1,
+          requestBody: {
+            id: calendarEventId,
+            summary: params.title,
+            description: params.description,
+            start: {
+              dateTime: params.start,
+            },
+            end: {
+              dateTime: params.end,
+            },
+            attendees: params.attendeeEmail
+              ? [{ email: params.attendeeEmail }]
+              : undefined,
+            conferenceData: {
+              createRequest: {
+                requestId: `meet-${params.appointmentId}`,
+                conferenceSolutionKey: {
+                  type: "hangoutsMeet",
+                },
+              },
             },
           },
-        },
-      },
-    });
-    event = response.data;
-  } catch (error: unknown) {
-    const status =
-      typeof error === "object" && error !== null
-        ? "code" in error && error.code === 409
-          ? 409
-          : "response" in error &&
-              typeof error.response === "object" &&
-              error.response !== null &&
-              "status" in error.response
-            ? error.response.status
-            : null
-        : null;
-
-    if (status !== 409) {
-      throw new GoogleMeetError(
-        "calendar_insert",
-        "Google Calendar event insertion failed."
-      );
-    }
-
-    try {
-      const existingEvent = await calendar.events.get({
-        calendarId: "primary",
-        eventId: calendarEventId,
-      });
-      event = existingEvent.data;
-    } catch {
-      throw new GoogleMeetError(
-        "calendar_insert",
-        "Existing Google Calendar event could not be retrieved."
-      );
+        }, options());
+        event = response.data;
+      } catch (error: unknown) {
+        const status = (error as { code?: number; response?: { status?: number } })?.response?.status ?? (error as { code?: number })?.code;
+        if (status === 409) { creationUncertain = true; continue; }
+        if (temporaryGoogleFailure(error)) creationUncertain = true;
+        throw error;
+      }
+    } catch (error: unknown) {
+      if (!temporaryGoogleFailure(error)) {
+        throw new GoogleMeetError("calendar_insert", "Google Calendar event lookup or creation failed.");
+      }
+      if (attempt === 2) throw new GoogleMeetError("calendar_insert", "Google Calendar temporary errors exhausted.");
     }
   }
+  if (!event) throw new GoogleMeetError("calendar_insert", "Google Calendar creation could not be safely confirmed.");
+  if (event.status === "cancelled") throw new GoogleMeetError("calendar_insert", "Google Calendar event is cancelled.");
 
   const eventId = event.id;
 
@@ -229,6 +251,7 @@ export async function createGoogleMeetAppointment(params: {
       );
     }
 
+    if (Date.now() + 400 >= deadline) break;
     await new Promise((resolve) => setTimeout(resolve, 400));
 
     let refreshedEvent;
@@ -236,13 +259,10 @@ export async function createGoogleMeetAppointment(params: {
       refreshedEvent = await calendar.events.get({
         calendarId: "primary",
         eventId,
-      });
+      }, options());
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      throw new GoogleMeetError(
-        "hangout_link_retrieval",
-        `Google Meet link retrieval failed: ${message}`
-      );
+      if (temporaryGoogleFailure(error)) continue;
+      throw new GoogleMeetError("hangout_link_retrieval", "Google Meet link retrieval failed.");
     }
     event = refreshedEvent.data;
     hangoutLink =

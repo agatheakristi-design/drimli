@@ -1,3 +1,5 @@
+import { getGoogleMeetReadiness } from "@/lib/googleMeetReadiness";
+import { GOOGLE_MEET_REQUIRED_MESSAGE } from "@/lib/googleOAuthScopes";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
@@ -16,6 +18,11 @@ export async function POST(req: Request) {
   );
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (!user || error) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const googleReadiness = await getGoogleMeetReadiness(supabase, user.id);
+  if (!googleReadiness.connected) {
+    return NextResponse.json({ code: "GOOGLE_MEET_REQUIRED", error: GOOGLE_MEET_REQUIRED_MESSAGE }, { status: 409 });
+  }
 
   const { data: profile } = await supabase
     .from("profiles")

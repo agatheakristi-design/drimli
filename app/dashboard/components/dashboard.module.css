@@ -1395,3 +1395,15 @@
 .heroActions {
   position: relative;
 }
+
+.paymentLockMessage {
+  margin: 0 16px 20px 68px;
+  color: var(--success);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .paymentLockMessage {
+    margin: 0 16px 16px;
+  }
+}

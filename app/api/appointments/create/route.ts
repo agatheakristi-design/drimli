@@ -1,3 +1,4 @@
+import { getGoogleMeetReadiness, GOOGLE_MEET_BOOKING_UNAVAILABLE_MESSAGE } from "@/lib/googleMeetReadiness";
 import { validateContact, validateBusinessCustomer, normalizeBillingCountry } from "@/lib/bookingCustomer";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -130,6 +131,14 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Appointment duration does not match the service." },
         { status: 400 }
+      );
+    }
+
+    const googleReadiness = await getGoogleMeetReadiness(admin, product.provider_id);
+    if (!googleReadiness.connected) {
+      return NextResponse.json(
+        { code: "GOOGLE_MEET_UNAVAILABLE", error: GOOGLE_MEET_BOOKING_UNAVAILABLE_MESSAGE },
+        { status: 409, headers: { "Cache-Control": "no-store" } }
       );
     }
 

@@ -3,6 +3,7 @@
 import {
   Component,
   useCallback,
+  useEffect,
   useState,
   type ErrorInfo,
   type ReactNode,
@@ -16,6 +17,7 @@ import {
   type StripeConnectInstance,
 } from "@stripe/connect-js/pure";
 import { supabase } from "@/lib/supabaseClient";
+import { GOOGLE_MEET_REQUIRED_MESSAGE } from "@/lib/googleOAuthScopes";
 import Button from "@/app/components/ui/Button";
 import styles from "./dashboard.module.css";
 
@@ -176,6 +178,47 @@ export default function DrimpayOnboarding({
 }) {
   const [retryKey, setRetryKey] = useState(0);
   const retry = useCallback(() => setRetryKey((key) => key + 1), []);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleChecking, setGoogleChecking] = useState(true);
+  const [googleError, setGoogleError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function checkGoogle() {
+      setGoogleReady(false);
+      setGoogleChecking(true);
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) throw new Error("Session manquante. Reconnectez-vous puis réessayez.");
+        const response = await fetch("/api/google/status", {
+          headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
+        });
+        if (!response.ok) throw new Error("Impossible de vérifier la connexion Google.");
+        const status = await response.json();
+        if (!cancelled) {
+          setGoogleReady(status.connected === true);
+          setGoogleError(status.connected === true ? "" : GOOGLE_MEET_REQUIRED_MESSAGE);
+        }
+      } catch (error) {
+        if (!cancelled) setGoogleError(error instanceof Error ? error.message : "Impossible de vérifier la connexion Google.");
+      } finally {
+        if (!cancelled) setGoogleChecking(false);
+      }
+    }
+    void checkGoogle();
+    return () => { cancelled = true; };
+  }, [retryKey]);
+
+  if (googleChecking || !googleReady) {
+    return (
+      <div className={styles.paymentOnboardingContent}>
+        <p role="status">{googleChecking ? "Vérification de Google Meet…" : googleError}</p>
+        {!googleChecking ? <Button className={styles.inlinePrimaryButton} onClick={retry}>Réessayer</Button> : null}
+      </div>
+    );
+  }
+
 
   const fallback = (
     <div className={styles.paymentOnboardingContent}>

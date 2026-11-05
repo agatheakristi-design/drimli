@@ -21,6 +21,7 @@ import {
 } from "@/lib/drimliCommissionLedger";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function requireEnv(name: string): string {
   const v = process.env[name];
@@ -75,6 +76,7 @@ async function retrieveApplicationFeeWithRetry(
 
 function safeMeetFailureMessage(stage: string) {
   const messages: Record<string, string> = {
+    time_budget: "Google Meet time budget exhausted.",
     integration_lookup: "Google integration could not be checked.",
     integration_missing: "Google integration is absent.",
     refresh_token_missing: "Google refresh token is absent.",
@@ -338,6 +340,8 @@ function escapeHtml(s: string) {
 
 export async function POST(req: Request) {
   let claimedEventId: string | null = null;
+  let meetIncident: string | null = null;
+  const meetDeadline = Date.now() + 40_000;
   try {
     const sig = req.headers.get("stripe-signature");
     if (!sig) {
@@ -712,6 +716,15 @@ export async function POST(req: Request) {
       paidApplicationFee.id
     );
 
+    // Persist a safe marker before Meet: a killed invocation must remain identifiable.
+    if (!appt.video_join_url && appt.start_datetime && appt.end_datetime) {
+      meetIncident = JSON.stringify({ code: "GOOGLE_MEET_INCIDENT", state: "pending", appointmentId: appt.id });
+      const { error: incidentError } = await supabaseAdmin.from("stripe_webhook_events")
+        .update({ last_error: meetIncident }).eq("id", event.id)
+        .abortSignal(AbortSignal.timeout(2_000));
+      if (incidentError) throw new Error("Google Meet incident marker could not be stored.");
+    }
+
     // Effet secondaire : Google Meet ne doit pas bloquer le paiement,
     // la facture ou le calendrier client.
     try {
@@ -727,6 +740,7 @@ export async function POST(req: Request) {
           start: new Date(appt.start_datetime).toISOString(),
           end: new Date(appt.end_datetime).toISOString(),
           attendeeEmail: appt.client_email,
+          deadlineMs: meetDeadline,
         });
 
         const { data: videoUpdate, error: videoUpdateError } =
@@ -738,6 +752,7 @@ export async function POST(req: Request) {
             video_room_id: meeting.eventId,
           })
           .eq("id", appt.id)
+          .abortSignal(AbortSignal.timeout(2_000))
           .select("video_provider, video_join_url, video_room_id")
           .maybeSingle();
 
@@ -761,6 +776,7 @@ export async function POST(req: Request) {
           });
         }
 
+        meetIncident = null;
         console.log("[GOOGLE_MEET_SUCCESS]", {
           appointmentId: appt.id,
           providerId: appt.provider_id,
@@ -771,6 +787,11 @@ export async function POST(req: Request) {
     } catch (error: unknown) {
       const stage =
         error instanceof GoogleMeetError ? error.stage : "unknown";
+      meetIncident = JSON.stringify({ code: "GOOGLE_MEET_INCIDENT", state: "failed", appointmentId: appt.id, stage });
+      const { error: incidentError } = await supabaseAdmin.from("stripe_webhook_events")
+        .update({ last_error: meetIncident }).eq("id", event.id)
+        .abortSignal(AbortSignal.timeout(2_000));
+      if (incidentError) throw new Error("Google Meet incident could not be stored.");
       console.error("[GOOGLE_MEET_ERROR]", {
         appointmentId: appt.id,
         providerId: appt.provider_id,
@@ -919,18 +940,19 @@ export async function POST(req: Request) {
     const { error: completionError } = await supabaseAdmin.from("stripe_webhook_events").update({
       processing_status: "completed",
       processed_at: new Date().toISOString(),
-      last_error: null,
-    }).eq("id", event.id);
+      last_error: meetIncident,
+    }).eq("id", event.id).abortSignal(AbortSignal.timeout(2_000));
     if (completionError) throw completionError;
 
     return NextResponse.json({ received: true });
   } catch (error: unknown) {
     console.error("Webhook handler error:", errorMessage(error));
     if (claimedEventId) {
-      await supabaseAdmin.from("stripe_webhook_events").update({
+      const { error: failureStatusError } = await supabaseAdmin.from("stripe_webhook_events").update({
         processing_status: "failed",
-        last_error: errorMessage(error).slice(0, 1_000),
-      }).eq("id", claimedEventId);
+        last_error: meetIncident ?? errorMessage(error).slice(0, 1_000),
+      }).eq("id", claimedEventId).abortSignal(AbortSignal.timeout(2_000));
+      if (failureStatusError) console.error("[WEBHOOK_INCIDENT_STORAGE_FAILED]", { eventId: claimedEventId });
     }
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }

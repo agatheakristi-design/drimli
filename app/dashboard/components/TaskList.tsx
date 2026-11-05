@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { GOOGLE_MEET_REQUIRED_MESSAGE } from "@/lib/googleOAuthScopes";
 import DrimpayOnboarding from "./DrimpayOnboarding";
 import GoogleMeetOnboarding from "./GoogleMeetOnboarding";
 import GoogleReviewsOnboarding from "./GoogleReviewsOnboarding";
@@ -38,6 +39,7 @@ export default function TaskList({
   const [photoDone, setPhotoDone] = useState(false);
   const [paymentReady, setPaymentReady] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
+  const [stripeLockMessageVisible, setStripeLockMessageVisible] = useState(false);
   const [googleReviewsReady, setGoogleReviewsReady] = useState(false);
   const [billingReady, setBillingReady] = useState(false);
   const [googleReviewsOpen, setGoogleReviewsOpen] = useState(false);
@@ -139,6 +141,7 @@ export default function TaskList({
 
   const handleGoogleCompletion = useCallback((connected: boolean) => {
     setGoogleReady(connected);
+    if (connected) setStripeLockMessageVisible(false);
   }, []);
 
   const handleGoogleReviewsCompletion = useCallback((enabled: boolean) => {
@@ -533,14 +536,25 @@ const completedTasks = progressTasks.filter((task) =>
                 <button
                   type="button"
                   className={styles.taskRowHeader}
-                  onClick={() =>
-                    setOpenTask(paymentsOpen ? null : "payments")
-                  }
+                  onClick={() => {
+                    if (!googleReady) {
+                      setStripeLockMessageVisible(true);
+                      return;
+                    }
+                    setStripeLockMessageVisible(false);
+                    setOpenTask(paymentsOpen ? null : "payments");
+                  }}
+                  aria-disabled={!googleReady}
                 >
                   {content}
                 </button>
 
-                {paymentsOpen && (
+                {!googleReady && stripeLockMessageVisible ? (
+                  <p className={`${styles.inlineEditorStatus} ${styles.paymentLockMessage}`} role="status">
+                    {GOOGLE_MEET_REQUIRED_MESSAGE}
+                  </p>
+                ) : null}
+                {paymentsOpen && googleReady && (
                   <div className={styles.inlineEditor}>
                     <DrimpayOnboarding
                       paymentReady={paymentReady}

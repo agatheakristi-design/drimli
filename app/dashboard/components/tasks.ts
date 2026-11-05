@@ -25,14 +25,20 @@ export const tasks = [
     done: false,
   },
   {
+    label: "Connecter Google Meet",
+    description: "Ajoutez la visioconférence à vos rendez-vous.",
+    href: null,
+    done: false,
+  },
+  {
     label: "Connecter les paiements",
     description: "Activez la réception des paiements.",
     href: "/paiements",
     done: false,
   },
   {
-    label: "Connecter Google Meet",
-    description: "Ajoutez la visioconférence à vos rendez-vous.",
+    label: "Facturation",
+    description: "Générez automatiquement vos factures.",
     href: null,
     done: false,
   },
@@ -42,11 +48,6 @@ export const tasks = [
       "Affichez votre note et générez des avis clients",
     href: null,
     done: false,
-  },
-  {
-    label: "Facturation",
-    description: "Générez automatiquement vos factures.",
-    href: null,
-    done: false,
+    countInProgress: false,
   },
 ];

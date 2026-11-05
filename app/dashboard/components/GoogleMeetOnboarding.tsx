@@ -12,6 +12,8 @@ type GoogleStatus = {
     | "not_connected"
     | "refresh_token_missing"
     | "calendar_scope_missing"
+    | "google_authorization"
+    | "google_unavailable"
     | null;
   email: string | null;
 };
@@ -60,6 +62,7 @@ export default function GoogleMeetOnboarding({
 
       const result = (await response.json()) as GoogleStatus;
       setStatus(result);
+      if (result.reason === "google_unavailable") setError("Impossible de vérifier la connexion Google.");
       onCompletionChange(result.connected);
       setLoading(false);
     }
@@ -140,6 +143,7 @@ export default function GoogleMeetOnboarding({
   const connected = Boolean(status?.connected);
   const reconnect =
     status?.reason === "calendar_scope_missing" ||
+    status?.reason === "google_authorization" ||
     status?.reason === "refresh_token_missing";
   const label = connected
     ? "Google Meet connecté"

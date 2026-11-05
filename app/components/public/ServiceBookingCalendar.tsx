@@ -80,6 +80,7 @@ export default function ServiceBookingCalendar({
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [bookingUnavailableMessage, setBookingUnavailableMessage] = useState("");
 
   const days = useMemo(() => {
     const { year, month } = visibleMonth;
@@ -97,13 +98,20 @@ export default function ServiceBookingCalendar({
     async function loadSlots() {
       setIsLoading(true);
       setLoadError(false);
+      setBookingUnavailableMessage("");
       setSelectedSlot(null);
 
       try {
         const response = await fetch(`/api/slots?${params.toString()}`, {
           signal: controller.signal,
         });
-        if (!response.ok) throw new Error("Slots request failed");
+        if (!response.ok) {
+          const failure = await response.json().catch(() => null);
+          if (failure?.code === "GOOGLE_MEET_UNAVAILABLE" && typeof failure.error === "string") {
+            setBookingUnavailableMessage(failure.error);
+          }
+          throw new Error("Slots request failed");
+        }
         const payload: unknown = await response.json();
         setSlots(Array.isArray(payload) ? (payload as Slot[]) : []);
       } catch (error) {
@@ -208,7 +216,7 @@ export default function ServiceBookingCalendar({
           <div className={styles.slotList} aria-live="polite" aria-busy={isLoading}>
             {isLoading ? <p className={styles.state}>Chargement des créneaux…</p> : null}
             {!isLoading && loadError ? (
-              <p className={styles.state}>Impossible de charger les créneaux.</p>
+              <p className={styles.state}>{bookingUnavailableMessage || "Impossible de charger les créneaux."}</p>
             ) : null}
             {!isLoading && !loadError && slots.length === 0 ? (
               <p className={styles.state}>Aucun créneau disponible ce jour.</p>

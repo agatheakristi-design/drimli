@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { hasGoogleCalendarScope } from "@/lib/googleOAuthScopes";
+import { getGoogleMeetReadiness } from "@/lib/googleMeetReadiness";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,36 +29,8 @@ export async function GET(request: Request) {
       );
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("integrations")
-      .select("account_email, refresh_token, scope")
-      .eq("provider_id", userData.user.id)
-      .eq("provider", "google")
-      .maybeSingle();
-
-    if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      );
-    }
-
-    const hasRefreshToken = Boolean(data?.refresh_token);
-    const hasCalendarScope = hasGoogleCalendarScope(data?.scope);
-
-    const reason = !data
-      ? "not_connected"
-      : !hasRefreshToken
-        ? "refresh_token_missing"
-        : !hasCalendarScope
-          ? "calendar_scope_missing"
-          : null;
-
-    return NextResponse.json({
-      connected: hasRefreshToken && hasCalendarScope,
-      reason,
-      email: data?.account_email ?? null,
-    });
+    const readiness = await getGoogleMeetReadiness(supabaseAdmin, userData.user.id);
+    return NextResponse.json(readiness, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Unknown error";
