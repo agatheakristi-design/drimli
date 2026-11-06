@@ -1407,3 +1407,29 @@
     margin: 0 16px 16px;
   }
 }
+
+.helpButton {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  margin-bottom: 16px;
+  font-family: inherit;
+}
+.helpDialog {
+  position: fixed;
+  inset: 0 0 0 auto;
+  margin: 0;
+  padding: 0;
+  max-height: 100dvh;
+  height: 100dvh;
+  max-width: 100vw;
+  color: var(--foreground);
+  border: 0;
+}
+.helpDialog::backdrop { background: rgb(0 0 0 / 35%); }
+.helpBody { display: flex; flex-direction: column; gap: 12px; }
+.helpBody summary { cursor: pointer; font-weight: 500; }
+.helpBody details { border-bottom: 1px solid var(--border); padding: 12px 0; }
+.helpMessage { white-space: pre-wrap; overflow-wrap: anywhere; }

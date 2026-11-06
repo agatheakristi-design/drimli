@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import DashboardGate from "@/app/components/DashboardGate";
+import HelpPanel from "./components/HelpPanel";
 import Sidebar from "./components/Sidebar";
 import DrimliInvoicesPanel from "./components/DrimliInvoicesPanel";
 import { DashboardIdentityContext } from "./components/DashboardIdentityContext";
@@ -14,9 +15,17 @@ export default function DashboardLayout({
 }: {
   children: ReactNode;
 }) {
+  const [helpOpen, setHelpOpen] = useState(false);
   const [fullName, setFullName] = useState("Professionnel");
   const [email, setEmail] = useState("");
   const [drimliInvoicesOpen, setDrimliInvoicesOpen] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("aide") === "1") {
+      const timer = window.setTimeout(() => setHelpOpen(true), 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,15 +62,17 @@ export default function DashboardLayout({
       <DashboardIdentityContext.Provider value={fullName}>
         <div className={styles.layout}>
           <Sidebar
+            onOpenHelp={() => { setDrimliInvoicesOpen(false); setHelpOpen(true); }}
             fullName={fullName}
             email={email}
-            onOpenDrimliInvoices={() => setDrimliInvoicesOpen(true)}
+            onOpenDrimliInvoices={() => { setHelpOpen(false); setDrimliInvoicesOpen(true); }}
           />
 
           <main className={styles.main}>
             {children}
           </main>
 
+          {helpOpen ? <HelpPanel onClose={() => setHelpOpen(false)} /> : null}
           <DrimliInvoicesPanel
             open={drimliInvoicesOpen}
             onClose={() => setDrimliInvoicesOpen(false)}

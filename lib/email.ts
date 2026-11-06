@@ -382,3 +382,46 @@ export async function sendProfessionalAppointmentEmail(
   if (error) throw new Error("Professional appointment email failed");
   return data;
 }
+
+// Persist this complete payload before delivery so retries use identical content.
+export type HelpNotificationEmail = {
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
+};
+
+export function buildHelpNotificationEmail(p: {
+  kind: "request" | "reply";
+  recipient: string;
+  requestId: string;
+  ownerId: string;
+  ownerEmail: string;
+  subject: string;
+  message: string;
+  sourceId: string;
+}): HelpNotificationEmail {
+  const base = new URL(process.env.DRIMLI_HELP_APP_URL || requireEnv("NEXT_PUBLIC_APP_URL"));
+  if (base.protocol !== "https:" || base.username || base.password) {
+    throw new Error("Invalid application URL");
+  }
+  const link = new URL("/dashboard?aide=1", base).toString();
+  return {
+    from: process.env.DRIMLI_HELP_RESEND_FROM || FROM,
+    to: p.recipient,
+    subject: p.kind === "request" ? "Nouvelle demande d’aide DRIMLI" : "Une réponse est disponible dans votre rubrique Aide",
+    text: p.kind === "request"
+      ? `Nouvelle demande d’aide\n\nSujet : ${p.subject}\n\n${p.message}\n\nDemande : ${p.requestId}\nUtilisateur : ${p.ownerId}\nE-mail : ${p.ownerEmail}\nÉvénement : ${p.sourceId}\n\nRépondre depuis l’administration Supabase dans help_replies (request_id ci-dessus).`
+      : `Bonjour,\n\nUne réponse à votre demande est disponible dans votre rubrique Aide DRIMLI.\n\nConsulter la réponse : ${link}\n\nConnectez-vous avec votre compte habituel.`,
+  };
+}
+
+export async function sendHelpNotificationEmail(payload: HelpNotificationEmail, notificationId: string) {
+  const options = {
+    idempotencyKey: `help-notification/${notificationId}`,
+    signal: AbortSignal.timeout(10_000),
+  };
+  const { data, error } = await resend.emails.send(payload, options);
+  if (error || !data?.id) throw new Error("Help email not confirmed");
+  return data.id;
+}

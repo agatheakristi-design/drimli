@@ -4,6 +4,7 @@ import Link from "next/link";
 import AppointmentAlertBadge from "./AppointmentAlertBadge";
 import { usePathname } from "next/navigation";
 import {
+  CircleHelp,
   CalendarDays,
   FileText,
   Home,
@@ -16,6 +17,7 @@ type SidebarProps = {
   fullName: string;
   email: string;
   onOpenDrimliInvoices: () => void;
+  onOpenHelp: () => void;
 };
 
 const navigation = [
@@ -51,6 +53,7 @@ export default function Sidebar({
   fullName,
   email,
   onOpenDrimliInvoices,
+  onOpenHelp,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -84,6 +87,9 @@ export default function Sidebar({
       </nav>
 
       <div className={styles.account}>
+        <button type="button" className={`${styles.navigationItem} ${styles.helpButton}`} onClick={onOpenHelp} aria-haspopup="dialog">
+          <CircleHelp className={styles.navigationIcon} aria-hidden="true" /> Aide
+        </button>
         <button
           type="button"
           className={styles.accountButton}
