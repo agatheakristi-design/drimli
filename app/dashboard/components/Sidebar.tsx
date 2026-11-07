@@ -88,7 +88,7 @@ export default function Sidebar({
 
       <div className={styles.account}>
         <button type="button" className={`${styles.navigationItem} ${styles.helpButton}`} onClick={onOpenHelp} aria-haspopup="dialog">
-          <CircleHelp className={styles.navigationIcon} aria-hidden="true" /> Aide
+          <CircleHelp className={styles.navigationIcon} viewBox="1 1 22 22" aria-hidden="true" /> Aide
         </button>
         <button
           type="button"
