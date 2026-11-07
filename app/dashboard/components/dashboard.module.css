@@ -299,6 +299,16 @@
   transition: transform 0.17s ease, box-shadow 0.17s ease;
 }
 
+.heroActionsWithAppointment {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.nextAppointmentButton {
+  background: color-mix(in srgb, var(--success) 80%, var(--foreground));
+  color: var(--inverse-foreground);
+}
+
 .primaryButton:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
@@ -340,6 +350,14 @@
   .heroActions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .heroActionsWithAppointment {
+    grid-template-columns: 1fr;
+  }
+
+  .nextAppointmentButton {
+    white-space: normal;
   }
 }
 

@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 import { usePageShare } from "@/app/components/usePageShare";
 import styles from "./dashboard.module.css";
 
@@ -10,6 +13,27 @@ type WelcomeCardProps = {
 };
 
 export default function WelcomeCard({ fullName, slug, published = false }: WelcomeCardProps) {
+  const router = useRouter();
+  const [nextAppointmentId, setNextAppointmentId] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    async function loadNextAppointment() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+        const response = await fetch("/api/dashboard/next-appointment", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store",
+        });
+        const result = await response.json();
+        if (!cancelled) setNextAppointmentId(response.ok ? result.appointment?.id ?? null : null);
+      } catch {
+        if (!cancelled) setNextAppointmentId(null);
+      }
+    }
+    void loadNextAppointment();
+    return () => { cancelled = true; };
+  }, []);
   const { pageUrl, shareMessage, shareOpen, copied, sharePage, copyLink } = usePageShare(slug, published);
 
   const firstName =
@@ -37,7 +61,16 @@ export default function WelcomeCard({ fullName, slug, published = false }: Welco
         </p>
       </div>
 
-      <div className={styles.heroActions}>
+      <div className={`${styles.heroActions} ${nextAppointmentId ? styles.heroActionsWithAppointment : ""}`}>
+        {nextAppointmentId ? (
+          <button
+            type="button"
+            className={`${styles.primaryButton} ${styles.nextAppointmentButton}`}
+            onClick={() => router.push(`/dashboard/calendrier?appointment=${encodeURIComponent(nextAppointmentId)}`)}
+          >
+            Mon prochain rendez-vous
+          </button>
+        ) : null}
         <button
           type="button"
           className={styles.primaryButton}

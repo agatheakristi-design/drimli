@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Toolbar from "./Toolbar";
 import WeekGrid from "./WeekGrid";
@@ -68,6 +68,8 @@ function formatWeekLabel(start: Date) {
 }
 
 export default function Calendar() {
+  const [appointmentToOpen, setAppointmentToOpen] = useState<string | null>(null);
+  const openedAppointment = useRef<string | null>(null);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [panelMode, setPanelMode] = useState<CalendarPanelMode | null>(null);
   const [providerId, setProviderId] = useState<string | null>(null);
@@ -87,6 +89,7 @@ export default function Calendar() {
     supabase.auth.getSession().then(({ data }) => {
       if (!cancelled) {
         setProviderId(data.session?.user.id ?? null);
+        setAppointmentToOpen(new URLSearchParams(window.location.search).get("appointment"));
       }
     });
 
@@ -94,6 +97,22 @@ export default function Calendar() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!providerId || !appointmentToOpen) return;
+    let cancelled = false;
+    async function locateAppointment() {
+      const { data, error } = await supabase.from("appointments")
+        .select("start_datetime").eq("id", appointmentToOpen)
+        .eq("provider_id", providerId).eq("status", "confirmed").maybeSingle();
+      if (!cancelled && !error && data?.start_datetime) {
+        const date = new Date(data.start_datetime);
+        if (!Number.isNaN(date.getTime())) setWeekStart(startOfWeek(date));
+      }
+    }
+    void locateAppointment();
+    return () => { cancelled = true; };
+  }, [appointmentToOpen, providerId]);
 
   useEffect(() => {
     if (!providerId) return;
@@ -164,8 +183,7 @@ export default function Calendar() {
           ? []
           : ((blocksResult.data as ProviderBlock[]) ?? [])
       );
-      setAppointments(
-        appointmentRows.map((appointment) => ({
+      const mappedAppointments = appointmentRows.map((appointment) => ({
           id: appointment.id,
           product_id: appointment.product_id,
           serviceName:
@@ -182,8 +200,16 @@ export default function Calendar() {
           videoProvider: appointment.video_provider,
           videoJoinUrl: appointment.video_join_url,
           videoRoomStatus: appointment.video_room_status,
-        }))
-      );
+        }));
+      setAppointments(mappedAppointments);
+      if (appointmentToOpen && openedAppointment.current !== appointmentToOpen) {
+        const requested = mappedAppointments.find((appointment) => appointment.id === appointmentToOpen);
+        if (requested) {
+          openedAppointment.current = appointmentToOpen;
+          setSelectedAppointment(requested);
+          setPanelMode("appointment");
+        }
+      }
     }
 
     loadCalendarData();
@@ -191,7 +217,7 @@ export default function Calendar() {
     return () => {
       cancelled = true;
     };
-  }, [providerId, refreshKey, weekStart]);
+  }, [appointmentToOpen, providerId, refreshKey, weekStart]);
 
   const weekLabel = useMemo(
     () => formatWeekLabel(weekStart),
