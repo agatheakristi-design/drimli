@@ -1,3 +1,4 @@
+export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { AppointmentRescheduleError, reschedulePaidAppointment } from "@/lib/appointmentReschedule";
@@ -34,6 +35,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const failure = error instanceof AppointmentRescheduleError
       ? error
       : new AppointmentRescheduleError("Déplacement impossible.", 500);
-    return NextResponse.json({ error: failure.message }, { status: failure.status });
+    return NextResponse.json({ error: failure.message, ...(failure.code ? { code: failure.code } : {}) }, { status: failure.status });
   }
 }

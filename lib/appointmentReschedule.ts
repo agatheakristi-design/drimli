@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export class AppointmentRescheduleError extends Error {
-  constructor(message: string, readonly status = 409) {
+  constructor(message: string, readonly status = 409, readonly code?: string) {
     super(message);
   }
 }
@@ -66,6 +66,16 @@ export async function reschedulePaidAppointment(params: {
           ? "Ce créneau n’est plus disponible."
           : "Déplacement impossible.";
     throw new AppointmentRescheduleError(message);
+  }
+  try {
+    const { synchronizeAppointmentCalendar } = await import("@/lib/googleCalendarReschedule");
+    await synchronizeAppointmentCalendar({ admin, appointmentId: appointment.id, providerId: appointment.provider_id,
+      repair: true, expected: { start_datetime: data.start_datetime, end_datetime: data.end_datetime } });
+  } catch (failure) {
+    // The SQL move and its audit already committed. Do not undo or repeat them.
+    console.error("[APPOINTMENT_CALENDAR_SYNC_PENDING]", { appointmentId: appointment.id,
+      code: failure instanceof Error && failure.name === "CalendarSynchronizationError" && "code" in failure ? failure.code : "unclassified" });
+    throw new AppointmentRescheduleError("La synchronisation du calendrier reste à vérifier. Le déplacement n’est pas confirmé.", 503, "CALENDAR_SYNC_PENDING");
   }
   return data;
 }

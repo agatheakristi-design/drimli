@@ -1,4 +1,5 @@
 import { Resend, type CreateEmailOptions } from "resend";
+import type { CancellationPolicy } from "@/lib/payoutPolicy";
 
 function requireEnv(name: string): string {
   const v = process.env[name];
@@ -45,90 +46,65 @@ export type GoogleReviewRequestEmailPayload = {
   idempotencyKey?: string;
 };
 
-export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayload) {
+export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayload & {
+  cancellationPolicy?: CancellationPolicy;
+  appointmentStatus?: string;
+  managementAvailable?: boolean;
+}) {
   const subject = `Votre rendez-vous avec ${p.providerName} est confirmé`;
-
-  const patientLine = p.patientName?.trim()
-    ? `Bonjour ${p.patientName.trim()},`
-    : `Bonjour,`;
-
-  const dateLabel = new Date(p.startDateTimeIso).toLocaleDateString("fr-FR", {
-    timeZone: "Europe/Paris",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-  const startLabel = new Date(p.startDateTimeIso).toLocaleTimeString("fr-FR", {
-    timeZone: "Europe/Paris",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const endLabel = new Date(p.endDateTimeIso).toLocaleTimeString("fr-FR", {
-    timeZone: "Europe/Paris",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  // Email simple (on fera joli après). Pas de CSS, compatible partout.
-  const text = [
-    patientLine,
-    "",
-    "Votre rendez-vous est confirmé.",
-    "",
-    `Professionnel : ${p.providerName}`,
-    `Prestation : ${p.serviceTitle}`,
-    `Date : ${dateLabel}`,
-    `Horaire : ${startLabel} – ${endLabel}`,
-    "",
-    "Rejoindre la visio :",
-    p.appointmentJoinUrl,
-    "",
-    "—",
-    "Drimli",
-  ].join("\n");
-const html = `
-  <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; line-height: 1.6; color:#111;">
-    <p>${escapeHtml(patientLine)}</p>
-
-    <p><strong>Votre rendez-vous avec ${escapeHtml(p.providerName)} est confirmé.</strong></p>
-
-    <p>
-      <strong>Prestation :</strong> ${escapeHtml(p.serviceTitle)}<br/>
-      <strong>Date :</strong> ${escapeHtml(dateLabel)}<br/>
-      <strong>Horaire :</strong> ${escapeHtml(startLabel)} – ${escapeHtml(endLabel)}<br/>
-    </p>
-
-    <p>Cliquez sur le bouton ci-dessous pour rejoindre votre visioconférence Google Meet.</p>
-
-    <p style="margin:16px 0;">
-      <a href="${escapeHtml(p.appointmentJoinUrl)}"
-         target="_blank"
-         rel="noreferrer"
-         style="display:inline-block;padding:12px 16px;background:#111;color:#fff;text-decoration:none;border-radius:12px;font-weight:700;">
-        Rejoindre la visio
-      </a>
-    </p>
-
-    <p style="opacity:0.7;">—<br/>Drimli</p>
-  </div>
-  `;
-
-  const { data, error } = await resend.emails.send(
-    {
-      from: FROM,
-      to: p.to,
-      subject,
-      text,
-      html,
-    },
-    { idempotencyKey: `appointment-confirmation/${p.appointmentId}` }
-  );
-
-  if (error) {
-    throw new Error(error.message);
+  const patientLine = p.patientName?.trim() ? `Bonjour ${p.patientName.trim()},` : "Bonjour,";
+  const portal = new URL(p.appointmentJoinUrl);
+  const localDevelopment = portal.protocol === "http:" && portal.hostname === "localhost";
+  if ((portal.protocol !== "https:" && !localDevelopment) || portal.username || portal.password
+    || !/^\/rendez-vous\/[A-Za-z0-9_-]+$/.test(portal.pathname) || portal.search || portal.hash) {
+    throw new Error("Invalid appointment portal URL");
   }
-
+  const labels = appointmentDateLabels(p.startDateTimeIso, p.endDateTimeIso);
+  const { clientAppointmentPermissions } = await import("@/lib/clientAppointmentPolicy");
+  const permissions = p.managementAvailable && p.appointmentStatus === "confirmed" && p.cancellationPolicy
+    ? clientAppointmentPermissions(p.cancellationPolicy, p.startDateTimeIso)
+    : { canReschedule: false, canCancel: false };
+  const rescheduleUrl = new URL(portal);
+  rescheduleUrl.searchParams.set("action", "reschedule");
+  const actions = [
+    ...(permissions.canReschedule ? [{ label: "Modifier mon rendez-vous", url: rescheduleUrl.toString() }] : []),
+    ...(permissions.canCancel ? [{ label: "Annuler mon RDV", url: portal.toString() }] : []),
+  ];
+  const intro = "Votre réservation est effectuée. Votre paiement a bien été effectué.";
+  const text = [
+    patientLine, "", intro, "", "Réservation validée", "",
+    `Professionnel : ${p.providerName}`, `Prestation : ${p.serviceTitle}`,
+    `Date : ${labels.date}`, `Horaire : ${labels.start} – ${labels.end}`, "",
+    "Accéder à ma visio :", portal.toString(),
+    ...actions.flatMap((action) => ["", `${action.label} :`, action.url]),
+    "", "—", "Drimli",
+  ].join("\n");
+  const details = [["Professionnel", p.providerName], ["Prestation", p.serviceTitle],
+    ["Date", labels.date], ["Horaire", `${labels.start} – ${labels.end}`]];
+  const html = `<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>@media only screen and (max-width:480px){.email-content{padding:28px 18px!important}.email-label{width:100px!important}.email-action{display:block!important;margin:12px 0!important}.email-divider{display:none!important}}</style></head>
+<body style="margin:0;padding:0;background:#ffffff;color:#1d1d1f;font-family:Arial,Helvetica,sans-serif;line-height:1.6;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#ffffff;"><tr><td align="center">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:640px;">
+<tr><td class="email-content" style="padding:40px 32px;">
+<p style="margin:0 0 48px;text-align:center;"><img src="${escapeHtml(new URL("/drimli-logo.png", portal).toString())}" width="152" height="53" alt="Drimli" style="display:inline-block;width:152px;max-width:100%;height:auto;border:0;"></p>
+<p style="margin:0 0 10px;font-size:20px;font-weight:700;">${escapeHtml(patientLine)}</p>
+<p style="margin:0;font-size:16px;color:#6b6b72;">${escapeHtml(intro)}</p>
+<p style="margin:34px 0;text-align:center;color:#16a34a;font-size:23px;font-weight:700;"><span style="display:inline-block;width:30px;height:30px;line-height:30px;margin-right:10px;border:2px solid #16a34a;border-radius:50%;text-align:center;vertical-align:middle;" aria-hidden="true">&#10003;&#xfe0e;</span> Réservation validée</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;table-layout:fixed;font-size:16px;">
+${details.map(([label, value]) => `<tr><td class="email-label" width="128" valign="top" style="width:128px;padding:8px 14px 8px 0;color:#6b6b72;">${label}</td><td valign="top" style="padding:8px 0;overflow-wrap:anywhere;word-break:break-word;${label === "Professionnel" ? "font-weight:700;" : ""}">${escapeHtml(value)}</td></tr>`).join("")}
+</table>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin-top:32px;"><tr><td align="center">
+<a href="${escapeHtml(portal.toString())}" target="_blank" rel="noopener noreferrer" style="display:block;max-width:420px;box-sizing:border-box;padding:16px 24px;background:#1d1d1f;color:#ffffff;text-align:center;text-decoration:none;border-radius:10px;font-size:18px;font-weight:700;">Accéder à ma visio</a>
+</td></tr></table>
+${actions.length ? `<p style="margin:24px 0 0;text-align:center;font-size:14px;">${actions.map((action) => `<a class="email-action" href="${escapeHtml(action.url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;color:#6b6b72;text-decoration:underline;text-underline-offset:3px;">${action.label}</a>`).join('<span class="email-divider" aria-hidden="true" style="margin:0 16px;color:#6b6b72;">|</span>')}</p>` : ""}
+</td></tr></table>
+</td></tr></table></body></html>`;
+  const { data, error } = await resend.emails.send({ from: FROM, to: p.to, subject, text, html }, {
+    idempotencyKey: `appointment-confirmation/${p.appointmentId}`,
+  });
+  if (error) throw new Error(error.message);
   return data;
 }
 

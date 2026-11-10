@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ token: string }>;
+  searchParams?: Promise<{ action?: string | string[] }>;
 };
 
 type PortalDetails = {
@@ -31,6 +32,7 @@ type PortalDetails = {
   serviceId: string;
   policy: CancellationPolicy;
   videoReady: boolean;
+  calendarSyncPending: boolean;
 };
 
 const supabaseAdmin = createClient(
@@ -114,9 +116,22 @@ async function loadPortal(token: string): Promise<
     return { kind: "unavailable" };
   }
 
+  let calendarSyncPending = false;
+  try {
+    const { latestAppointmentMove, synchronizeAppointmentCalendar } = await import("@/lib/googleCalendarReschedule");
+    const move = await latestAppointmentMove(supabaseAdmin, appointment.id, appointment.provider_id);
+    if (move) {
+      const result = await synchronizeAppointmentCalendar({ admin: supabaseAdmin,
+        appointmentId: appointment.id, providerId: appointment.provider_id });
+      calendarSyncPending = !result.coherent;
+    }
+  } catch {
+    calendarSyncPending = true;
+  }
   return {
     kind: "ready",
     details: {
+      calendarSyncPending,
       professionalName: profile?.full_name?.trim() || "Votre professionnel",
       avatarUrl: profile?.avatar_url?.trim() || null,
       serviceTitle: product?.title?.trim() || "Rendez-vous",
@@ -132,7 +147,7 @@ async function loadPortal(token: string): Promise<
   };
 }
 
-export default async function RendezVousTokenPage({ params }: PageProps) {
+export default async function RendezVousTokenPage({ params, searchParams }: PageProps) {
   const { token } = await params;
   const portal = await loadPortal(token);
 
@@ -143,6 +158,8 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
     return <ErrorState>Ce rendez-vous n’est pas disponible.</ErrorState>;
   }
   const { details } = portal;
+  const permissions = clientAppointmentPermissions(details.policy, details.startsAt);
+  const requestedAction = (await searchParams)?.action;
   const opensAt = details.startsAt.getTime() - 10 * 60_000;
   const closesAt = details.endsAt.getTime() + 30 * 60_000;
 
@@ -175,7 +192,9 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
       </header>
 
       <div className={styles.content}>
-        {!details.videoReady ? (
+        {details.calendarSyncPending ? (
+          <><h1>Déplacement en attente de synchronisation</h1><p>Les horaires doivent être vérifiés avec le calendrier du professionnel.</p></>
+        ) : !details.videoReady ? (
           <><h1>Votre rendez-vous est confirmé</h1><p>La visioconférence est en cours de préparation.</p></>
         ) : details.roomStatus !== "locked" && details.state === "early" ? (
           <>
@@ -187,7 +206,7 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
           </>
         ) : null}
 
-        {details.videoReady && details.state === "open" && details.roomStatus === "closed" ? (
+        {!details.calendarSyncPending && details.videoReady && details.state === "open" && details.roomStatus === "closed" ? (
           <>
             <h1>Votre rendez-vous va bientôt commencer</h1>
             <p>
@@ -198,7 +217,7 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
           </>
         ) : null}
 
-        {details.videoReady && details.state === "open" && details.roomStatus === "open" ? (
+        {!details.calendarSyncPending && details.videoReady && details.state === "open" && details.roomStatus === "open" ? (
           <>
             <h1>Le professionnel est prêt</h1>
             <a
@@ -212,13 +231,13 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
           </>
         ) : null}
 
-        {details.videoReady && details.roomStatus === "locked" ? (
+        {!details.calendarSyncPending && details.videoReady && details.roomStatus === "locked" ? (
           <>
             <h1>L’accès à cette visioconférence est fermé</h1>
           </>
         ) : null}
 
-        {details.videoReady && details.roomStatus !== "locked" && details.state === "ended" ? (
+        {!details.calendarSyncPending && details.videoReady && details.roomStatus !== "locked" && details.state === "ended" ? (
           <>
             <h1>Cette visioconférence n’est plus disponible</h1>
             <p>Le créneau d’accès est terminé.</p>
@@ -235,7 +254,9 @@ export default async function RendezVousTokenPage({ params }: PageProps) {
         serviceTitle={details.serviceTitle}
         initialStart={details.startsAt.toISOString()}
         initialEnd={details.endsAt.toISOString()}
-        initialPermissions={clientAppointmentPermissions(details.policy, details.startsAt)}
+        initialPermissions={permissions}
+        initialSyncPending={details.calendarSyncPending}
+        initiallyRescheduling={requestedAction === "reschedule" && permissions.canReschedule && !details.calendarSyncPending}
       />
     </PortalLayout>
   );

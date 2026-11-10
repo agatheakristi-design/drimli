@@ -1,3 +1,4 @@
+export const maxDuration = 60;
 import { notifyProfessionalAppointment } from "@/lib/professionalAppointmentAlerts";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -161,6 +162,6 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     const failure = error instanceof AppointmentRescheduleError
       ? error
       : new AppointmentRescheduleError("Déplacement impossible.", 500);
-    return NextResponse.json({ error: failure.message }, { status: failure.status });
+    return NextResponse.json({ error: failure.message, ...(failure.code ? { code: failure.code } : {}) }, { status: failure.status });
   }
 }

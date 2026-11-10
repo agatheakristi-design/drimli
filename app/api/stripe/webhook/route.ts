@@ -838,7 +838,7 @@ export async function POST(req: Request) {
     const [{ data: prof, error: profErr }, { data: prod, error: prodErr }] = await Promise.all([
       supabaseAdmin
         .from("profiles")
-        .select("full_name")
+        .select("full_name, first_name, last_name")
         .eq("provider_id", appt.provider_id)
         .maybeSingle(),
       supabaseAdmin
@@ -855,7 +855,11 @@ export async function POST(req: Request) {
       console.error("Product lookup failed:", prodErr.message);
     }
 
-    const providerName = String(prof?.full_name ?? "").trim();
+    const firstName = String(prof?.first_name ?? "").trim();
+    const lastName = String(prof?.last_name ?? "").trim();
+    const providerName = firstName && lastName
+      ? `${firstName} ${lastName}`
+      : String(prof?.full_name ?? "").trim() || [firstName, lastName].filter(Boolean).join(" ");
 
     if (!providerName) {
       console.error("❌ Missing provider full_name in profiles for provider_id:", appt.provider_id);
@@ -871,6 +875,10 @@ export async function POST(req: Request) {
       reloadedAppointment.end_datetime
     ) {
       try {
+        // Read-only eligibility for links in this email; never change payment state.
+        const { data: emailCommitment, error: emailCommitmentError } = await supabaseAdmin
+          .from("drimli_payout_commitments").select("status")
+          .eq("appointment_id", appt.id).maybeSingle();
         await sendAppointmentConfirmationEmail({
           appointmentId: appt.id,
           to: reloadedAppointment.client_email,
@@ -884,6 +892,9 @@ export async function POST(req: Request) {
             reloadedAppointment.end_datetime
           ).toISOString(),
           appointmentJoinUrl: buildAppointmentPortalUrl(joinToken),
+          cancellationPolicy: billingSnapshot.cancellation_policy,
+          appointmentStatus: reloadedAppointment.status,
+          managementAvailable: !emailCommitmentError && (!emailCommitment || emailCommitment.status === "pending"),
         });
 
         const { error: sentAtError } = await supabaseAdmin
