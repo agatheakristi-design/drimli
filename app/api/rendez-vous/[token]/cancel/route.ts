@@ -13,7 +13,11 @@ const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SU
 });
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-export async function POST(_request: Request, context: { params: Promise<{ token: string }> }) {
+export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
+  const body = await request.json().catch(() => null);
+  if (body?.confirmed !== true) {
+    return NextResponse.json({ error: "Confirmez explicitement l’annulation du rendez-vous." }, { status: 400 });
+  }
   const { token } = await context.params;
   if (!token || token.length > 200) return NextResponse.json({ error: "Lien invalide." }, { status: 404 });
   const { data: appointment } = await admin.from("appointments")

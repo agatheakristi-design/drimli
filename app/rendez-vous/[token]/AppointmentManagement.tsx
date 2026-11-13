@@ -37,6 +37,7 @@ export default function AppointmentManagement(props: {
   initialEnd: string;
   initialPermissions: ClientAppointmentPermissions;
   initiallyRescheduling?: boolean;
+  initiallyCancelling?: boolean;
   initialSyncPending?: boolean;
 }) {
   const [start, setStart] = useState(props.initialStart);
@@ -53,6 +54,7 @@ export default function AppointmentManagement(props: {
   const [selected, setSelected] = useState<Slot | null>(null);
   const [error, setError] = useState("");
   const [cancelled, setCancelled] = useState(false);
+  const [confirmationOpen, setConfirmationOpen] = useState(Boolean(props.initiallyCancelling && props.initialPermissions.canCancel));
   const busy = moving || cancelling || syncing;
   const slotsParams = useMemo(() => new URLSearchParams({ date }).toString(), [date]);
 
@@ -123,10 +125,15 @@ export default function AppointmentManagement(props: {
   }
 
   async function cancel() {
+    if (!confirmationOpen || !permissions.canCancel || busy) return;
     setCancelling(true);
     setError("");
     try {
-      const response = await fetch(`/api/rendez-vous/${encodeURIComponent(props.token)}/cancel`, { method: "POST" });
+      const response = await fetch(`/api/rendez-vous/${encodeURIComponent(props.token)}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmed: true }),
+      });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Annulation impossible.");
       if (payload.refunded !== true) throw new Error("Le remboursement n’a pas été confirmé.");
@@ -155,22 +162,18 @@ export default function AppointmentManagement(props: {
           </div>
         ) : (
           <>
-            {(permissions.canReschedule && !syncPending) || permissions.canCancel ? (
-              <div className={styles.managementActions}>
-                {permissions.canReschedule && !syncPending ? (
-                  <button className={styles.textAction} type="button" disabled={busy} onClick={() => {
-                    if (!pickerOpen) setDate(appointmentDateInParis(start));
-                    setPickerOpen((open) => !open);
-                  }}>
-                    Déplacer mon rendez-vous
+            {confirmationOpen && permissions.canCancel ? (
+              <div className={styles.slotPicker}>
+                <p>Voulez-vous vraiment annuler votre rendez-vous ?</p>
+                <div className={styles.managementActions}>
+                  <button type="button" disabled={busy} onClick={() => {
+                    setConfirmationOpen(false);
+                    window.location.replace(window.location.pathname);
+                  }}>Conserver mon rendez-vous</button>
+                  <button type="button" disabled={busy} onClick={cancel}>
+                    {cancelling ? "Annulation en cours…" : "Confirmer l'annulation"}
                   </button>
-                ) : null}
-                {permissions.canReschedule && !syncPending && permissions.canCancel ? <span aria-hidden="true">|</span> : null}
-                {permissions.canCancel ? (
-                  <button type="button" className={styles.textAction} disabled={busy} onClick={cancel}>
-                    {cancelling ? "Annulation en cours…" : "Annuler mon rendez-vous"}
-                  </button>
-                ) : null}
+                </div>
               </div>
             ) : null}
             {pickerOpen ? (

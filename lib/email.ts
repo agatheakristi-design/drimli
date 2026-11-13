@@ -66,9 +66,11 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
     : { canReschedule: false, canCancel: false };
   const rescheduleUrl = new URL(portal);
   rescheduleUrl.searchParams.set("action", "reschedule");
+  const cancelUrl = new URL(portal);
+  cancelUrl.searchParams.set("action", "cancel");
   const actions = [
     ...(permissions.canReschedule ? [{ label: "Modifier mon rendez-vous", url: rescheduleUrl.toString() }] : []),
-    ...(permissions.canCancel ? [{ label: "Annuler mon RDV", url: portal.toString() }] : []),
+    ...(permissions.canCancel ? [{ label: "Annuler mon RDV", url: cancelUrl.toString() }] : []),
   ];
   const intro = "Votre réservation est effectuée. Votre paiement a bien été effectué.";
   const text = [

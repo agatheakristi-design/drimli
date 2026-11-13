@@ -160,6 +160,7 @@ export default async function RendezVousTokenPage({ params, searchParams }: Page
   const { details } = portal;
   const permissions = clientAppointmentPermissions(details.policy, details.startsAt);
   const requestedAction = (await searchParams)?.action;
+  const managementAction = requestedAction === "reschedule" || requestedAction === "cancel";
   const opensAt = details.startsAt.getTime() - 10 * 60_000;
   const closesAt = details.endsAt.getTime() + 30 * 60_000;
 
@@ -192,7 +193,9 @@ export default async function RendezVousTokenPage({ params, searchParams }: Page
       </header>
 
       <div className={styles.content}>
-        {details.calendarSyncPending ? (
+        {managementAction ? (
+          <h1>{requestedAction === "reschedule" ? "Modifier mon rendez-vous" : "Annuler mon RDV"}</h1>
+        ) : details.calendarSyncPending ? (
           <><h1>Déplacement en attente de synchronisation</h1><p>Les horaires doivent être vérifiés avec le calendrier du professionnel.</p></>
         ) : !details.videoReady ? (
           <><h1>Votre rendez-vous est confirmé</h1><p>La visioconférence est en cours de préparation.</p></>
@@ -206,7 +209,7 @@ export default async function RendezVousTokenPage({ params, searchParams }: Page
           </>
         ) : null}
 
-        {!details.calendarSyncPending && details.videoReady && details.state === "open" && details.roomStatus === "closed" ? (
+        {!managementAction && !details.calendarSyncPending && details.videoReady && details.state === "open" && details.roomStatus === "closed" ? (
           <>
             <h1>Votre rendez-vous va bientôt commencer</h1>
             <p>
@@ -217,7 +220,7 @@ export default async function RendezVousTokenPage({ params, searchParams }: Page
           </>
         ) : null}
 
-        {!details.calendarSyncPending && details.videoReady && details.state === "open" && details.roomStatus === "open" ? (
+        {!managementAction && !details.calendarSyncPending && details.videoReady && details.state === "open" && details.roomStatus === "open" ? (
           <>
             <h1>Le professionnel est prêt</h1>
             <a
@@ -231,13 +234,13 @@ export default async function RendezVousTokenPage({ params, searchParams }: Page
           </>
         ) : null}
 
-        {!details.calendarSyncPending && details.videoReady && details.roomStatus === "locked" ? (
+        {!managementAction && !details.calendarSyncPending && details.videoReady && details.roomStatus === "locked" ? (
           <>
             <h1>L’accès à cette visioconférence est fermé</h1>
           </>
         ) : null}
 
-        {!details.calendarSyncPending && details.videoReady && details.roomStatus !== "locked" && details.state === "ended" ? (
+        {!managementAction && !details.calendarSyncPending && details.videoReady && details.roomStatus !== "locked" && details.state === "ended" ? (
           <>
             <h1>Cette visioconférence n’est plus disponible</h1>
             <p>Le créneau d’accès est terminé.</p>
@@ -256,6 +259,7 @@ export default async function RendezVousTokenPage({ params, searchParams }: Page
         initialEnd={details.endsAt.toISOString()}
         initialPermissions={permissions}
         initialSyncPending={details.calendarSyncPending}
+        initiallyCancelling={requestedAction === "cancel" && permissions.canCancel}
         initiallyRescheduling={requestedAction === "reschedule" && permissions.canReschedule && !details.calendarSyncPending}
       />
     </PortalLayout>

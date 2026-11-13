@@ -185,6 +185,7 @@ export async function createGoogleMeetAppointment(params: {
         const response = await calendar.events.insert({
           calendarId: "primary",
           conferenceDataVersion: 1,
+          sendUpdates: "none",
           requestBody: {
             id: calendarEventId,
             summary: params.title,
@@ -195,9 +196,7 @@ export async function createGoogleMeetAppointment(params: {
             end: {
               dateTime: params.end,
             },
-            attendees: params.attendeeEmail
-              ? [{ email: params.attendeeEmail }]
-              : undefined,
+            // The client receives DRIMLI emails, not a Google Calendar invitation.
             conferenceData: {
               createRequest: {
                 requestId: `meet-${params.appointmentId}`,
