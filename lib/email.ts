@@ -52,7 +52,7 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
   managementAvailable?: boolean;
 }) {
   const subject = `Votre rendez-vous avec ${p.providerName} est confirmé`;
-  const patientLine = p.patientName?.trim() ? `Bonjour ${p.patientName.trim()},` : "Bonjour,";
+  const patientLine = p.patientName?.trim() ? `Bonjour ${p.patientName.trim().split(/\s+/)[0]},` : "Bonjour,";
   const portal = new URL(p.appointmentJoinUrl);
   const localDevelopment = portal.protocol === "http:" && portal.hostname === "localhost";
   if ((portal.protocol !== "https:" && !localDevelopment) || portal.username || portal.password
@@ -72,16 +72,17 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
     ...(permissions.canReschedule ? [{ label: "Modifier mon rendez-vous", url: rescheduleUrl.toString() }] : []),
     ...(permissions.canCancel ? [{ label: "Annuler mon RDV", url: cancelUrl.toString() }] : []),
   ];
-  const intro = "Votre réservation est effectuée. Votre paiement a bien été effectué.";
+  const intro = `Votre rendez-vous avec ${p.providerName} est confirmé.`;
+  const icon = (name: string) => escapeHtml(new URL(`/email-icons/${name}.png`, portal).toString());
   const text = [
     patientLine, "", intro, "", "Réservation validée", "",
-    `Professionnel : ${p.providerName}`, `Prestation : ${p.serviceTitle}`,
+    `Prestation : ${p.serviceTitle}`,
     `Date : ${labels.date}`, `Horaire : ${labels.start} – ${labels.end}`, "",
-    "Accéder à ma visio :", portal.toString(),
+    "Rejoindre la visio :", portal.toString(),
     ...actions.flatMap((action) => ["", `${action.label} :`, action.url]),
     "", "—", "Drimli",
   ].join("\n");
-  const details = [["Professionnel", p.providerName], ["Prestation", p.serviceTitle],
+  const details = [["Prestation", p.serviceTitle],
     ["Date", labels.date], ["Horaire", `${labels.start} – ${labels.end}`]];
   const html = `<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -95,10 +96,10 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
 <p style="margin:0;font-size:16px;color:#6b6b72;">${escapeHtml(intro)}</p>
 <p style="margin:34px 0;text-align:center;color:#16a34a;font-size:23px;font-weight:700;"><span style="display:inline-block;width:30px;height:30px;line-height:30px;margin-right:10px;border:2px solid #16a34a;border-radius:50%;text-align:center;vertical-align:middle;" aria-hidden="true">&#10003;&#xfe0e;</span> Réservation validée</p>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;table-layout:fixed;font-size:16px;">
-${details.map(([label, value]) => `<tr><td class="email-label" width="128" valign="top" style="width:128px;padding:8px 14px 8px 0;color:#6b6b72;">${label}</td><td valign="top" style="padding:8px 0;overflow-wrap:anywhere;word-break:break-word;${label === "Professionnel" ? "font-weight:700;" : ""}">${escapeHtml(value)}</td></tr>`).join("")}
+${details.map(([label, value]) => `<tr><td class="email-label" width="128" valign="top" style="width:128px;padding:8px 14px 8px 0;color:#6b6b72;">${label}</td><td valign="top" style="padding:8px 0;overflow-wrap:anywhere;word-break:break-word;${label === "Prestation" ? "font-weight:700;" : ""}">${label === "Date" || label === "Horaire" ? `<img src="${icon(label === "Date" ? "calendar" : "clock")}" width="22" height="22" alt="" style="display:inline-block;width:22px;height:22px;margin-right:10px;vertical-align:middle;border:0;">` : ""}${escapeHtml(value)}</td></tr>`).join("")}
 </table>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin-top:32px;"><tr><td align="center">
-<a href="${escapeHtml(portal.toString())}" target="_blank" rel="noopener noreferrer" style="display:block;max-width:420px;box-sizing:border-box;padding:16px 24px;background:#1d1d1f;color:#ffffff;text-align:center;text-decoration:none;border-radius:10px;font-size:18px;font-weight:700;">Accéder à ma visio</a>
+<a href="${escapeHtml(portal.toString())}" target="_blank" rel="noopener noreferrer" style="display:block;max-width:420px;box-sizing:border-box;padding:16px 24px;background:#1d1d1f;color:#ffffff;text-align:center;text-decoration:none;border-radius:10px;font-size:18px;font-weight:700;"><img src="${icon("video")}" width="24" height="24" alt="" style="display:inline-block;width:24px;height:24px;margin-right:10px;vertical-align:middle;border:0;">Rejoindre la visio <img src="${icon("arrow")}" width="24" height="24" alt="" style="display:inline-block;width:24px;height:24px;margin-left:10px;vertical-align:middle;border:0;"></a>
 </td></tr></table>
 ${actions.length ? `<p style="margin:24px 0 0;text-align:center;font-size:14px;">${actions.map((action) => `<a class="email-action" href="${escapeHtml(action.url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;color:#6b6b72;text-decoration:underline;text-underline-offset:3px;">${action.label}</a>`).join('<span class="email-divider" aria-hidden="true" style="margin:0 16px;color:#6b6b72;">|</span>')}</p>` : ""}
 </td></tr></table>

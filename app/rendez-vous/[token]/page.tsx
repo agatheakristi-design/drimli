@@ -194,7 +194,11 @@ export default async function RendezVousTokenPage({ params, searchParams }: Page
 
       <div className={styles.content}>
         {managementAction ? (
-          <h1>{requestedAction === "reschedule" ? "Modifier mon rendez-vous" : "Annuler mon RDV"}</h1>
+          <>
+            <h1>{requestedAction === "reschedule" ? "Modifier mon rendez-vous" : "Annuler mon RDV"}</h1>
+            {requestedAction === "cancel" && !permissions.canCancel ? <p>Ce rendez-vous ne peut plus être annulé depuis ce lien.</p> : null}
+            {requestedAction === "reschedule" && !permissions.canReschedule ? <p>Ce rendez-vous ne peut plus être déplacé depuis ce lien.</p> : null}
+          </>
         ) : details.calendarSyncPending ? (
           <><h1>Déplacement en attente de synchronisation</h1><p>Les horaires doivent être vérifiés avec le calendrier du professionnel.</p></>
         ) : !details.videoReady ? (
