@@ -96,10 +96,12 @@ export default function ExpandableServiceList({
 
               <span className={styles.actions}>
                 {price ? <span className={styles.price}>{price}</span> : null}
-                <span className={`btn btn-primary ${styles.reserve}`}>
-                  Réserver
-                  <ArrowRight size={18} aria-hidden="true" />
-                </span>
+                {!isOpen && (
+                  <span className={`btn btn-primary ${styles.reserve}`}>
+                    Réserver
+                    <ArrowRight size={18} aria-hidden="true" />
+                  </span>
+                )}
               </span>
             </button>
 
