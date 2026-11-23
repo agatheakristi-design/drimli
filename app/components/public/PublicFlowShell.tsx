@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import Logo from "@/app/components/ui/Logo";
+import PoweredByDrimli from "@/app/components/ui/PoweredByDrimli";
 import styles from "./PublicFlowShell.module.css";
 
 export default function PublicFlowShell({ children, transparentHeader = false, professionalHeader = false }: { children: ReactNode; transparentHeader?: boolean; professionalHeader?: boolean }) {
@@ -22,12 +23,7 @@ export default function PublicFlowShell({ children, transparentHeader = false, p
         </div>
       </header>
       <main className={styles.main}>{children}</main>
-      {professionalHeader ? (
-        <footer className={styles.footer}>
-          <span>Powered by</span>
-          <Logo className={styles.footerLogo} />
-        </footer>
-      ) : null}
+      <PoweredByDrimli withinPublicFlow />
     </div>
   );
 }

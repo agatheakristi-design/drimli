@@ -28,7 +28,6 @@ function PaiementSuccesContent() {
   const [messageVisible, setMessageVisible] = useState(false);
   const [invoiceVisible, setInvoiceVisible] = useState(false);
   const [calendarVisible, setCalendarVisible] = useState(false);
-  const [signatureVisible, setSignatureVisible] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,7 +80,6 @@ function PaiementSuccesContent() {
       window.setTimeout(() => setMessageVisible(true), 4240),
       window.setTimeout(() => setInvoiceVisible(true), 6240),
       window.setTimeout(() => setCalendarVisible(true), 7040),
-      window.setTimeout(() => setSignatureVisible(true), 8740),
     ];
 
     return () => timers.forEach(window.clearTimeout);
@@ -154,14 +152,6 @@ function PaiementSuccesContent() {
           <span>Ajouter au calendrier</span>
         </button>
       </div>
-
-      <p
-        className={`${styles.signature} ${
-          signatureVisible ? styles.signatureVisible : ""
-        }`}
-      >
-        Powered by <strong>drimli</strong>
-      </p>
     </main>
   );
 }
