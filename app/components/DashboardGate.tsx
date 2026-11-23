@@ -17,7 +17,11 @@ export default function DashboardGate({ children }: { children: React.ReactNode 
       const token = data.session?.access_token;
 
       if (!token) {
-        router.replace("/login");
+        const appointmentId = pathname === "/dashboard/calendrier"
+          ? new URLSearchParams(window.location.search).get("appointment")
+          : null;
+        const validAppointment = appointmentId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(appointmentId);
+        router.replace(validAppointment ? `/login?appointment=${encodeURIComponent(appointmentId)}` : "/login");
         return;
       }
 

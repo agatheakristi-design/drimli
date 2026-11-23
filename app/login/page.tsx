@@ -12,6 +12,13 @@ import styles from "./auth.module.css";
 const fieldClass =
   "w-full rounded-[var(--app-field-radius)] border border-border bg-background px-4 py-3 text-base outline-none";
 
+function loginDestination() {
+  const appointmentId = new URLSearchParams(window.location.search).get("appointment");
+  return appointmentId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(appointmentId)
+    ? `/dashboard/calendrier?appointment=${encodeURIComponent(appointmentId)}`
+    : "/";
+}
+
 export default function LoginPage() {
   const router = useRouter();
 
@@ -23,7 +30,7 @@ export default function LoginPage() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getUser();
-      if (data?.user) router.replace("/");
+      if (data?.user) router.replace(loginDestination());
     })();
   }, [router]);
 
@@ -44,7 +51,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace("/");
+      router.replace(loginDestination());
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "unknown";
       setStatus("Erreur inattendue : " + message);

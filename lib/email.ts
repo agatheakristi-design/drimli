@@ -18,6 +18,16 @@ const resend = new Resend(requireEnv("RESEND_API_KEY"));
  */
 const FROM = process.env.RESEND_FROM || "Drimli <onboarding@resend.dev>";
 
+// Normalize only confirmation senders; keep the configured, authorized mailbox.
+function confirmationFrom() {
+  const address = FROM.match(/<([^<>]+)>\s*$/)?.[1] || FROM.trim();
+  return `Drimli <${address}>`;
+}
+
+function confirmationPreheader(value: string) {
+  return `<div aria-hidden="true" style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;">${escapeHtml(value)}${"&#847;&zwnj;&nbsp;".repeat(100)}</div>`;
+}
+
 /** Used only by the separately gated monthly worker; payload is persisted before sending. */
 export async function sendAccountantMonthlyDocuments(payload: CreateEmailOptions, idempotencyKey: string) {
   return resend.emails.send(payload, { idempotencyKey });
@@ -51,7 +61,7 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
   appointmentStatus?: string;
   managementAvailable?: boolean;
 }) {
-  const subject = `Votre rendez-vous avec ${p.providerName} est confirmé`;
+  const subject = `Rendez-vous avec ${p.providerName}`;
   const patientLine = p.patientName?.trim() ? `Bonjour ${p.patientName.trim().split(/\s+/)[0]},` : "Bonjour,";
   const portal = new URL(p.appointmentJoinUrl);
   const localDevelopment = portal.protocol === "http:" && portal.hostname === "localhost";
@@ -60,6 +70,7 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
     throw new Error("Invalid appointment portal URL");
   }
   const labels = appointmentDateLabels(p.startDateTimeIso, p.endDateTimeIso);
+  const preheader = `Votre rendez-vous du ${labels.date} à ${labels.start}`;
   const { clientAppointmentPermissions } = await import("@/lib/clientAppointmentPolicy");
   const permissions = p.managementAvailable && p.appointmentStatus === "confirmed" && p.cancellationPolicy
     ? clientAppointmentPermissions(p.cancellationPolicy, p.startDateTimeIso)
@@ -88,6 +99,7 @@ export async function sendAppointmentConfirmationEmail(p: AppointmentEmailPayloa
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>@media only screen and (max-width:480px){.email-content{padding:28px 18px!important}.email-label{width:100px!important}.email-action{display:block!important;margin:12px 0!important}.email-divider{display:none!important}}</style></head>
 <body style="margin:0;padding:0;background:#ffffff;color:#1d1d1f;font-family:Arial,Helvetica,sans-serif;line-height:1.6;">
+${confirmationPreheader(preheader)}
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#ffffff;"><tr><td align="center">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:640px;">
 <tr><td class="email-content" style="padding:40px 32px;">
@@ -104,7 +116,7 @@ ${details.map(([label, value]) => `<tr><td class="email-label" width="128" valig
 ${actions.length ? `<p style="margin:24px 0 0;text-align:center;font-size:14px;">${actions.map((action) => `<a class="email-action" href="${escapeHtml(action.url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;color:#6b6b72;text-decoration:underline;text-underline-offset:3px;">${action.label}</a>`).join('<span class="email-divider" aria-hidden="true" style="margin:0 16px;color:#6b6b72;">|</span>')}</p>` : ""}
 </td></tr></table>
 </td></tr></table></body></html>`;
-  const { data, error } = await resend.emails.send({ from: FROM, to: p.to, subject, text, html }, {
+  const { data, error } = await resend.emails.send({ from: confirmationFrom(), to: p.to, subject, text, html }, {
     idempotencyKey: `appointment-confirmation/${p.appointmentId}`,
   });
   if (error) throw new Error(error.message);
@@ -325,6 +337,55 @@ export async function sendProfessionalAppointmentEmail(
   p: import("@/lib/professionalAppointmentAlerts").AppointmentAlertPayload,
   eventId: string
 ) {
+  if (p.kind === "confirmed") {
+    if (!p.recipient) throw new Error("Missing professional email");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
+      throw new Error("Invalid appointment identifier");
+    }
+    const base = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+    const url = new URL("/dashboard/calendrier", base);
+    if ((url.protocol !== "https:" && !(url.protocol === "http:" && url.hostname === "localhost")) || url.username || url.password) {
+      throw new Error("Invalid application URL");
+    }
+    url.searchParams.set("appointment", eventId);
+    const firstName = p.provider_name.trim().split(/\s+/)[0];
+    const greeting = firstName ? `Hello ${firstName},` : "Hello,";
+    const intro = "Un nouveau rendez-vous a été confirmé sur votre page Drimli.";
+    const subject = `Nouveau rendez-vous • ${p.client_name?.trim() || "Client"}`;
+    const preheader = `Hello${firstName ? ` ${firstName}` : ""}, un nouveau rendez-vous a été confirmé sur votre page Drimli.`;
+    const icon = (name: string) => escapeHtml(new URL(`/email-icons/${name}.png`, url).toString());
+    const labels = appointmentDateLabels(p.start, p.end);
+    const details = [["Client", p.client_name?.trim() || "Client"], ["Prestation", p.service_title],
+      ["Date", labels.date], ["Horaire", `${labels.start} – ${labels.end}`]];
+    const text = [greeting, "", intro, "", "Rendez-vous confirmé", "",
+      ...details.map(([label, value]) => `${label} : ${value}`),
+      "", "Voir le rendez-vous :", url.toString(), "", "—", "Drimli"].join("\n");
+  const html = `<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>@media only screen and (max-width:480px){.email-content{padding:28px 18px!important}.email-label{width:100px!important}.email-action{display:block!important;margin:12px 0!important}.email-divider{display:none!important}}</style></head>
+<body style="margin:0;padding:0;background:#ffffff;color:#1d1d1f;font-family:Arial,Helvetica,sans-serif;line-height:1.6;">
+${confirmationPreheader(preheader)}
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#ffffff;"><tr><td align="center">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:640px;">
+<tr><td class="email-content" style="padding:40px 32px;">
+<p style="margin:0 0 48px;text-align:center;"><img src="${escapeHtml(new URL("/drimli-logo.png", url).toString())}" width="152" height="53" alt="Drimli" style="display:inline-block;width:152px;max-width:100%;height:auto;border:0;"></p>
+<p style="margin:0 0 10px;font-size:20px;font-weight:700;">${escapeHtml(greeting)}</p>
+<p style="margin:0;font-size:16px;color:#6b6b72;">${escapeHtml(intro)}</p>
+<p style="margin:34px 0;text-align:center;color:#16a34a;font-size:23px;font-weight:700;"><span style="display:inline-block;width:30px;height:30px;line-height:30px;margin-right:10px;border:2px solid #16a34a;border-radius:50%;text-align:center;vertical-align:middle;" aria-hidden="true">&#10003;&#xfe0e;</span> Rendez-vous confirmé</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;table-layout:fixed;font-size:16px;">
+${details.map(([label, value]) => `<tr><td class="email-label" width="128" valign="top" style="width:128px;padding:8px 14px 8px 0;color:#6b6b72;">${label}</td><td valign="top" style="padding:8px 0;overflow-wrap:anywhere;word-break:break-word;${label === "Client" ? "font-weight:700;" : ""}">${label === "Date" || label === "Horaire" ? `<img src="${icon(label === "Date" ? "calendar" : "clock")}" width="22" height="22" alt="" style="display:inline-block;width:22px;height:22px;margin-right:10px;vertical-align:middle;border:0;">` : ""}${escapeHtml(value)}</td></tr>`).join("")}
+</table>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin-top:32px;"><tr><td align="center">
+<a href="${escapeHtml(url.toString())}" target="_blank" rel="noopener noreferrer" style="display:block;max-width:420px;box-sizing:border-box;padding:16px 24px;background:#1d1d1f;color:#ffffff;text-align:center;text-decoration:none;border-radius:10px;font-size:18px;font-weight:700;">Voir le rendez-vous <img src="${icon("arrow")}" width="24" height="24" alt="" style="display:inline-block;width:24px;height:24px;margin-left:10px;vertical-align:middle;border:0;"></a>
+</td></tr></table>
+</td></tr></table>
+</td></tr></table></body></html>`;
+    const { data, error } = await resend.emails.send({ from: confirmationFrom(), to: p.recipient, subject, text, html }, {
+      idempotencyKey: `professional-appointment/${p.kind}/${eventId}`,
+    });
+    if (error) throw new Error("Professional appointment email failed");
+    return data;
+  }
   const headings = {
     confirmed: "Nouveau rendez-vous confirmé",
     rescheduled: "Rendez-vous replanifié par le client",
