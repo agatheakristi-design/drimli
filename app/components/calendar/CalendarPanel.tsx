@@ -52,6 +52,7 @@ export default function CalendarPanel({
       className={`${styles.calendarPanel} ${
         open ? styles.calendarPanelOpen : ""
       }`}
+      data-mode={mode}
       aria-hidden={!open}
       inert={!open}
     >

@@ -451,6 +451,37 @@
   border-radius: var(--app-card-radius);
 }
 
+/* Share the grid's content bounds on desktop; retain the existing mobile panel. */
+@media (min-width: 761px) {
+  .calendarContent {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .calendarContent > .weekGrid {
+    grid-area: 1 / 1;
+  }
+
+  .calendarPanel[data-mode="appointment"],
+  .calendarPanel[data-mode="settings"] {
+    position: relative;
+    grid-area: 1 / 1;
+    justify-self: end;
+    min-height: 0;
+    top: auto;
+    right: auto;
+    visibility: hidden;
+    transition: transform 220ms ease, visibility 0s linear 220ms;
+  }
+
+  .calendarPanelOpen[data-mode="appointment"],
+  .calendarPanelOpen[data-mode="settings"] {
+    visibility: visible;
+    transition-delay: 0s;
+  }
+}
+
 .calendarPanelOpen {
   transform: translateX(0);
   pointer-events: auto;

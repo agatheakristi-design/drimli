@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import Button from "./ui/Button";
+import { LogOut } from "lucide-react";
+import styles from "@/app/dashboard/components/dashboard.module.css";
 
 export default function LogoutButton() {
   const router = useRouter();
@@ -26,10 +27,13 @@ export default function LogoutButton() {
   }
 
   return (
-    <div className="grid gap-2 justify-items-end">
-      <Button onClick={logout} disabled={loading}>
-        {loading ? "Déconnexion…" : "Se déconnecter"}
-      </Button>
+    <div className={styles.signOut}>
+      <button type="button" className={styles.navigationItem} onClick={logout} disabled={loading}>
+        <LogOut className={styles.navigationIcon} aria-hidden="true" />
+        <span>
+          {loading ? "Déconnexion…" : "Se déconnecter"}
+        </span>
+      </button>
 
       {error && (
         <p className="text-sm text-destructive m-0">❌ {error}</p>

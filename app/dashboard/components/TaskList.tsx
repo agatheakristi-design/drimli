@@ -14,7 +14,7 @@ import {
   CreditCard,
   FileText,
   Plus,
-  Receipt,
+  ReceiptText,
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -328,9 +328,11 @@ const completedTasks = progressTasks.filter((task) =>
                     : "Stripe n’est pas prêt. Terminez la configuration pour recevoir des paiements."
                 : task.description;
           const taskLabel =
-            task.label === "Connecter les paiements" && !paymentReady
-              ? "Terminer la configuration des paiements"
-              : task.label;
+            task.label === "Facturation"
+              ? "Facturer vos prestations"
+              : task.label === "Connecter les paiements" && !paymentReady
+                ? "Terminer la configuration des paiements"
+                : task.label;
 
           const content = (
             <>
@@ -340,7 +342,7 @@ const completedTasks = progressTasks.filter((task) =>
                 {task.label === "Ajouter une photo" && <Camera size={16} />}
                 {task.label === "Écrire une description" && <FileText size={16} />}
                 {task.label === "Connecter les paiements" && <CreditCard size={16} />}
-                {task.label === "Facturation" && <Receipt size={16} />}
+                {task.label === "Facturation" && <ReceiptText size={16} />}
               </span>
 
               <span className={styles.taskCopy}>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import AppointmentAlertBadge from "./AppointmentAlertBadge";
 import { usePathname } from "next/navigation";
 import {
-  CircleHelp,
+  MessageCircle,
   CalendarDays,
   FileText,
   Home,
@@ -80,7 +80,9 @@ export default function Sidebar({
             >
               <Icon className={styles.navigationIcon} aria-hidden="true" />
               <span>{label}</span>
-              {href === "/dashboard/calendrier" ? <AppointmentAlertBadge /> : null}
+              {href === "/dashboard/calendrier" ? (
+                <span className={styles.notificationSlot}><AppointmentAlertBadge /></span>
+              ) : null}
             </Link>
           );
         })}
@@ -88,7 +90,7 @@ export default function Sidebar({
 
       <div className={styles.account}>
         <button type="button" className={`${styles.navigationItem} ${styles.helpButton}`} onClick={onOpenHelp} aria-haspopup="dialog">
-          <CircleHelp className={styles.navigationIcon} viewBox="1 1 22 22" aria-hidden="true" /> Aide
+          <MessageCircle className={styles.navigationIcon} aria-hidden="true" /><span>Aide</span>
         </button>
         <button
           type="button"
@@ -106,9 +108,7 @@ export default function Sidebar({
           </div>
         </button>
 
-        <div className={styles.signOut}>
-          <LogoutButton />
-        </div>
+        <LogoutButton />
       </div>
     </aside>
   );
